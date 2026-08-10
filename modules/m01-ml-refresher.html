@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1. What machine learning you still need</title>
+<meta name="description" content="Refresh only the machine-learning ideas that still matter for building with AI, then set up the Python workspace you will use for the next seventeen modules.">
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+</head>
+<body data-module="m01" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="1">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+        <div data-chrome="modhead"></div>
+        <p class="prose">This module gives you the machine learning vocabulary the other seventeen modules borrow: feature, label, loss, gradient descent, held-back data and overfitting. You then build the project folder, the .env provider switch and the first script that calls a model two ways.</p>
+        <section class="section section--watch"><h2 class="section__h" data-stamp="take in"><span>Watch this first</span></h2>
+        <div data-videos="core"></div></section>
+        <section class="section section--ideas"><h2 class="section__h" data-stamp="take in"><span>The ideas, in plain English</span></h2>
+        <p class="small muted">Each idea, then a worked example of it.</p>
+        <div class="concepts">
+        <div class="concept"><div class="concept__n" aria-hidden="true">1</div><h3 class="concept__t">Most of it you can forget</h3><p class="concept__b">Building with AI in 2026 means calling a model somebody else trained, so you rarely compute gradients or pick a kernel for a support vector machine. What you need is the vocabulary, because the later modules reuse it. <strong>Training</strong>, <strong>loss</strong>, <strong>overfitting</strong> and <strong>feature engineering</strong> will mostly point at things you do to a prompt or a search system rather than to a neural network.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>Term</th><th>What it meant in classical ML</th><th>What it points at in this course</th></tr></thead><tbody><tr><td>training</td><td>fitting weights to labelled data</td><td>you edit the prompt instead, except for the small models you train in module 2 and the build track</td></tr><tr><td>loss</td><td>one wrongness number per example</td><td>binary pass/fail scores in module 16</td></tr><tr><td>overfitting</td><td>learned the noise, not the pattern</td><td>prompt passes your 5 tests, fails real users</td></tr><tr><td>feature engineering</td><td>hand-picking the input columns</td><td>choosing what goes into the context window</td></tr></tbody></table><div class="eg__cap">Four terms you keep, and the new job each one has.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">2</div><h3 class="concept__t">Learning with answers, and without</h3><p class="concept__b"><strong>Supervised learning</strong> gives the computer examples with the right answer attached and asks for a rule that reproduces them. <strong>Unsupervised learning</strong> gives examples with no answers and asks for structure instead, such as which of these belong together. The models you call were trained closest to supervised (predict the next word, where the real next word is the answer), and the search you build in module 10 runs on the unsupervised idea that similar things land near each other.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">supervised: the answer rides along with every example</p><pre>spam = [(<span class="t-s">&quot;Claim your prize now&quot;</span>, <span class="t-s">1</span>), (<span class="t-s">&quot;Standup moved to 10am&quot;</span>, <span class="t-s">0</span>)]  <span class="t-c"># 1 = spam</span>
+<span class="t-f">print</span>(<span class="t-f">sum</span>(label <span class="t-k">for</span> _, label <span class="t-k">in</span> spam), <span class="t-s">&quot;of&quot;</span>, <span class="t-f">len</span>(spam), <span class="t-s">&quot;marked spam&quot;</span>)  <span class="t-c"># 1 of 2</span></pre><p class="eg__say">unsupervised: no answers, you name the groups afterwards</p><pre>tickets = [<span class="t-s">&quot;pip install fails&quot;</span>, <span class="t-s">&quot;venv not activating&quot;</span>, <span class="t-s">&quot;invoice overdue&quot;</span>]
+groups  = {<span class="t-s">0</span>: [<span class="t-s">0</span>, <span class="t-s">1</span>], <span class="t-s">1</span>: [<span class="t-s">2</span>]}            <span class="t-c"># a clustering step hands back ids</span>
+<span class="t-f">print</span>([tickets[i] <span class="t-k">for</span> i <span class="t-k">in</span> groups[<span class="t-s">0</span>]])   <span class="t-c"># the two tickets it put together</span></pre><p class="eg__say">The ids 0 and 1 are just labels. Nothing in the data says group 0 means &quot;setup problems&quot;. You decide that.</p><div class="eg__cap">The answer column exists in the first block and not the second.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">3</div><h3 class="concept__t">Features in, labels out</h3><p class="concept__b">A <strong>feature</strong> is one piece of information you show the model about a thing. A <strong>label</strong> is the answer you want back about that thing. Inventing good features by hand used to be most of the job; language models do that step themselves, and the <strong>embeddings</strong> in module 3 (a long list of numbers a model produces for a piece of text) are features it worked out on its own.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>Column</th><th>Value</th><th>Role</th></tr></thead><tbody><tr><td>sqft</td><td>1850</td><td>feature</td></tr><tr><td>bedrooms</td><td>3</td><td>feature</td></tr><tr><td>postcode</td><td>48197</td><td>feature</td></tr><tr><td>year_built</td><td>1996</td><td>feature</td></tr><tr><td>sale_price</td><td>312000</td><td>label</td></tr></tbody></table><div class="eg__cap">One house from a training set. Four columns in, one column out.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">4</div><h3 class="concept__t">Loss is a wrongness score</h3><p class="concept__b"><strong>Loss</strong> is a single number saying how badly the model did, where lower is better. It turns a vague human judgement (this answer is bad) into something you can add up across thousands of examples and then push down. Every claim that a model got better is, underneath, a claim that some score went down, which is why module 16 is about choosing what to score.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre>truth = [<span class="t-s">300_000</span>, <span class="t-s">250_000</span>, <span class="t-s">410_000</span>]   <span class="t-c"># what three houses sold for</span>
+guess = [<span class="t-s">250_000</span>, <span class="t-s">260_000</span>, <span class="t-s">400_000</span>]   <span class="t-c"># what the model said</span></pre><pre>errors = [(t - g) ** <span class="t-s">2</span> <span class="t-k">for</span> t, g <span class="t-k">in</span> <span class="t-f">zip</span>(truth, guess)]
+<span class="t-f">print</span>(errors)       <span class="t-c"># [2500000000, 100000000, 100000000]</span></pre><pre>mse = <span class="t-f">sum</span>(errors) / <span class="t-f">len</span>(errors)
+<span class="t-f">print</span>(mse)          <span class="t-c"># 900000000.0        &lt;- the loss</span>
+<span class="t-f">print</span>(mse ** <span class="t-s">0.5</span>)   <span class="t-c"># 30000.0            &lt;- back in dollars: a typical $30k miss</span></pre><div class="eg__cap">Squaring the errors lets the one 50k miss dominate the average.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">5</div><h3 class="concept__t">Gradient descent nudges the dials</h3><p class="concept__b">A model is a large pile of numbers called <strong>weights</strong>, and training is the process of setting them. <strong>Gradient descent</strong> checks which way the loss slopes right where you stand, takes a small step downhill, then checks again, an enormous number of times. The step size is the <strong>learning rate</strong>: too small and you crawl, too big and you bounce over the bottom. An <strong>open-weight</strong> model such as Kimi K3 publishes those final numbers, not the training data and not the recipe.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">loss(w) = (w - 3) ** 2, so the slope at w is 2 * (w - 3). The best w is 3.</p><pre>w, lr = <span class="t-s">0.0</span>, <span class="t-s">0.1</span>          <span class="t-c"># start at 0, learning rate 0.1</span>
+<span class="t-k">for</span> step <span class="t-k">in</span> <span class="t-f">range</span>(<span class="t-s">5</span>):
+    slope = <span class="t-s">2</span> * (w - <span class="t-s">3</span>)
+    w = w - lr * slope    <span class="t-c"># one small step downhill</span>
+    <span class="t-f">print</span>(step, <span class="t-f">round</span>(w, <span class="t-s">3</span>), <span class="t-f">round</span>((w - <span class="t-s">3</span>) ** <span class="t-s">2</span>, <span class="t-s">3</span>))</pre><pre class="eg__out"><span class="t-o">0 0.6   5.76</span>
+<span class="t-o">1 1.08  3.686</span>
+<span class="t-o">2 1.464 2.359</span>
+<span class="t-o">3 1.771 1.51</span>
+<span class="t-o">4 2.017 0.966</span></pre><div class="eg__cap">Loss drops from 9 to 0.97 in five steps. Set lr = 1.1 and it diverges.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 640 278" role="img" aria-label="Gradient descent as a ball rolling downhill into a valley" xmlns="http://www.w3.org/2000/svg"><title>Gradient descent as a ball rolling downhill into a valley</title><defs><marker id="ah-grad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><path d="M40 40 C 150 250, 300 250, 340 210 C 380 170, 480 60, 600 40" class="d-curve"/><circle cx="90" cy="118" r="6" fill="hsl(var(--ph))" opacity="0.30"/><circle cx="140" cy="182" r="6" fill="hsl(var(--ph))" opacity="0.45"/><circle cx="200" cy="218" r="6" fill="hsl(var(--ph))" opacity="0.60"/><circle cx="260" cy="233" r="6" fill="hsl(var(--ph))" opacity="0.75"/><circle cx="330" cy="216" r="9" fill="hsl(var(--ph))"/><path d="M97 128 L130 172" class="d-arrow" marker-end="url(#ah-grad)"/><path d="M148 192 L190 212" class="d-arrow" marker-end="url(#ah-grad)"/><path d="M208 224 L250 231" class="d-arrow" marker-end="url(#ah-grad)"/><text x="110" y="100" text-anchor="middle" class="d-s">you start here, high loss</text><text x="370" y="200" text-anchor="start" class="d-s">lowest point, best weights</text><text x="320" y="24" text-anchor="middle" class="d-hi">each arrow is one small step downhill</text><path d="M40 250 L620 250" class="d-line"/><path d="M40 34 L40 250" class="d-line"/><text x="22" y="145" text-anchor="middle" class="d-s" transform="rotate(-90 22 145)">loss</text><text x="330" y="268" text-anchor="middle" class="d-s">every possible setting of the weights</text></svg><figcaption><b>Gradient descent.</b> The curve is how wrong the model is for each setting of its weights. You cannot see the whole valley, only the slope right where you stand, so you take a small step downhill and look again. The step size is the <b>learning rate</b>: too small and you crawl, too big and you bounce over the bottom.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">6</div><h3 class="concept__t">Keep some data hidden</h3><p class="concept__b">A <strong>train/test split</strong> sets part of your examples aside before you start, never shows them to the model, and scores only on that hidden part. Skip it and you are letting a student grade themselves on the questions they revised from. Twenty percent held back is a common default, but the number matters far less than holding back anything at all. Carry this habit out of the module: keep real questions your app must answer, never tune against them, and open them only when you want the truth.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre><span class="t-k">import</span> random</pre><pre>qs = [f<span class="t-s">&quot;q{i:02d}&quot;</span> <span class="t-k">for</span> i <span class="t-k">in</span> <span class="t-f">range</span>(<span class="t-s">50</span>)]   <span class="t-c"># 50 real questions users asked you</span>
+random.<span class="t-f">seed</span>(<span class="t-s">7</span>)                          <span class="t-c"># fixed seed, so the split repeats</span>
+random.<span class="t-f">shuffle</span>(qs)</pre><pre>train, held_out = qs[:<span class="t-s">40</span>], qs[<span class="t-s">40</span>:]
+<span class="t-f">print</span>(<span class="t-f">len</span>(train), <span class="t-f">len</span>(held_out))        <span class="t-c"># 40 10</span>
+<span class="t-f">print</span>(held_out[:<span class="t-s">4</span>])                     <span class="t-c"># ['q37', 'q23', 'q06', 'q34']</span></pre><p class="eg__say">Tune the prompt against train. Open held_out once, at the end.</p><div class="eg__cap">The seed makes the split identical every run, so the held-back set stays clean.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 640 250" role="img" aria-label="A model that learned the pattern versus one that memorised the noise" xmlns="http://www.w3.org/2000/svg"><title>A model that learned the pattern versus one that memorised the noise</title><defs><marker id="ah-overfit" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><text x="160" y="22" text-anchor="middle" class="d-hi">learned the pattern</text><path d="M30 200 L290 200" class="d-line"/><path d="M30 40 L30 200" class="d-line"/><path d="M40 180 C 110 120, 180 90, 280 60" class="d-curve"/><circle cx="55" cy="170" r="4" fill="var(--ink-3)"/><circle cx="85" cy="150" r="4" fill="var(--ink-3)"/><circle cx="110" cy="128" r="4" fill="var(--ink-3)"/><circle cx="140" cy="124" r="4" fill="var(--ink-3)"/><circle cx="170" cy="100" r="4" fill="var(--ink-3)"/><circle cx="200" cy="92" r="4" fill="var(--ink-3)"/><circle cx="230" cy="72" r="4" fill="var(--ink-3)"/><circle cx="262" cy="66" r="4" fill="var(--ink-3)"/><text x="160" y="222" text-anchor="middle" class="d-s">new data lands near the line too</text><text x="480" y="22" text-anchor="middle" class="d-hi">memorised the noise</text><path d="M350 200 L610 200" class="d-line"/><path d="M350 40 L350 200" class="d-line"/><path d="M360 180 C 372 168, 380 148, 405 150 C 425 152, 428 122, 460 124 C 490 126, 486 96, 520 92 C 548 89, 545 68, 582 66" class="d-curve"/><circle cx="375" cy="170" r="4" fill="var(--ink-3)"/><circle cx="405" cy="150" r="4" fill="var(--ink-3)"/><circle cx="430" cy="128" r="4" fill="var(--ink-3)"/><circle cx="460" cy="124" r="4" fill="var(--ink-3)"/><circle cx="490" cy="100" r="4" fill="var(--ink-3)"/><circle cx="520" cy="92" r="4" fill="var(--ink-3)"/><circle cx="550" cy="72" r="4" fill="var(--ink-3)"/><circle cx="582" cy="66" r="4" fill="var(--ink-3)"/><circle cx="470" cy="150" r="5" fill="var(--bad)"/><circle cx="540" cy="118" r="5" fill="var(--bad)"/><text x="480" y="222" text-anchor="middle" class="d-s">new data misses badly</text><text x="320" y="244" text-anchor="middle" class="d-s">a perfect score on data you trained on tells you nothing</text></svg><figcaption><b>Overfitting.</b> Both lines pass through the training dots. The right one bends to hit every single point, so it memorised the noise rather than the pattern, and the red dots it has never seen fall nowhere near it. This is why you hold data back. You will do the same thing to prompts later: tune one until it passes your five examples, ship it, watch it fail on the sixth.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">7</div><h3 class="concept__t">Overfitting, then and now</h3><p class="concept__b"><strong>Overfitting</strong> is when a model learns the noise in your examples instead of the pattern, so it scores beautifully on what it has seen and badly on anything new. The warning sign is a widening gap between the tuned score and the held-back score. You can overfit without training anything at all: you tweak a prompt until it passes the five cases in front of you, ship it, and it falls over on the sixth.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>Prompt version</th><th>Passes the 5 you tuned on</th><th>Passes the 20 held back</th></tr></thead><tbody><tr><td>v1, plain instruction</td><td>3 / 5</td><td>13 / 20 (65%)</td></tr><tr><td>v3, two examples added</td><td>5 / 5</td><td>15 / 20 (75%)</td></tr><tr><td>v7, wording hand-tuned</td><td>5 / 5</td><td>11 / 20 (55%)</td></tr></tbody></table><div class="eg__cap">v7 looks perfect on the tuned five and is the worst prompt of the three.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">8</div><h3 class="concept__t">What changes with a pretrained model</h3><p class="concept__b">The models you call are already trained, and their weights are frozen by the time your request arrives, so no code of yours moves them. Your lever is the text you send: the instructions, the examples, the documents you retrieve and paste in, and the descriptions of any tools you offer. That is why this course spends far more time on <strong>context</strong> (everything sitting in the model's input for one call) than on training. Karpathy's November 2023 line still fits: the model is the CPU, the context window is its RAM.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre><span class="t-k">from</span> llm <span class="t-k">import</span> chat   <span class="t-c"># the one wrapper every lab in this course imports</span></pre><pre>q = <span class="t-s">&quot;What is our refund window?&quot;</span>
+<span class="t-f">print</span>(<span class="t-f">chat</span>(q))</pre><p class="eg__say">the model answers: Refund windows vary by retailer, commonly 14 to 30 days.</p><pre>policy = <span class="t-s">&quot;Refunds accepted within 45 days.&quot;</span>   <span class="t-c"># in real life, read your own file</span>
+<span class="t-f">print</span>(<span class="t-f">chat</span>(f<span class="t-s">&quot;{policy}\n\nQuestion: {q}&quot;</span>))</pre><p class="eg__say">the model answers: 45 days.</p><div class="eg__cap">Same frozen weights, same question, 44 extra characters of input.</div></div>
+        </div>
+        </div></section>
+        <section class="section section--try"><h2 class="section__h" data-stamp="hands on"><span>Try it yourself</span></h2>
+        <p class="small muted" style="margin-bottom:6px">Pick two numbers and fit a line</p>
+        <div data-widget="predictor"></div>
+        </section>
+        <div class="note note--gap"><div class="note__t">Worth knowing</div><p>Video coverage of the ideas in this module is excellent and mostly timeless, but almost every &quot;build with LLMs&quot; tutorial filmed between 2023 and 2025 uses model names, prices and library calls that have since changed, so treat their code as illustration rather than instruction. How much classical machine learning an application builder really needs is genuinely contested, and some experienced people would say this module is far too thin. The position taken here is that you need the vocabulary now, and you can go deeper on the day a real problem forces you to.</p></div>
+        <section class="section section--more"><h2 class="section__h" data-stamp="optional"><span>If you want to go deeper</span></h2>
+        <p class="small muted">Optional.</p>
+        <div data-videos="more"></div></section>
+        <section class="section section--lab"><h2 class="section__h" data-stamp="hands on"><span>Lab: follow along</span></h2>
+        <div data-setupbanner></div>
+        
+        <p class="prose">You are going to open the folder you will live in for the next seventeen modules, then make a language model answer one question in two different ways from a single small script. The first way is the short one you will use most days, and the second way shows you what the short one hides, including which model really answered and how many tokens it cost. Nothing here costs money if you take the local option, because you can run a model on your own machine with no account and no key. Before you start, make sure <code>python llm.py</code> works, which is covered in setup.html.</p>
+        <p class="small muted">Code given, every line explained.</p>
+        <ol class="steps">
+        <li><h3>Activate the environment and open the lab folder</h3><p>The setup page already built your environment and the course already ships the folders, so this step is about finding them and switching the environment on. A <strong>virtual environment</strong> (venv) is a private folder of Python packages that belongs only to this project, so anything you install here cannot break Python for other work on your machine. There is one for the whole course, at <code>my-work/.venv</code>, and every lab shares it. Activating it is the step people forget, and you can tell it worked because your terminal prompt gains a <code>(.venv)</code> label at the front. Keep that terminal open, because activation only lasts for the window you ran it in. Your own work lives under <code>my-work</code>, and the helper every lab imports is at <code>my-work/labs/_shared/llm.py</code>. This course was checked on Python 3.14 on Windows, and anything from 3.11 upwards is fine.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>cd path\to\GenAI-Course
+.\my-work\.venv\Scripts\Activate.ps1
+cd my-work\labs\lab01
+
+<span class="t-c"># macOS or Linux, instead of the two lines above:</span>
+<span class="t-c">#   source my-work/.venv/bin/activate</span>
+<span class="t-c">#   cd my-work/labs/lab01</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>.\my-work\.venv\Scripts\Activate.ps1</dt><dd>Activation edits the PATH for this terminal window only, so that <code>python</code> and <code>pip</code> now mean the copies inside <code>.venv</code>. PowerShell needs the leading <code>.\</code> because it will not run a script from the current folder without it. Close the window and the effect is gone, which is why you re-run this line at the start of every session.</dd>
+        <dt>cd my-work\labs\lab01</dt><dd>This folder already exists and already holds <code>hello_llm.py</code>, so you are moving into it rather than creating it. Everything you write in this course lives under <code>my-work</code>, which is the only folder you ever need to edit. Every command in this lab assumes you are standing here, because the script reaches the shared helper by going one folder up to <code>_shared</code>.</dd>
+        <dt>source my-work/.venv/bin/activate</dt><dd>The macOS and Linux equivalent. You need the word <code>source</code> rather than just the path, because the script changes variables in your current shell, and running it the normal way would change them in a child shell that exits immediately.</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>The usual trap is opening a fresh terminal a day later and forgetting the activate line, which shows up as a missing package error for something you know you installed.</span></div>
+        </li>
+        <li><h3>Install the two packages you need</h3><p>Now you install the only two packages this first lab needs. <code>openai</code> is a <strong>client library</strong>, meaning code that formats your request, sends it over HTTP, and turns the reply back into a Python object you can read. You use it for hosted models and for models running on your own laptop, because almost every provider now accepts the same request format that OpenAI published. <code>python-dotenv</code> reads settings out of a plain text file called .env, so your keys live outside your code and never get committed by accident. You pin openai to one exact version so a future release cannot quietly change how a call behaves halfway through the course. When pip finishes you should see a line beginning <code>Successfully installed</code> naming openai-2.53.0 and python-dotenv, with no red error text underneath.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># save this as requirements.txt in my-work</span>
+openai==<span class="t-s">2.53.0</span>
+python-dotenv
+
+<span class="t-c"># then, with (.venv) active:</span>
+python -m pip install --upgrade pip
+pip install -r requirements.txt</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>openai==2.53.0</dt><dd>The double equals pins one exact version. Without it, pip fetches whatever is newest on the day you run it, and a later release could change behaviour that the rest of this course depends on.</dd>
+        <dt>python-dotenv</dt><dd>Left unpinned on purpose, because it is small and its job (reading a text file into environment variables) does not change. It provides load_dotenv(), which llm.py calls for you so you never have to.</dd>
+        <dt>python -m pip install --upgrade pip</dt><dd>Written as python -m pip rather than plain pip so it definitely uses the Python you just activated, not some other pip earlier on your PATH. Upgrading pip first avoids old-pip errors when installing recently published packages.</dd>
+        <dt>pip install -r requirements.txt</dt><dd>-r means read the package list from this file. Keeping the list in a file rather than typing names by hand means you can rebuild this exact environment on another machine, or after you delete .venv and start again.</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>If pip reports success but Python still says the package is missing, the (.venv) label was absent from your prompt when you ran pip, so it installed into your system Python instead.</span></div>
+        </li>
+        <li><h3>Get a model you can actually call</h3><p>A script that cannot reach a model does nothing, so you need at least one model to talk to. The free path is <strong>Ollama</strong>, a small program that downloads a model file onto your disk and then serves it from your own machine, with no account and no bill. Pick a model with about 3 billion <strong>parameters</strong> or more, where parameters are the numbers inside the model that were set during training. Below roughly 2 billion, the tool calling you need in later modules starts failing in ways that look like your code is broken when it is not. The pull command downloads a few gigabytes once, and after that the model answers with your internet switched off. <code>ollama serve</code> starts a small web server on your machine at port 11434, which is exactly the address the course helper already points at. If you already own a paid API key you can set that up as a second option, but do not buy one just for this course.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># install Ollama from https://ollama.com, then:</span>
+ollama pull llama3.<span class="t-s">2</span>:<span class="t-s">3b</span>
+
+<span class="t-c"># start the server if it is not already running</span>
+<span class="t-c"># (the Windows installer usually starts it for you)</span>
+ollama serve
+
+<span class="t-c"># quick sanity check, in another terminal</span>
+ollama run llama3.<span class="t-s">2</span>:<span class="t-s">3b</span> <span class="t-s">&quot;say hello in five words&quot;</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>ollama pull llama3.2:3b</dt><dd>pull downloads the model file once and stores it on your disk. The part after the colon is the size tag, so 3b means the 3 billion parameter build, and a different tag downloads a completely different file.</dd>
+        <dt>ollama serve</dt><dd>Starts a small web server listening on port 11434. Nothing can call the model until this is running, and llm.py already points the ollama provider at http://localhost:11434/v1/, so you never type that address yourself.</dd>
+        <dt>ollama run llama3.2:3b &quot;say hello in five words&quot;</dt><dd>A one-off check that the download works, done before you write any Python. If this prints words, then any later error is in your code or your .env, which cuts your debugging in half.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Formula: file size in bytes = number of parameters x bytes used per parameter
+
+number of parameters: how many numbers sit inside the model. llama3.2:3b has about 3 billion, written 3,000,000,000.
+bytes used per parameter: how much space each of those numbers takes. Full precision uses 4 bytes each. Ollama ships models quantised, which means each number is squashed into fewer bits, commonly about 4 bits, which is 0.5 bytes.
+
+Worked example:
+Full precision: 3,000,000,000 x 4 bytes = 12,000,000,000 bytes, so about 12 GB.
+Quantised to 4 bits: 3,000,000,000 x 0.5 bytes = 1,500,000,000 bytes, so about 1.5 GB. Add roughly 0.5 GB of working space and you need about 2 GB of free memory to run it.
+
+What it means: the b in 3b is the parameter count, and it tells you both how much disk the download eats and roughly how much memory the model needs while it answers. Quantisation is what makes a 12 GB model fit in 2 GB, and it does cost a little accuracy, which is part of why very small models get tool calling wrong.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If ollama serve says the address is already in use, the installer already started it for you, so leave it alone and move on rather than trying to kill it.</span></div>
+        </li>
+        <li><h3>Write your .env and your .gitignore</h3><p>The .env file is a plain text file of name=value lines holding everything that differs between machines, including secrets. The line that matters most is <code>LLM_PROVIDER</code>, because that single word is the switch you flip for the rest of the course, and it must match one of the names the shared helper knows (ollama, groq, gemini, openai and a few more). The .gitignore file is a list of things git must never upload, and .env belongs on it. Leaked API keys get scraped off public repositories within minutes by automated bots, and the bill lands on you, so write this file now rather than later. Both files go in <code>my-work</code>, beside the environment you made. The helper finds your <code>.env</code> by looking in the folder you are standing in and then working upwards, so anywhere inside <code>my-work</code> can see it. Both names start with a dot, which means Windows Explorer and macOS Finder may hide them from you until you turn on the setting that shows hidden files.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/.env</span>
+LLM_PROVIDER=ollama
+
+<span class="t-c"># --- local, free, no key needed ---</span>
+
+<span class="t-c"># --- hosted, optional: leave blank if you have no key ---</span>
+OPENAI_API_KEY=
+<span class="t-c"># copy the exact model id from your provider's model list page</span>
+
+
+<span class="t-c"># .gitignore</span>
+my-work/.venv/
+my-work/.env
+__pycache__/
+*.db</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>LLM_PROVIDER=ollama</dt><dd>This value is looked up against the provider list inside llm.py, so it has to be spelled exactly as one of the known names. Change this one word and every lab in the course talks to a different model, with no code edit anywhere.</dd>
+        <dt>OPENAI_API_KEY=</dt><dd>Left empty on purpose. llm.py only reads a key for hosted providers, and when it is missing it raises a clear MissingKey error telling you what to add, instead of failing later with a confusing network message.</dd>
+        <dt>.env  (the line inside .gitignore)</dt><dd>This is the line that stops your keys reaching a public repository. Add it before your first commit, because git keeps history, and deleting a key later does not remove it from the commits that already contain it.</dd>
+        <dt>*.db</dt><dd>Later modules create SQLite database files for the vector store, and the star matches any filename ending in .db. Those files are rebuildable data rather than source code, so they should never be committed.</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>On Windows, Notepad silently saves the file as .env.txt, and a file with that name is never read, so nothing you put in it takes effect.</span></div>
+        </li>
+        <li><h3>Point Python at the shared helper</h3><p>Every lab in this course imports one file, my-work/labs/_shared/llm.py, which hides the differences between providers behind four functions: <code>chat()</code> sends text and returns text, <code>chat_raw()</code> returns the provider's full reply object, <code>client_for()</code> hands you a configured client plus a model name, and <code>whoami()</code> reports what you are about to use. Copy that file into my-work/labs/_shared/ before you run anything. Python only imports from folders on its <strong>import path</strong>, which is the list of directories it searches when you write an import, and my-work/labs/_shared is not on that list by default. The two lines below add it while your script is running, so a file sitting in my-work/labs/lab01/ can find it no matter which directory you launched from. Without them you get <code>ModuleNotFoundError: No module named 'llm'</code>, however correct the rest of your code is. Run just this much first, because if whoami() prints your provider, model and endpoint, your setup is already correct and everything after this is easy.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab01/hello_llm.py</span>
+<span class="t-k">import</span> sys, pathlib
+
+<span class="t-c"># make my-work/labs/_shared importable from anywhere</span>
+sys.path.<span class="t-f">append</span>(<span class="t-f">str</span>(pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parents[<span class="t-s">1</span>] / <span class="t-s">&quot;_shared&quot;</span>))
+
+<span class="t-k">from</span> llm <span class="t-k">import</span> whoami, chat, chat_raw
+
+<span class="t-f">print</span>(<span class="t-s">&quot;Active setup:&quot;</span>, <span class="t-f">whoami</span>())</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>import sys, pathlib</dt><dd>sys gives you sys.path, the list of folders Python searches on every import. pathlib builds file paths in a way that behaves the same on Windows and macOS, so you never hardcode a backslash that then breaks on someone else's machine.</dd>
+        <dt>pathlib.Path(__file__).resolve()</dt><dd>__file__ is the path of the script that is currently running, and it can be a relative path depending on how you launched it. .resolve() turns it into a full absolute path, which is what makes the next part reliable from any working directory.</dd>
+        <dt>.parents[1] / &quot;_shared&quot;</dt><dd>parents[0] is the folder holding the file (my-work/labs/lab01), and parents[1] is one level above it (labs). The forward slash is pathlib's way of joining path pieces, so the result is my-work/labs/_shared on every operating system.</dd>
+        <dt>sys.path.append(str(...))</dt><dd>This adds that folder to Python's search list while the program runs, which is why the very next line can import llm even though llm.py is not sitting beside your script. str() is needed because sys.path stores plain strings, not Path objects.</dd>
+        <dt>from llm import whoami, chat, chat_raw</dt><dd>Pulls three of the four helper functions in by name. You never edit llm.py to change provider, you edit .env, and keeping that decision in one file is the entire reason the shared folder exists.</dd>
+        <dt>print(&quot;Active setup:&quot;, whoami())</dt><dd>whoami() reports the provider, model, endpoint and whether a key was found, and it does this without making any network call. Running only this much proves your configuration before you spend time chasing a failing model call.</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>If you still see ModuleNotFoundError: No module named 'llm', check that llm.py is inside my-work/labs/_shared and not saved one folder too high in my-work/labs/.</span></div>
+        </li>
+        <li><h3>Call the model the easy way</h3><p><code>chat()</code> is text in, text out, and it is what you will use nine times out of ten in this course. It builds the message list for you, sends it to whichever provider your .env names, waits for the reply, and hands back a plain Python string with surrounding whitespace stripped off. Underneath it also sets two defaults worth knowing: <strong>temperature</strong> 0.2, which controls how adventurous the word choice is, and <strong>max_tokens</strong> 800, which caps how long the reply may get. Add these lines to the same file you started in step 5. You should see one sentence of English appear after a short pause, and the exact wording will differ slightly each time you run it, which is normal and is explained in the maths below. If the answer stops mid-word, the model hit the max_tokens cap rather than finishing its thought.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>question = <span class="t-s">&quot;In one sentence, what is a Python virtual environment?&quot;</span>
+
+answer = <span class="t-f">chat</span>(question)
+<span class="t-f">print</span>(<span class="t-s">&quot;\n--- chat() ---&quot;</span>)
+<span class="t-f">print</span>(answer)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>question = &quot;In one sentence, what is a Python virtual environment?&quot;</dt><dd>Stored in a variable because step 7 sends the exact same question a second way. Using one variable for both is what makes the two outputs fair to compare.</dd>
+        <dt>answer = chat(question)</dt><dd>One string in, one string out. Inside, chat() wraps your text as a user message, calls the provider named in .env, then returns resp.choices[0].message.content with the whitespace trimmed, so you never touch the response object.</dd>
+        <dt>print(&quot;\n--- chat() ---&quot;)</dt><dd>The \n prints a blank line before the header, so the two sections of output do not run into each other. It is a small thing, but you will be reading this output many times.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Formula: probability of token i = exp(score_i / T) divided by the sum over all candidates j of exp(score_j / T)
+
+score_i: the raw number (called a logit) the model produces for one candidate next token. Higher means the model likes it more.
+T: the temperature you pass in. chat() uses 0.2 by default.
+exp(x): the number e (about 2.718) raised to the power x. It turns any score, including a negative one, into a positive number.
+The division at the end makes all the probabilities add up to 1.
+
+Worked example, using three candidate words with scores 2.0, 1.0 and 0.5.
+
+At T = 1.0:
+exp(2.0) = 7.39, exp(1.0) = 2.72, exp(0.5) = 1.65
+total = 11.76
+probabilities = 7.39/11.76 = 0.63, 2.72/11.76 = 0.23, 1.65/11.76 = 0.14
+
+At T = 0.2, the course default:
+2.0/0.2 = 10, 1.0/0.2 = 5, 0.5/0.2 = 2.5
+exp(10) = 22026, exp(5) = 148, exp(2.5) = 12
+total = 22186
+probabilities = 22026/22186 = 0.993, 148/22186 = 0.0067, 12/22186 = 0.0005
+
+What it means: dividing by a small temperature stretches the gaps between scores before they are compared, so the model's favourite word jumps from a 63 percent chance to a 99 percent chance. Low temperature therefore gives you answers that repeat well, which is what you want while learning. This is simplified: a real model scores tens of thousands of candidate tokens at each step rather than three, and it redoes the whole calculation for every single word it writes, which is why the wording still wobbles a little between runs.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>An empty line of output does not mean the call failed, because chat() returns an empty string when the model produced only whitespace or ran straight into the max_tokens cap.</span></div>
+        </li>
+        <li><h3>Call it the honest way</h3><p><code>chat_raw()</code> hands you the provider's full reply object instead of only the words, so you can see what chat() was quietly throwing away. You want it whenever you need the model id that actually answered, the reason the model stopped, or the token counts, and token counts are how you estimate cost in a later module. It also shows you the real shape of a chat request, which is not a string but an ordered list of <strong>messages</strong>, each one a small dictionary with a role and some content. The attribute names below (choices, usage) are the OpenAI-compatible shape, which is also what Ollama serves, and that is exactly why one script can work against both. Some providers send no usage block at all, so you check for it rather than assuming it is there. Expect the printed model name to be the full id, something like llama3.2:3b, which is often not the short name you had in your head.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>messages = [
+    {<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;system&quot;</span>, <span class="t-s">&quot;content&quot;</span>: <span class="t-s">&quot;Answer in one short sentence.&quot;</span>},
+    {<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: question},
+]
+
+raw = <span class="t-f">chat_raw</span>(messages)
+<span class="t-f">print</span>(<span class="t-s">&quot;\n--- chat_raw() ---&quot;</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;model that answered:&quot;</span>, raw.model)
+<span class="t-f">print</span>(<span class="t-s">&quot;text:&quot;</span>, raw.choices[<span class="t-s">0</span>].message.content)
+
+usage = <span class="t-f">getattr</span>(raw, <span class="t-s">&quot;usage&quot;</span>, <span class="t-k">None</span>)
+<span class="t-k">if</span> usage:
+    <span class="t-f">print</span>(<span class="t-s">&quot;input tokens: &quot;</span>, usage.prompt_tokens)
+    <span class="t-f">print</span>(<span class="t-s">&quot;output tokens:&quot;</span>, usage.completion_tokens)
+<span class="t-k">else</span>:
+    <span class="t-f">print</span>(<span class="t-s">&quot;this provider reported no token counts&quot;</span>)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>the messages list</dt><dd>This is the true shape of a chat request. The model does not receive a string, it receives an ordered list of messages and reads them top to bottom as the conversation so far, which is the structure every later module builds on.</dd>
+        <dt>{&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: &quot;Answer in one short sentence.&quot;}</dt><dd>The system message carries instructions about how to behave, kept separate from the user's actual question. Placing it first in its own role is what gives it more weight than the same words pasted into the end of the question.</dd>
+        <dt>raw = chat_raw(messages)</dt><dd>Returns the provider's whole response object rather than just the text, so nothing is discarded. This is also the function the later tool-calling labs use, because tools are passed alongside the messages.</dd>
+        <dt>raw.choices[0].message.content</dt><dd>choices is a list because the API can be asked to generate several alternative answers in one call. You asked for one, so you take index 0, and .message.content is the actual text sitting inside that choice.</dd>
+        <dt>usage = getattr(raw, &quot;usage&quot;, None)</dt><dd>getattr with a third argument returns that default instead of raising AttributeError when the field is absent. This is how you support providers that report no token counts without your script crashing on them.</dd>
+        <dt>if usage:</dt><dd>Only print the numbers when the provider actually sent them. This one guard is the difference between a script that works on your provider and a script that works on all of them.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Formula 1, rough token count: tokens = characters divided by 4, for ordinary English text.
+Formula 2, cost of one call: cost = (input_tokens / 1,000,000) x input_price + (output_tokens / 1,000,000) x output_price
+
+input_tokens: what usage.prompt_tokens reports, meaning everything you sent (the system message, your question, and the hidden role markers the chat template wraps around them).
+output_tokens: what usage.completion_tokens reports, meaning only the words the model wrote back.
+input_price and output_price: what a provider charges per million tokens. Output usually costs more than input, because generating text takes real compute while reading it does not.
+
+Worked example.
+&quot;In one sentence, what is a Python virtual environment?&quot; is 54 characters, so 54 / 4 = about 13 tokens.
+&quot;Answer in one short sentence.&quot; is 29 characters, so 29 / 4 = about 7 tokens.
+The chat template adds role markers around each message, roughly 8 more tokens.
+Total input is about 28 tokens, which is why the printed number is bigger than your question on its own.
+Say the reply comes back at 25 tokens, and imagine a provider charging 0.50 dollars per million input tokens and 1.50 dollars per million output tokens:
+input cost = (28 / 1,000,000) x 0.50 = 0.000014 dollars
+output cost = (25 / 1,000,000) x 1.50 = 0.0000375 dollars
+one call = 0.0000515 dollars, so 100,000 calls = about 5.15 dollars.
+
+What it means: a token is roughly three quarters of a word, one call costs a fraction of a penny, and cost only becomes real once you multiply by traffic. Those two prices are invented for the arithmetic, so check your own provider's page for real ones. On Ollama the money is always zero, but the token numbers still matter, because the same counts are what fill up the model's limited input window.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>An AttributeError on raw.choices almost always means you passed the result of chat() by mistake, because that is a plain string and only chat_raw() returns the full object.</span></div>
+        </li>
+        <li><h3>Run it and read what comes back</h3><p>Run the file from inside <code>my-work/labs/lab01</code> with the virtual environment still active, so the python you invoke is the one inside .venv. Expect the local model to pause for several seconds on the very first call while the file is read off disk into memory, then to be much quicker on every call afterwards. You should see four things printed: the whoami line, a sentence from chat(), the same question answered through chat_raw() with the real model id, and two token numbers. If you see <code>ModuleNotFoundError: llm</code>, your _shared path is wrong or llm.py is not in it. If you see a connection refused error, Ollama is not running, so start it and try again. If the token counts look larger than the question you typed, that is expected, because the system message and the hidden chat formatting are counted too.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>python hello_llm.py
+
+<span class="t-c"># macOS or Linux:</span>
+<span class="t-c">#   python my-work/labs/lab01/hello_llm.py</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>python hello_llm.py</dt><dd>Run this from inside my-work/labs/lab01. llm.py finds your .env by searching from the folder you are standing in and working upwards, so launching from somewhere outside the project means your settings are never loaded and the built-in defaults take over silently.</dd>
+        <dt># macOS or Linux:  python my-work/labs/lab01/hello_llm.py</dt><dd>The same command with forward slashes. The only difference between the two lines is the path separator your shell needs, because the Python code itself uses pathlib and does not care which one you have.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Formula 1, first-call delay: seconds = model file size divided by disk read speed
+Formula 2, answer time: seconds = tokens generated divided by tokens per second
+
+Worked example.
+The quantised llama3.2:3b file is about 2 GB. A normal SSD reads at roughly 0.5 GB per second, so 2 / 0.5 = about 4 seconds before the first word appears. After that the file is already sitting in memory, so the same delay on the next call drops to well under a second.
+If your machine generates about 25 tokens per second on CPU and the answer is 30 tokens long, then 30 / 25 = 1.2 seconds of writing.
+First call total: about 4 + 1.2 = 5.2 seconds. Second call: about 1.2 seconds.
+
+What it means: that long first pause is disk work, not the model thinking, so never judge a model's speed from your first run. These numbers are rough and your own disk and processor will shift them, but the shape (one slow call, then fast ones) is what you should expect to see.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>The folder name has to match everywhere, so if you created my-work\labs\m01 but run my-work\labs\lab01, Python reports that it cannot open the file, which is a path typo rather than anything wrong with your code.</span></div>
+        </li>
+        </ol>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> You are done when one command runs one file and prints four things: your active provider and model from whoami(), a sentence from chat(), the same question answered through chat_raw() showing the real model id, and an input and output token count. Your .env file exists in my-work, LLM_PROVIDER names a provider the helper knows, and .env is listed inside .gitignore. If you use git, run git status and check that .env does not appear anywhere in the output.</div></div>
+        </section>
+        <section class="section section--mini"><h2 class="section__h" data-stamp="hands on"><span>Mini-project: your turn</span></h2>
+        <p class="prose">Prove mechanically that the provider is a setting and not a code change. Your script writes my-work/labs/lab01/runs.json, and check.py verifies that two different models answered while the script's own SHA-256 hash stayed identical.</p>
+        <p class="small muted">No code given. Produce the file, then run the checker.</p>
+        <ol class="steps">
+        <li><p>Add a second provider you can reach for free to your .env. A second local model is enough (`ollama pull qwen3:4b`), or a hosted key you already own. Buy nothing.</p></li>
+        <li><p>Write my-work/labs/lab01/compare.py. It reads the provider from whoami(), sends one fixed question through chat_raw(), times the call with time.perf_counter(), and hashes its own source with hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest().</p></li>
+        <li><p>Have it append to my-work/labs/lab01/runs.json, creating the file when missing. Exact shape: {&quot;question&quot;: &quot;&lt;the question you asked&gt;&quot;, &quot;runs&quot;: [ ... ]}, where each run is {&quot;provider&quot;: str, &quot;model&quot;: str, &quot;seconds&quot;: float, &quot;answer&quot;: str, &quot;input_tokens&quot;: int or null, &quot;output_tokens&quot;: int or null, &quot;script_sha256&quot;: str}.</p></li>
+        <li><p>Run it once. Then edit only the LLM_PROVIDER line in .env, change no code anywhere, and run it again. runs.json now holds two entries.</p></li>
+        <li><p>Save check.py beside compare.py and run `python my-work/labs/lab01/check.py`. Fix whatever it names until every line reads PASS.</p></li>
+        <li><p>Read the two answers yourself and write down which one is wrong, if either. The checker cannot judge that.</p></li>
+        </ol>
+        <div class="checker"><div class="checker__h">Check it yourself, automatically</div>
+        <p>Save this as <code>check.py</code> next to your work, then run <code>python my-work/labs/lab01/check.py</code>. It reads what you produced, tests it, and prints a line per check.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>check.py</span></div>
+<pre><span class="t-s">&quot;&quot;&quot;Checks runs.json, the artefact from the Module 1 mini-project.
+Run: python my-work/labs/lab01/check.py   (no API key, no internet, stdlib only)
+&quot;&quot;&quot;</span>
+<span class="t-k">import</span> hashlib, json, pathlib, sys
+
+HERE = pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parent
+ART = HERE / <span class="t-s">&quot;runs.json&quot;</span>          <span class="t-c"># what compare.py wrote</span>
+SRC = HERE / <span class="t-s">&quot;compare.py&quot;</span>         <span class="t-c"># the script that wrote it</span>
+fails = <span class="t-s">0</span>
+
+
+<span class="t-k">def</span> <span class="t-f">check</span>(ok, msg):
+    <span class="t-s">&quot;&quot;&quot;Print one PASS/FAIL line and remember the failures.&quot;&quot;&quot;</span>
+    <span class="t-k">global</span> fails
+    ok = <span class="t-f">bool</span>(ok)
+    <span class="t-f">print</span>((<span class="t-s">&quot;PASS &quot;</span> <span class="t-k">if</span> ok <span class="t-k">else</span> <span class="t-s">&quot;FAIL &quot;</span>) + msg)
+    fails += <span class="t-s">0</span> <span class="t-k">if</span> ok <span class="t-k">else</span> <span class="t-s">1</span>
+    <span class="t-k">return</span> ok
+
+
+<span class="t-k">def</span> <span class="t-f">stop</span>(msg):
+    <span class="t-s">&quot;&quot;&quot;Artefact missing or unreadable: say so plainly, no traceback.&quot;&quot;&quot;</span>
+    <span class="t-f">print</span>(<span class="t-s">&quot;FAIL &quot;</span> + msg)
+    <span class="t-f">print</span>(<span class="t-s">&quot;1 check failed&quot;</span>)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+
+
+<span class="t-k">if</span> <span class="t-k">not</span> ART.<span class="t-f">exists</span>():
+    <span class="t-f">stop</span>(<span class="t-s">&quot;runs.json not found at %s. Run compare.py once per provider first.&quot;</span> % ART)
+<span class="t-k">try</span>:
+    data = json.<span class="t-f">loads</span>(ART.<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>))
+<span class="t-k">except</span> json.JSONDecodeError <span class="t-k">as</span> e:
+    <span class="t-f">stop</span>(<span class="t-s">&quot;runs.json is not valid JSON (line %d): %s&quot;</span> % (e.lineno, e.msg))
+<span class="t-k">if</span> <span class="t-k">not</span> <span class="t-f">isinstance</span>(data, dict) <span class="t-k">or</span> <span class="t-k">not</span> <span class="t-f">isinstance</span>(data.<span class="t-f">get</span>(<span class="t-s">&quot;runs&quot;</span>), list):
+    <span class="t-f">stop</span>(<span class="t-s">&quot;runs.json must be an object with a 'runs' list. Check the shape in the steps.&quot;</span>)
+
+runs = data[<span class="t-s">&quot;runs&quot;</span>]
+<span class="t-f">check</span>(<span class="t-f">isinstance</span>(data.<span class="t-f">get</span>(<span class="t-s">&quot;question&quot;</span>), str) <span class="t-k">and</span> data.<span class="t-f">get</span>(<span class="t-s">&quot;question&quot;</span>, <span class="t-s">&quot;&quot;</span>).<span class="t-f">strip</span>(),
+      <span class="t-s">&quot;'question' is a non-empty string&quot;</span>)
+<span class="t-k">if</span> <span class="t-k">not</span> <span class="t-f">check</span>(<span class="t-f">len</span>(runs) == <span class="t-s">2</span>, <span class="t-s">&quot;'runs' holds exactly 2 entries (found %d)&quot;</span> % <span class="t-f">len</span>(runs)):
+    <span class="t-f">print</span>(<span class="t-s">&quot;%d check(s) failed&quot;</span> % fails)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+
+<span class="t-c"># every run carries the same five fields, with usable values</span>
+need = {<span class="t-s">&quot;provider&quot;</span>: str, <span class="t-s">&quot;model&quot;</span>: str, <span class="t-s">&quot;seconds&quot;</span>: (int, float),
+        <span class="t-s">&quot;answer&quot;</span>: str, <span class="t-s">&quot;script_sha256&quot;</span>: str}
+<span class="t-k">for</span> i, r <span class="t-k">in</span> <span class="t-f">enumerate</span>(runs):
+    <span class="t-k">if</span> <span class="t-k">not</span> <span class="t-f">isinstance</span>(r, dict):
+        <span class="t-f">check</span>(<span class="t-k">False</span>, <span class="t-s">&quot;runs[%d] is not a JSON object&quot;</span> % i)
+        <span class="t-k">continue</span>
+    bad = [k <span class="t-k">for</span> k, t <span class="t-k">in</span> need.<span class="t-f">items</span>() <span class="t-k">if</span> <span class="t-k">not</span> <span class="t-f">isinstance</span>(r.<span class="t-f">get</span>(k), t)]
+    <span class="t-f">check</span>(<span class="t-k">not</span> bad, <span class="t-s">&quot;runs[%d] has provider, model, seconds, answer, script_sha256%s&quot;</span>
+          % (i, <span class="t-s">&quot; (missing or wrong type: %s)&quot;</span> % <span class="t-s">&quot;, &quot;</span>.<span class="t-f">join</span>(bad) <span class="t-k">if</span> bad <span class="t-k">else</span> <span class="t-s">&quot;&quot;</span>))
+    <span class="t-f">check</span>(<span class="t-f">isinstance</span>(r.<span class="t-f">get</span>(<span class="t-s">&quot;seconds&quot;</span>), (int, float)) <span class="t-k">and</span> r.<span class="t-f">get</span>(<span class="t-s">&quot;seconds&quot;</span>, <span class="t-s">0</span>) &gt; <span class="t-s">0</span>,
+          <span class="t-s">&quot;runs[%d].seconds is above zero (got %r)&quot;</span> % (i, r.<span class="t-f">get</span>(<span class="t-s">&quot;seconds&quot;</span>)))
+    <span class="t-f">check</span>(<span class="t-f">len</span>(<span class="t-f">str</span>(r.<span class="t-f">get</span>(<span class="t-s">&quot;answer&quot;</span>, <span class="t-s">&quot;&quot;</span>))) &gt;= <span class="t-s">10</span>,
+          <span class="t-s">&quot;runs[%d].answer is at least 10 characters&quot;</span> % i)
+    <span class="t-k">for</span> k <span class="t-k">in</span> (<span class="t-s">&quot;input_tokens&quot;</span>, <span class="t-s">&quot;output_tokens&quot;</span>):
+        v = r.<span class="t-f">get</span>(k)
+        <span class="t-f">check</span>(v <span class="t-k">is</span> <span class="t-k">None</span> <span class="t-k">or</span> (<span class="t-f">isinstance</span>(v, int) <span class="t-k">and</span> <span class="t-k">not</span> <span class="t-f">isinstance</span>(v, bool) <span class="t-k">and</span> v &gt; <span class="t-s">0</span>),
+              <span class="t-s">&quot;runs[%d].%s is a positive whole number, or null if the &quot;</span>
+              <span class="t-s">&quot;provider reported none (got %r)&quot;</span> % (i, k, v))
+
+a, b = runs[<span class="t-s">0</span>], runs[<span class="t-s">1</span>]
+<span class="t-f">check</span>(a.<span class="t-f">get</span>(<span class="t-s">&quot;model&quot;</span>) != b.<span class="t-f">get</span>(<span class="t-s">&quot;model&quot;</span>),
+      <span class="t-s">&quot;the two runs name different models (%r vs %r)&quot;</span> % (a.<span class="t-f">get</span>(<span class="t-s">&quot;model&quot;</span>), b.<span class="t-f">get</span>(<span class="t-s">&quot;model&quot;</span>)))
+<span class="t-f">check</span>(a.<span class="t-f">get</span>(<span class="t-s">&quot;answer&quot;</span>) != b.<span class="t-f">get</span>(<span class="t-s">&quot;answer&quot;</span>),
+      <span class="t-s">&quot;the two answers differ (identical text means one run was copied, not called)&quot;</span>)
+
+<span class="t-c"># the point of the exercise: same code, different provider</span>
+same = a.<span class="t-f">get</span>(<span class="t-s">&quot;script_sha256&quot;</span>) == b.<span class="t-f">get</span>(<span class="t-s">&quot;script_sha256&quot;</span>)
+<span class="t-f">check</span>(same, <span class="t-s">&quot;both runs recorded the same script_sha256, so compare.py did not change between them&quot;</span>)
+<span class="t-k">if</span> SRC.<span class="t-f">exists</span>():
+    now = hashlib.<span class="t-f">sha256</span>(SRC.<span class="t-f">read_bytes</span>()).<span class="t-f">hexdigest</span>()
+    <span class="t-f">check</span>(same <span class="t-k">and</span> a.<span class="t-f">get</span>(<span class="t-s">&quot;script_sha256&quot;</span>) == now,
+          <span class="t-s">&quot;that hash matches compare.py as it stands now (%s...)&quot;</span> % now[:<span class="t-s">12</span>])
+<span class="t-k">else</span>:
+    <span class="t-f">check</span>(<span class="t-k">False</span>, <span class="t-s">&quot;compare.py not found beside check.py, so the hash cannot be verified&quot;</span>)
+
+<span class="t-f">print</span>()
+<span class="t-f">print</span>(<span class="t-s">&quot;Not checked automatically: whether either answer is factually correct. Read them yourself.&quot;</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;ALL CHECKS PASSED&quot;</span> <span class="t-k">if</span> fails == <span class="t-s">0</span> <span class="t-k">else</span> <span class="t-s">&quot;%d check(s) failed&quot;</span> % fails)
+sys.<span class="t-f">exit</span>(<span class="t-s">0</span> <span class="t-k">if</span> fails == <span class="t-s">0</span> <span class="t-k">else</span> <span class="t-s">1</span>)
+</pre></div>
+        </div>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> `python my-work/labs/lab01/check.py` prints a PASS line for each of its sixteen checks, then ALL CHECKS PASSED, and exits with code 0. The two hash checks carry the result: both runs recorded the same SHA-256 for compare.py, and it still matches the file on disk, so the model swap happened in .env and nowhere else. The checker also prints one line saying it did not judge whether either answer is factually correct, because that part is yours.</div></div>
+        <div class="note" style="margin-top:12px"><div class="note__t">If you want more</div><p>Ask the same question five times per provider, store all five answers per run, and add your own true or false verdict to each, with no scale and no half marks. Then extend check.py with one more assertion: every run carries exactly five verdicts. Have it print the pass rate per model. Those two counts are your first evaluation, and module 16 is a more careful version of the same thing.</p></div>
+        </section>
+        <section class="section section--quiz"><h2 class="section__h" data-stamp="on record"><span>Check yourself</span></h2>
+        <p class="small muted">Explained either way.</p>
+        <div class="quiz" data-quiz>
+        <div class="q" data-answer="3"><p class="q__q">A spam filter is trained on 10,000 emails that a person already marked as spam or not spam. Which statement is correct?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>It is unsupervised learning, because the computer decides for itself what spam means.</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>It is supervised learning, and the spam or not spam mark is a feature.</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>It is neither, because emails are text rather than numbers.</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>It is supervised learning, and the spam or not spam mark is the label.</span></button>
+        </div><div class="q__why" hidden>Supervised means the right answer arrived attached to each example, and here a human attached it. The mark is the label, which is the thing you want predicted, while features are the inputs such as the sender address and the words in the subject line. Text is a perfectly normal input, it just gets converted into numbers before the model sees it.</div></div>
+        <div class="q" data-answer="0"><p class="q__q">Your prompt answers all five of your test questions perfectly. Real users complain the next day. What most likely happened?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>You overfitted the prompt to five examples, which were far too few to represent real questions.</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>The provider updated the model overnight.</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>You need a larger model.</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>The five test questions were labelled wrongly.</span></button>
+        </div><div class="q__why" hidden>Tuning until a tiny set passes is the prompt-shaped version of overfitting, and five examples cannot cover the range of things users actually ask. A silent model update does happen, but it is a much less likely explanation than the obvious one. The fix is not a bigger model, it is a bigger and more honest set of held-back examples that you never tuned against.</div></div>
+        <div class="q" data-answer="2"><p class="q__q">You call a hosted model over an API and the answers are not good enough. What can you actually change from your own code?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>The numbers inside the model, directly from your script.</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>The loss function the provider trains the model with.</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>The text you send, meaning the instructions, examples and any documents you paste in.</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Nothing, because a hosted model is fixed.</span></button>
+        </div><div class="q__why" hidden>The weights are frozen when your request arrives, so you cannot run gradient descent on them from your code, and the provider's loss function was never yours to touch. What is completely yours is the input: instructions, examples, retrieved documents and tool descriptions, which is why most of this course is about what goes into the context window. Some providers do sell fine-tuning, but that is a separate paid service you set up in advance, not something your calling code does.</div></div>
+        </div></section>
+        <section class="section section--notes notes" data-notes><h2 class="section__h" data-stamp="on record"><span>Your notes</span></h2>
+        <p class="small muted">Saves as you type, in this browser.</p>
+        <label class="sr" for="n1">Notes for this module</label>
+        <textarea id="n1" placeholder="What clicked? What is still fuzzy? What do you want to come back to?"></textarea><div class="notes__status"></div></section>
+        <section class="section section--done"><h2 class="section__h" data-stamp="on record"><span>Mark it done</span></h2>
+        <div class="marks"><button class="mark" data-mark="read" aria-pressed="false"><span>Read the notes</span></button><button class="mark" data-mark="lab" aria-pressed="false"><span>Finished the lab</span></button><button class="mark" data-mark="mini" aria-pressed="false"><span>Finished the mini-project</span></button></div></section>
+        <section class="section section--docs"><h2 class="section__h" data-stamp="reference"><span>Go to the source</span></h2>
+        <p class="small muted">If this course and the docs disagree, the docs are newer.</p><ul class="prose">
+        <li><a href="https://developers.google.com/machine-learning/crash-course" target="_blank" rel="noopener">Google Machine Learning Crash Course (free, covers loss, gradient descent and overfitting)</a></li>
+        <li><a href="https://www.3blue1brown.com/topics/neural-networks" target="_blank" rel="noopener">3Blue1Brown, Neural Networks (the clearest visual explanation of gradient descent)</a></li>
+        <li><a href="https://docs.python.org/3/library/venv.html" target="_blank" rel="noopener">Python venv, official documentation</a></li>
+        <li><a href="https://pypi.org/project/python-dotenv/" target="_blank" rel="noopener">python-dotenv on PyPI</a></li>
+        <li><a href="https://github.com/openai/openai-python" target="_blank" rel="noopener">openai Python SDK (the client this course uses for every provider)</a></li>
+        <li><a href="https://github.com/ollama/ollama" target="_blank" rel="noopener">Ollama, the free local model runner</a></li>
+        </ul></section>
+    </div>
+    <nav data-chrome="pager"></nav>
+  </main>
+</div>
+
+<script src="../assets/data.js"></script>
+<script src="../assets/widgets.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

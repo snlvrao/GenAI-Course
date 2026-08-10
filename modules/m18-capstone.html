@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>18. Capstone - your research and document agent</title>
+<meta name="description" content="Combine everything into one agent that researches, reads your documents, cites its sources, and is measured and traced.">
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+</head>
+<body data-module="m18" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="6">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+        <div data-chrome="modhead"></div>
+        <p class="prose">You already have the four parts: an index over your own documents, an MCP server, a tool-calling loop, and a way to grade results. This module wires them into one program that puts a source label on every claim, stops at a money ceiling, writes down every step, and ships with a README a stranger can follow.</p>
+        <section class="section section--watch"><h2 class="section__h" data-stamp="take in"><span>Watch this first</span></h2>
+        <div data-videos="core"></div></section>
+        <section class="section section--ideas"><h2 class="section__h" data-stamp="take in"><span>The ideas, in plain English</span></h2>
+        <p class="small muted">Each idea, then a worked example of it.</p>
+        <div class="concepts">
+        <div class="concept"><div class="concept__n" aria-hidden="true">1</div><h3 class="concept__t">Write the finish line before the code</h3><p class="concept__b">A goal like &quot;build a research agent&quot; never finishes, because nothing tells you to stop. Pin it to things a command can decide: what one question looks like, which documents it may use, what the output must contain, and the test that says it works. Write the refusals down too, since deciding what it will not do (no open web, no email, no file edits) is what keeps the build small enough to finish.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>Goal you wrote</th><th>Can a command decide it?</th><th>What you would run</th></tr></thead><tbody><tr><td>Build a research agent</td><td>no</td><td>nothing</td></tr><tr><td>Answer questions about my 40 PDFs</td><td>no</td><td>nothing, there is no bar</td></tr><tr><td>8 questions, every [Sn] label resolves, each under $0.25</td><td>yes</td><td>python run_batch.py</td></tr><tr><td>Users find it helpful</td><td>no</td><td>nothing you can run today</td></tr></tbody></table><div class="eg__cap">Only the third row can end the project.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">2</div><h3 class="concept__t">Workflow first, agent only at the unknown step</h3><p class="concept__b">A <strong>workflow</strong> is a path you wrote in code, where step two always follows step one. An <strong>agent</strong> is a loop where the model picks the next step, so you cannot predict it in advance. Anthropic's published guidance is to prefer workflows and reach for agents only where the path genuinely cannot be known ahead of time. Here exactly one thing is unknown, how many searches the question needs, so that step gets a capped loop and everything else stays plain code.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>Part of the run</th><th>Who decides</th><th>Why</th></tr></thead><tbody><tr><td>retrieve(query)</td><td>your code</td><td>one call, fixed input and output shape</td></tr><tr><td>how many searches, and what words</td><td>the model, capped at 4</td><td>the question decides this, not you</td></tr><tr><td>check citations</td><td>your code</td><td>a regex, same verdict every time</td></tr><tr><td>trace and print</td><td>your code</td><td>no judgement involved</td></tr></tbody></table><div class="eg__cap">One row of four is agentic. The other three you can read top to bottom.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 660 270" role="img" aria-label="The capstone wires together the parts built in earlier modules" xmlns="http://www.w3.org/2000/svg"><title>The capstone wires together the parts built in earlier modules</title><defs><marker id="ah-cap" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><rect x="20" y="100" width="96" height="44" rx="6" class="d-box"/><text x="68.0" y="127.0" text-anchor="middle" class="d-t">your question</text><path d="M116 122 L148 122" class="d-arrow" marker-end="url(#ah-cap)"/><rect x="148" y="92" width="120" height="60" rx="6" class="d-fill"/><text x="208.0" y="118.0" text-anchor="middle" class="d-t">the agent loop</text><text x="208.0" y="135.0" text-anchor="middle" class="d-s">Module 12</text><path d="M268 108 L316 74" class="d-arrow" marker-end="url(#ah-cap)"/><path d="M268 136 L316 170" class="d-arrow" marker-end="url(#ah-cap)"/><rect x="316" y="52" width="130" height="44" rx="6" class="d-fill"/><text x="381.0" y="79.0" text-anchor="middle" class="d-t">MCP server</text><text x="381" y="40" text-anchor="middle" class="d-s">Module 13</text><rect x="316" y="150" width="130" height="44" rx="6" class="d-fill"/><text x="381.0" y="177.0" text-anchor="middle" class="d-t">your documents</text><text x="381" y="212" text-anchor="middle" class="d-s">Module 10: chunks, hybrid search, rerank</text><path d="M381 96 L381 148" class="d-line"/><path d="M446 122 L486 122" class="d-arrow" marker-end="url(#ah-cap)"/><rect x="486" y="92" width="150" height="60" rx="6" class="d-ok"/><text x="561.0" y="118.0" text-anchor="middle" class="d-t">answer + citations</text><text x="561.0" y="135.0" text-anchor="middle" class="d-s">every claim traceable</text><rect x="20" y="190" width="240" height="40" rx="6" class="d-warn"/><text x="140.0" y="215.0" text-anchor="middle" class="d-t">cost ceiling that can say no</text><path d="M208 190 L208 154" class="d-dash"/><rect x="486" y="190" width="150" height="40" rx="6" class="d-ok"/><text x="561.0" y="215.0" text-anchor="middle" class="d-t">traces and evals</text><text x="561" y="244" text-anchor="middle" class="d-s">Module 16</text><path d="M561 190 L561 154" class="d-dash"/><text x="330" y="24" text-anchor="middle" class="d-hi">nothing here is new: it is the parts you already built, wired together</text></svg><figcaption><b>The capstone.</b> By Module 18 you are not starting from an empty file. The retrieval came from Module 10, the MCP server from Module 13, the loop from Module 12 or 14, and the tracing and evaluation from Module 16. The new work is the wiring, the citations, and the ceiling that stops it spending your money forever.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">3</div><h3 class="concept__t">Small contracts between the parts</h3><p class="concept__b">Four pieces from earlier modules have to snap together, so fix each one's shape in writing. Retrieval takes a string and returns chunks, each with an id, a document name and text. The loop returns the answer plus the exact chunks it was shown, and the checker takes that pair. Keep the chunk id alive through every hand-off, because a citation you can verify is just an id that survived the trip.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre><span class="t-f">search</span>(<span class="t-s">&quot;reranking&quot;</span>)[<span class="t-s">0</span>]</pre><pre class="eg__out"><span class="t-o">{'id': 'c0412', 'doc': 'rag-notes.md',</span>
+<span class="t-o">'text': 'Reranking re-scores the top 50 hybrid hits and keeps 5...'}</span></pre><pre>r = <span class="t-f">research</span>(<span class="t-s">&quot;What did I write about reranking?&quot;</span>)</pre><pre class="eg__out"><span class="t-o">{'question': 'What did I write about reranking?',</span>
+<span class="t-o">'answer': 'Reranking re-scores the top 50 hybrid hits and keeps 5 [S1].',</span>
+<span class="t-o">'labels': {'S1': {'doc': 'rag-notes.md', 'text': 'Reranking re-scores...'}},</span>
+<span class="t-o">'searches': 2, 'usd': 0.0015}</span></pre><pre><span class="t-f">check</span>(r[<span class="t-s">&quot;answer&quot;</span>], r[<span class="t-s">&quot;labels&quot;</span>])</pre><p class="eg__say">{'ok': True, 'problems': [], 'used': ['S1']}</p><div class="eg__cap">Chunk id c0412 becomes S1 and is still checkable three functions later.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">4</div><h3 class="concept__t">Citations are a check you run, not a promise</h3><p class="concept__b">Ask nicely in the prompt and the model still sometimes writes [S7] when only S1 and S2 exist. Two checks in ordinary code catch most of it: every label must be one you handed over, and every factual sentence must carry a label. A third, weaker check is word overlap between the sentence and the chunk it cites, which catches a citation pointing at the wrong topic and misses a subtle wrong paraphrase. None of them sees <strong>temporal drift</strong>, where the text is quoted correctly but is no longer true, so print each document's date next to its label.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre>labels = {<span class="t-s">&quot;S1&quot;</span>: {<span class="t-s">&quot;doc&quot;</span>: <span class="t-s">&quot;rag-notes.md&quot;</span>, <span class="t-s">&quot;text&quot;</span>: <span class="t-s">&quot;Reranking re-scores the top 50 hybrid hits and keeps 5.&quot;</span>},
+          <span class="t-s">&quot;S2&quot;</span>: {<span class="t-s">&quot;doc&quot;</span>: <span class="t-s">&quot;rag-notes.md&quot;</span>, <span class="t-s">&quot;text&quot;</span>: <span class="t-s">&quot;Hybrid search fuses BM25 and vector hits.&quot;</span>}}   <span class="t-c"># the only two retrieved</span></pre><pre>answer = (<span class="t-s">&quot;Reranking re-scores the top 50 hybrid hits and keeps 5 [S1]. &quot;</span>
+          <span class="t-s">&quot;It lifts answer quality by about 12 percent [S7].&quot;</span>)</pre><pre><span class="t-f">check</span>(answer, labels)</pre><pre class="eg__out"><span class="t-o">{'ok': False,</span>
+<span class="t-o">'problems': ['S7 was never retrieved'],</span>
+<span class="t-o">'used': ['S1', 'S7']}</span></pre><div class="eg__cap">A real failure: the model invented [S7] and the regex caught it.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">5</div><h3 class="concept__t">A cost ceiling is a counter that can say no</h3><p class="concept__b">Agent runs are input-heavy. You push tens of thousands of input tokens through the model to get a few hundred back, so the input price decides your bill, not the headline output price. Keep a running total after every call and raise an error the moment it crosses the ceiling, because a printed warning gets scrolled past and an error stops the loop. Cached input costs about a tenth of fresh input, but the cache matches from the start of the prompt forward, so put timestamps and run ids at the very end.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>Call</th><th>Input tokens</th><th>Output tokens</th><th>Cost at $0.20 in / $1.20 out per M</th></tr></thead><tbody><tr><td>1, no results yet</td><td>210</td><td>28</td><td>$0.000076</td></tr><tr><td>2, one search result</td><td>1,050</td><td>31</td><td>$0.000247</td></tr><tr><td>3, two search results</td><td>1,880</td><td>24</td><td>$0.000405</td></tr><tr><td>4, final answer</td><td>2,700</td><td>180</td><td>$0.000756</td></tr><tr><td>whole run</td><td>5,840</td><td>263</td><td>$0.001484</td></tr></tbody></table><div class="eg__cap">Input is 96 percent of the tokens. The run costs a seventh of a cent.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">6</div><h3 class="concept__t">Traces are what you actually debug</h3><p class="concept__b">Write one JSON line per step as it happens: step name, query sent, ids returned, tokens used, time. Without it you only have the final paragraph, and agents usually break in the middle, producing a confident answer built on a search that returned nothing. Read twenty of your own traces and sort the failures into groups before you write any evaluator, so you measure the failures you have rather than the ones you imagined. Plain JSONL is enough for a capstone, and the hosted tracing market has churned enough that a tool named in a 2025 tutorial may have changed owner or licence.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">traces/run.jsonl, four lines from one run</p><pre>{<span class="t-f">&quot;run&quot;</span>:<span class="t-s">&quot;9f2ab41c&quot;</span>,<span class="t-f">&quot;ts&quot;</span>:<span class="t-s">1754400012.418</span>,<span class="t-f">&quot;step&quot;</span>:<span class="t-s">&quot;search&quot;</span>,<span class="t-f">&quot;turn&quot;</span>:<span class="t-s">0</span>,
+ <span class="t-f">&quot;query&quot;</span>:<span class="t-s">&quot;reranking&quot;</span>,<span class="t-f">&quot;hits&quot;</span>:[<span class="t-s">&quot;c0412&quot;</span>,<span class="t-s">&quot;c0417&quot;</span>]}
+{<span class="t-f">&quot;run&quot;</span>:<span class="t-s">&quot;9f2ab41c&quot;</span>,<span class="t-f">&quot;ts&quot;</span>:<span class="t-s">1754400013.902</span>,<span class="t-f">&quot;step&quot;</span>:<span class="t-s">&quot;search&quot;</span>,<span class="t-f">&quot;turn&quot;</span>:<span class="t-s">1</span>,
+ <span class="t-f">&quot;query&quot;</span>:<span class="t-s">&quot;rerank latency cost&quot;</span>,<span class="t-f">&quot;hits&quot;</span>:[]}
+{<span class="t-f">&quot;run&quot;</span>:<span class="t-s">&quot;9f2ab41c&quot;</span>,<span class="t-f">&quot;ts&quot;</span>:<span class="t-s">1754400015.230</span>,<span class="t-f">&quot;step&quot;</span>:<span class="t-s">&quot;cost&quot;</span>,<span class="t-f">&quot;usd&quot;</span>:<span class="t-s">0.0012</span>,
+ <span class="t-f">&quot;tokens_in&quot;</span>:<span class="t-s">4820</span>,<span class="t-f">&quot;tokens_out&quot;</span>:<span class="t-s">210</span>}
+{<span class="t-f">&quot;run&quot;</span>:<span class="t-s">&quot;9f2ab41c&quot;</span>,<span class="t-f">&quot;ts&quot;</span>:<span class="t-s">1754400015.244</span>,<span class="t-f">&quot;step&quot;</span>:<span class="t-s">&quot;answer&quot;</span>,<span class="t-f">&quot;turn&quot;</span>:<span class="t-s">2</span>,
+ <span class="t-f">&quot;words&quot;</span>:<span class="t-s">86</span>,<span class="t-f">&quot;searches&quot;</span>:<span class="t-s">2</span>}</pre><div class="eg__cap">Turn 1 returned no hits and the answer still went out. That is the bug.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">7</div><h3 class="concept__t">Grade the path, not just the last paragraph</h3><p class="concept__b">Use pass or fail, not a 1 to 5 score, because the gap between a 3 and a 4 is not stable between runs and graders bunch up in the middle. Grade steps as well as the ending: did it search at all, did it stop after one weak search, did it cite a label no tool result contained. Model graders have measurable habits, including favouring answers from their own model family by roughly 10 to 25 points. So label the runs yourself, judge with a different family, and report the true positive rate and the true negative rate separately. Module 16 asked for forty to a hundred labelled runs, and the eight below are well under that, so read them as the shape of the arithmetic rather than a measurement you can lean on.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>Your label</th><th>judge said PASS</th><th>judge said FAIL</th></tr></thead><tbody><tr><td>you passed 6</td><td>6</td><td>0</td></tr><tr><td>you failed 2</td><td>2</td><td>0</td></tr></tbody></table><div class="eg__cap">TPR is 6/6 = 1.00 and TNR is 0/2 = 0.00. A judge that says PASS to everything still scores 75 percent raw agreement.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">8</div><h3 class="concept__t">A README a stranger can follow</h3><p class="concept__b">The test is one person with a clean machine, no memory of your decisions, following your file literally and getting a cited answer. That needs exact install commands, how to build the index from their own files, one command to run it, a real example answer with its labels, the cost per question, and an honest list of what it cannot do. As of August 2026 the free hosts that still exist are Modal, Hugging Face Spaces, Cloudflare Workers AI and Render; Railway and Fly.io no longer have real free tiers. Check the pricing page yourself on the day you deploy, because this list ages faster than anything else in the course.</p>
+        <div class="eg"><div class="eg__h">Example</div><p>Priya had never seen the project. On her own Windows laptop she ran: git clone, pip install -r requirements.txt, python ingest.py from Module 10 to build the index over her own PDFs in docs/, then python cite.py, which asks one question and prints the answer with its labels. She got a cited answer in 7 minutes. She stopped twice: the README said &quot;install the dependencies&quot; without a command, and it never warned that the first index build sits silent for about 90 seconds while the embedding model downloads. Both became lines in the README.</p><div class="eg__cap">The stranger test, and the two README lines it produced.</div></div>
+        </div>
+        </div></section>
+        <div class="note note--gap"><div class="note__t">Worth knowing</div><p>Almost every video and blog post about MCP predates the 2026-07-28 revision, so they will show an <code>initialize</code> handshake, session headers, and a FastMCP import that no longer exist in the official SDK. Free hosting tiers are the fastest-moving fact in this module, so check the host's pricing page yourself on the day you deploy rather than trusting this or any other list.</p></div>
+        <section class="section section--more"><h2 class="section__h" data-stamp="optional"><span>If you want to go deeper</span></h2>
+        <p class="small muted">Optional.</p>
+        <div data-videos="more"></div></section>
+        <section class="section section--lab"><h2 class="section__h" data-stamp="hands on"><span>Lab: follow along</span></h2>
+        <div data-setupbanner></div>
+        
+        <p class="prose">You are going to bolt the whole course into one program. It takes a question, searches the documents you indexed back in Module 10, writes a short answer where every fact carries a source label, stops itself if the cost crosses a limit you set, writes down every step it took to a file, and then gets marked pass or fail by a second model. Everything runs on your own laptop with the packages you already installed, so there is no Docker, no server and no graphics card anywhere in this lab. Before you start, run <code>python llm.py</code> and check it prints a working line, because every step from step 5 onwards calls a model and a broken key will look like a broken agent.</p>
+        <p class="small muted">Code given, every line explained.</p>
+        <ol class="steps">
+        <li><h3>Write the spec first, in one screen</h3><p>A <strong>spec</strong> is a short written description of what you are building and how you will know it is finished. Write it before any Python, because a goal like &quot;build a research agent&quot; has no end and you will keep adding features until you get bored. Two lines carry most of the weight. The <code>Fixed path</code> line and the <code>Model decides</code> line split the program into the part you write as ordinary code and the one small part where the model chooses what happens next, and that split is the whole reason this program stays debuggable. The <code>Done when</code> line is the only thing in the file that can tell you to stop building. Nothing runs in this step, so all you should see afterwards is a new folder <code>my-work/labs/lab18/capstone/</code> with one file called <code>SPEC.md</code> in it. Keep that file open in a second window while you build, because every later step maps back to one line in it.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>SPEC.<span class="t-f">md</span>  (plain text, <span class="t-k">not</span> Python)
+
+Job:      answer questions about the documents already indexed <span class="t-k">in</span> notes.db.
+Input:    one question, plain text.
+Output:   under <span class="t-s">200</span> words. Every sentence stating a fact ends <span class="t-k">with</span> a label
+          like [S2]. Plus the list of labels used <span class="t-k">and</span> the document behind each.
+Refuses:  questions the documents do <span class="t-k">not</span> <span class="t-f">cover</span> (it says so instead of guessing).
+          anything needing the live web. There <span class="t-k">is</span> no web tool <span class="t-k">and</span> no send tool.
+
+Fixed <span class="t-f">path</span> (code):   retrieve -&gt; draft -&gt; check citations -&gt; print -&gt; trace.
+Model decides:       which searches to run <span class="t-k">and</span> when it has enough. Max <span class="t-s">4</span>.
+Ceiling:             <span class="t-s">25</span> cents per question, enforced <span class="t-k">in</span> code, <span class="t-k">not</span> <span class="t-k">in</span> the prompt.
+
+Done when: <span class="t-s">8</span> test questions run, every label <span class="t-k">in</span> every answer checks out,
+           no run exceeds the ceiling, traces/run.jsonl has one line per step,
+           <span class="t-k">and</span> a judge <span class="t-k">from</span> a different model family mostly agrees <span class="t-k">with</span> my
+           own <span class="t-k">pass</span>/fail labels.</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>Refuses:  questions the documents do not cover (it says so instead of guessing).</dt><dd>Writing down what the program will not do is what keeps the build small enough to finish. A refusal you planned for is a feature you can test; a refusal nobody planned is a bug report.</dd>
+        <dt>Fixed path (code):   retrieve -&gt; draft -&gt; check citations -&gt; print -&gt; trace.</dt><dd>This is a workflow, meaning a path written in code where step two always follows step one. You can read it top to bottom and predict it, so when an answer looks wrong you know which box to open.</dd>
+        <dt>Model decides:       which searches to run and when it has enough. Max 4.</dt><dd>This is the only agent part, meaning the only loop where the model picks the next move instead of you. It gets a hard number bolted to it, so even the unpredictable step has a predictable worst case.</dd>
+        <dt>Ceiling:             25 cents per question, enforced in code, not in the prompt.</dt><dd>A model can ignore an instruction written in a prompt, because a prompt is just text it is free to reinterpret. A counter in Python that raises an error cannot be talked out of it, so the limit lives in code.</dd>
+        <dt>Done when: 8 test questions run, every label in every answer checks out,</dt><dd>Every clause here is something you check by running a command, not an opinion you form while looking at the screen. That is the difference between a finish line and a wish.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Where does &quot;25 cents per question&quot; come from, and what does it actually buy?
+
+  price per token      = price per million / 1,000,000
+  tokens you can afford = ceiling in dollars / price per token
+
+Symbols: ceiling is the dollar limit you chose (0.25 here). Price per million is what your provider charges for a million tokens. A token is a chunk of text roughly three quarters of an English word.
+
+Worked example, using the input price this lab uses later (0.20 dollars per million):
+  price per token       = 0.20 / 1,000,000 = 0.0000002 dollars
+  tokens you can afford = 0.25 / 0.0000002 = 1,250,000 tokens
+
+So 25 cents buys about 1.25 million input tokens, which is roughly 900,000 English words pushed through the model. Four searches will never come close to that. That is the point: the ceiling is a fence for the run that goes wrong, not a budget you expect to spend.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>The easiest mistake here is treating SPEC.md as paperwork and skipping it, and the tell is simple: if you cannot write the &quot;Done when&quot; line, you do not yet know what you are building.</span></div>
+        </li>
+        <li><h3>Settings, a money counter, and a trace file</h3><p>Two small files hold everything the rest of the program shares. <code>config.py</code> is just named values in one place, so when the price or the search cap changes you edit one line and every other file sees it. <code>guard.py</code> does two jobs: <code>Budget</code> counts tokens after every model call and raises an error the moment the running cost crosses your ceiling, and <code>trace()</code> writes one line of JSON per step to a file. Without <code>Budget</code>, a loop that keeps deciding it needs one more search keeps spending, and a printed warning is easy to scroll past, so this raises an error instead, which actually stops the program. Without <code>trace()</code> you only ever see the final paragraph, and agents almost always break in the middle, producing a confident answer built on a search that found nothing useful. Nothing prints when you create these two files, so the first thing you will see is a <code>traces/run.jsonl</code> file appearing after step 6 runs. The numbers in <code>PRICE_PER_M</code> are the cheap-tier list price from August 2026, so open your provider's pricing page and replace them with the real ones before you trust any cost you print.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># ---- config.py ----</span>
+<span class="t-k">from</span> pathlib <span class="t-k">import</span> Path
+
+ROOT        = <span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parent
+DB_PATH     = ROOT / <span class="t-s">&quot;notes.db&quot;</span>          <span class="t-c"># the index you built in Module 10</span>
+TRACE_PATH  = ROOT / <span class="t-s">&quot;traces&quot;</span> / <span class="t-s">&quot;run.jsonl&quot;</span>
+EMBED_MODEL = <span class="t-s">&quot;sentence-transformers/all-MiniLM-L6-v2&quot;</span>
+MAX_SEARCHES = <span class="t-s">4</span>
+USD_CEILING  = <span class="t-s">0.25</span>
+PRICE_PER_M  = {<span class="t-s">&quot;in&quot;</span>: <span class="t-s">0.20</span>, <span class="t-s">&quot;out&quot;</span>: <span class="t-s">1.20</span>}   <span class="t-c"># dollars per million tokens</span>
+
+<span class="t-c"># ---- guard.py ----</span>
+<span class="t-k">import</span> json, time, uuid
+<span class="t-k">from</span> config <span class="t-k">import</span> TRACE_PATH, USD_CEILING, PRICE_PER_M
+
+RUN_ID = uuid.<span class="t-f">uuid4</span>().hex[:<span class="t-s">8</span>]
+
+<span class="t-k">class</span> <span class="t-f">OverBudget</span>(Exception):
+    <span class="t-k">pass</span>
+
+<span class="t-k">class</span> Budget:
+    <span class="t-k">def</span> <span class="t-f">__init__</span>(<span class="t-k">self</span>, ceiling=USD_CEILING):
+        <span class="t-k">self</span>.ceiling, <span class="t-k">self</span>.in_tokens, <span class="t-k">self</span>.out_tokens = ceiling, <span class="t-s">0</span>, <span class="t-s">0</span>
+
+    @property
+    <span class="t-k">def</span> <span class="t-f">usd</span>(<span class="t-k">self</span>):
+        <span class="t-k">return</span> (<span class="t-k">self</span>.in_tokens / <span class="t-s">1e6</span>) * PRICE_PER_M[<span class="t-s">&quot;in&quot;</span>] + \
+               (<span class="t-k">self</span>.out_tokens / <span class="t-s">1e6</span>) * PRICE_PER_M[<span class="t-s">&quot;out&quot;</span>]
+
+    <span class="t-k">def</span> <span class="t-f">add</span>(<span class="t-k">self</span>, usage):
+        <span class="t-k">self</span>.in_tokens  += <span class="t-f">int</span>(<span class="t-f">getattr</span>(usage, <span class="t-s">&quot;prompt_tokens&quot;</span>, <span class="t-s">0</span>) <span class="t-k">or</span> <span class="t-s">0</span>)
+        <span class="t-k">self</span>.out_tokens += <span class="t-f">int</span>(<span class="t-f">getattr</span>(usage, <span class="t-s">&quot;completion_tokens&quot;</span>, <span class="t-s">0</span>) <span class="t-k">or</span> <span class="t-s">0</span>)
+        <span class="t-f">trace</span>(<span class="t-s">&quot;cost&quot;</span>, usd=<span class="t-f">round</span>(<span class="t-k">self</span>.usd, <span class="t-s">4</span>),
+              tokens_in=<span class="t-k">self</span>.in_tokens, tokens_out=<span class="t-k">self</span>.out_tokens)
+        <span class="t-k">if</span> <span class="t-k">self</span>.usd &gt; <span class="t-k">self</span>.ceiling:
+            <span class="t-k">raise</span> <span class="t-f">OverBudget</span>(f<span class="t-s">&quot;stopped at ${self.usd:.4f}, ceiling ${self.ceiling:.2f}&quot;</span>)
+
+<span class="t-k">def</span> <span class="t-f">trace</span>(step, **fields):
+    TRACE_PATH.parent.<span class="t-f">mkdir</span>(parents=<span class="t-k">True</span>, exist_ok=<span class="t-k">True</span>)
+    row = {<span class="t-s">&quot;run&quot;</span>: RUN_ID, <span class="t-s">&quot;ts&quot;</span>: <span class="t-f">round</span>(time.<span class="t-f">time</span>(), <span class="t-s">3</span>), <span class="t-s">&quot;step&quot;</span>: step}
+    row.<span class="t-f">update</span>(fields)
+    <span class="t-k">with</span> <span class="t-f">open</span>(TRACE_PATH, <span class="t-s">&quot;a&quot;</span>, encoding=<span class="t-s">&quot;utf-8&quot;</span>) <span class="t-k">as</span> f:
+        f.<span class="t-f">write</span>(json.<span class="t-f">dumps</span>(row, ensure_ascii=<span class="t-k">False</span>, default=str) + <span class="t-s">&quot;\n&quot;</span>)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>PRICE_PER_M  = {&quot;in&quot;: 0.20, &quot;out&quot;: 1.20}   # dollars per million tokens</dt><dd>Input and output tokens are priced differently, and output is usually several times more expensive per token. Keeping both in one dictionary lets the cost formula below stay a single expression.</dd>
+        <dt>the usd property</dt><dd>A property is a method you read like a plain value, so you write budget.usd and not budget.usd(). It recalculates the total from the two counters every time you read it, so the number can never quietly drift out of date.</dd>
+        <dt>self.in_tokens  += int(getattr(usage, &quot;prompt_tokens&quot;, 0) or 0)</dt><dd>getattr with a default keeps this line working even when the provider hands back no usage object at all, which some local servers do. The `or 0` catches the case where the field exists but is None, and int() makes sure you are adding a number rather than a string.</dd>
+        <dt>raise OverBudget(f&quot;stopped at ${self.usd:.4f}, ceiling ${self.ceiling:.2f}&quot;)</dt><dd>Raising an exception stops the loop where it stands and hands control back to whoever called it. A print statement would scroll past and the loop would carry on spending your money.</dd>
+        <dt>row = {&quot;run&quot;: RUN_ID, &quot;ts&quot;: round(time.time(), 3), &quot;step&quot;: step}</dt><dd>Every traced line carries the same run id and a timestamp. That lets you pull one run out of a file holding fifty of them, and put its steps back in the order they happened.</dd>
+        <dt>f.write(json.dumps(row, ensure_ascii=False, default=str) + &quot;\n&quot;)</dt><dd>One JSON object per line is called JSONL, and it means a crash halfway through still leaves you every line written up to that point. default=str stops json.dumps from blowing up on an object it does not know how to convert.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>The cost formula inside the usd property, written out in plain characters:
+
+  usd = (input tokens / 1,000,000) * price_in + (output tokens / 1,000,000) * price_out
+
+Symbols: input tokens is everything you sent the model on that call (system prompt, the question, and every tool result so far). Output tokens is what the model wrote back. price_in and price_out are dollars per million tokens, 0.20 and 1.20 in this lab.
+
+Worked example for one ordinary question, 12,000 input tokens and 300 output tokens:
+  input part  = (12,000 / 1,000,000) * 0.20 = 0.012  * 0.20 = 0.00240 dollars
+  output part = (300    / 1,000,000) * 1.20 = 0.0003 * 1.20 = 0.00036 dollars
+  usd = 0.00240 + 0.00036 = 0.00276 dollars, about a quarter of one cent
+
+Look at the ratio. The input side is nearly seven times the output side even though each output token costs six times more, because you sent forty times more tokens than you got back. Agent runs are lopsided that way, so the input price is the number that decides your bill, not the headline output price.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If your provider names its usage fields differently, every cost line will read 0.0 and the ceiling will never fire, so check that the very first cost line in run.jsonl has a non-zero tokens_in.</span></div>
+        </li>
+        <li><h3>One retrieval function over the Module 10 index</h3><p>This step gives the rest of the program exactly one way in to your documents: pass a string, get back a small list of <strong>chunks</strong>, each with an id, a document name and its text. A chunk is one small slice of a document, usually a few hundred words, because whole documents are too big to hand to a model in one go. Two different searches run over the same chunks. <strong>BM25</strong> is a keyword search that scores a chunk by how many of your query's words it contains and how rare those words are across all your chunks, and <strong>vector search</strong> compares meaning by turning text into a list of numbers and finding the closest ones. They fail in different ways, so the function merges the two ranked lists with <strong>Reciprocal Rank Fusion</strong>, which throws away the raw scores and looks only at each chunk's position in each list. Running <code>python retrieve.py</code> should print four lines, each showing a chunk id, a file name and the first 90 characters of the text. Two SQL strings assume the schema from Module 10, a <code>chunks</code> table with id, doc and text, and a vec0 table <code>chunk_vec</code> whose rowid lines up, so if your column names differ, change those two strings and nothing else in the file.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># ---- retrieve.py ----</span>
+<span class="t-k">import</span> re, sqlite3, sqlite_vec
+<span class="t-k">from</span> rank_bm25 <span class="t-k">import</span> BM25Okapi
+<span class="t-k">from</span> sentence_transformers <span class="t-k">import</span> SentenceTransformer
+<span class="t-k">from</span> config <span class="t-k">import</span> DB_PATH, EMBED_MODEL
+
+_model = <span class="t-k">None</span>
+
+<span class="t-k">def</span> <span class="t-f">_embed</span>(text):
+    <span class="t-k">global</span> _model
+    <span class="t-k">if</span> _model <span class="t-k">is</span> <span class="t-k">None</span>:
+        _model = <span class="t-f">SentenceTransformer</span>(EMBED_MODEL)
+    <span class="t-k">return</span> _model.<span class="t-f">encode</span>([text])[<span class="t-s">0</span>].<span class="t-f">tolist</span>()
+
+<span class="t-k">def</span> <span class="t-f">_open</span>():
+    con = sqlite3.<span class="t-f">connect</span>(DB_PATH)
+    con.<span class="t-f">enable_load_extension</span>(<span class="t-k">True</span>)
+    sqlite_vec.<span class="t-f">load</span>(con)
+    con.<span class="t-f">enable_load_extension</span>(<span class="t-k">False</span>)
+    <span class="t-k">return</span> con
+
+<span class="t-k">def</span> <span class="t-f">_words</span>(s):
+    <span class="t-k">return</span> re.<span class="t-f">findall</span>(r<span class="t-s">&quot;[a-z0-9]+&quot;</span>, s.<span class="t-f">lower</span>())
+
+<span class="t-k">def</span> <span class="t-f">search</span>(query, k=<span class="t-s">4</span>):
+    con = <span class="t-f">_open</span>()
+    rows = con.<span class="t-f">execute</span>(<span class="t-s">&quot;SELECT rowid, id, doc, text FROM chunks&quot;</span>).<span class="t-f">fetchall</span>()
+    by_id   = {r[<span class="t-s">1</span>]: {<span class="t-s">&quot;id&quot;</span>: r[<span class="t-s">1</span>], <span class="t-s">&quot;doc&quot;</span>: r[<span class="t-s">2</span>], <span class="t-s">&quot;text&quot;</span>: r[<span class="t-s">3</span>]} <span class="t-k">for</span> r <span class="t-k">in</span> rows}
+    by_row  = {r[<span class="t-s">0</span>]: r[<span class="t-s">1</span>] <span class="t-k">for</span> r <span class="t-k">in</span> rows}
+
+    bm = <span class="t-f">BM25Okapi</span>([<span class="t-f">_words</span>(r[<span class="t-s">3</span>]) <span class="t-k">for</span> r <span class="t-k">in</span> rows])
+    scores = bm.<span class="t-f">get_scores</span>(<span class="t-f">_words</span>(query))
+    keyword = [rows[i][<span class="t-s">1</span>] <span class="t-k">for</span> i <span class="t-k">in</span> <span class="t-f">sorted</span>(<span class="t-f">range</span>(<span class="t-f">len</span>(rows)), key=<span class="t-k">lambda</span> i: -scores[i])[:<span class="t-s">20</span>]]
+
+    vec = con.<span class="t-f">execute</span>(
+        <span class="t-s">&quot;SELECT rowid FROM chunk_vec WHERE embedding MATCH ? ORDER BY distance LIMIT 20&quot;</span>,
+        (sqlite_vec.<span class="t-f">serialize_float32</span>(<span class="t-f">_embed</span>(query)),)).<span class="t-f">fetchall</span>()
+    meaning = [by_row[r[<span class="t-s">0</span>]] <span class="t-k">for</span> r <span class="t-k">in</span> vec <span class="t-k">if</span> r[<span class="t-s">0</span>] <span class="t-k">in</span> by_row]
+    con.<span class="t-f">close</span>()
+
+    fused = {}
+    <span class="t-k">for</span> ranked <span class="t-k">in</span> (keyword, meaning):                 <span class="t-c"># Reciprocal Rank Fusion, k=60</span>
+        <span class="t-k">for</span> position, cid <span class="t-k">in</span> <span class="t-f">enumerate</span>(ranked, start=<span class="t-s">1</span>):
+            fused[cid] = fused.<span class="t-f">get</span>(cid, <span class="t-s">0.0</span>) + <span class="t-s">1.0</span> / (<span class="t-s">60</span> + position)
+    best = <span class="t-f">sorted</span>(fused, key=<span class="t-k">lambda</span> c: -fused[c])[:k]
+    <span class="t-k">return</span> [by_id[c] <span class="t-k">for</span> c <span class="t-k">in</span> best]
+
+<span class="t-k">if</span> __name__ == <span class="t-s">&quot;__main__&quot;</span>:
+    <span class="t-k">for</span> hit <span class="t-k">in</span> <span class="t-f">search</span>(<span class="t-s">&quot;what did I write about reranking&quot;</span>):
+        <span class="t-f">print</span>(hit[<span class="t-s">&quot;id&quot;</span>], hit[<span class="t-s">&quot;doc&quot;</span>], hit[<span class="t-s">&quot;text&quot;</span>][:<span class="t-s">90</span>])</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>the _embed function and its global _model</dt><dd>SentenceTransformer has to download and load a model file, which takes several seconds and a few hundred megabytes of memory. Loading it once into a module-level variable means only the first search pays that cost, not all four searches in a run.</dd>
+        <dt>sqlite_vec.load(con)</dt><dd>sqlite-vec is an extension that teaches plain SQLite how to store vectors and find nearest neighbours. Without this line SQLite has no idea what chunk_vec is and the vector query fails.</dd>
+        <dt>bm = BM25Okapi([_words(r[3]) for r in rows])</dt><dd>BM25Okapi wants every chunk already split into a list of lowercase words, which is exactly what _words returns. This rebuilds the keyword index on every single call, which is fine for a few thousand chunks on a laptop and would not be fine for a million.</dd>
+        <dt>&quot;SELECT rowid FROM chunk_vec WHERE embedding MATCH ? ORDER BY distance LIMIT 20&quot;</dt><dd>MATCH is how sqlite-vec asks for nearest neighbours, and distance is smaller when two pieces of text mean similar things. LIMIT 20 keeps the list deep enough that the fusion step has something to work with, since only the top 4 survive at the end.</dd>
+        <dt>fused[cid] = fused.get(cid, 0.0) + 1.0 / (60 + position)</dt><dd>This one line is the whole of Reciprocal Rank Fusion. It deliberately ignores the raw BM25 score and the vector distance, which live on completely different scales and cannot be sensibly added, and uses only the position in each list.</dd>
+        <dt>best = sorted(fused, key=lambda c: -fused[c])[:k]</dt><dd>The minus sign flips the order so the highest score comes first, because Python sorts smallest-first by default. Slicing to k keeps only the four chunks the model will actually be shown.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Three numbers are hiding in this step. Two of them you never see printed.
+
+1) RECIPROCAL RANK FUSION, the line you can see
+
+  score(chunk) = sum, over each list the chunk appears in, of  1 / (60 + position)
+
+Symbols: position is 1 for the top hit, 2 for the next, and so on. 60 is a constant usually called k, and it flattens the curve so the top result is not worth wildly more than the second. A chunk missing from a list simply adds nothing.
+
+Worked example. Keyword list: A, B, C. Vector list: C, A, D.
+  A: 1/(60+1) + 1/(60+2) = 0.01639 + 0.01613 = 0.03252
+  C: 1/(60+3) + 1/(60+1) = 0.01587 + 0.01639 = 0.03226
+  B: 1/(60+2)            = 0.01613
+  D: 1/(60+3)            = 0.01587
+  Final order: A, C, B, D.
+A wins because both searches liked it, even though C was the vector search's own favourite.
+Why 60 matters: set k to 0 instead and position 1 scores 1.000 while position 2 scores 0.500, so whichever list you looked at first would dominate everything. With k = 60 the gap between first and second place is under 2 percent, so agreement between the two searches counts for more than being first in one of them.
+
+2) BM25, the keyword score you never see
+
+  score = sum over query words of  idf(word) * (f * (k1 + 1)) / (f + k1 * (1 - b + b * L / Lavg))
+
+Symbols: f is how many times that word appears in this chunk, L is this chunk's length in words, Lavg is the average chunk length, and k1 (about 1.5) and b (about 0.75) are settings rank_bm25 fills in for you. idf means inverse document frequency and is roughly log(N / n), where N is the total number of chunks and n is how many contain that word.
+
+Worked example of just the idf part, with 1,000 chunks:
+  &quot;reranking&quot; appears in 5 chunks   -&gt; idf = log(1000 / 5)   = log(200) = 5.30
+  &quot;the&quot; appears in 990 chunks       -&gt; idf = log(1000 / 990) = 0.01
+  Matching on &quot;reranking&quot; is worth about 500 times more than matching on &quot;the&quot;.
+That is the whole reason BM25 beats plain word counting: rare words carry the signal.
+
+3) VECTOR DISTANCE, the meaning score you never see
+
+all-MiniLM-L6-v2 turns any text into 384 numbers. Texts about the same thing end up pointing in a similar direction, and the usual measure of that is cosine similarity:
+
+  cosine = (sum of a_i * b_i) / (length of a * length of b)
+
+Worked example using 2 numbers instead of 384, with a = (3, 4) and b = (4, 3):
+  top         = 3*4 + 4*3 = 24
+  length of a = square root of (9 + 16) = 5, and length of b = 5 as well
+  cosine      = 24 / 25 = 0.96, so the two are close in meaning
+Cosine runs from 1 (same direction) through 0 (unrelated) to -1 (opposite). sqlite-vec reports a distance rather than a similarity, and the exact distance measure depends on how you created the table back in Module 10, but in every case a smaller distance means closer, which is why the query says ORDER BY distance and not ORDER BY score.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>The very first run downloads the embedding model, so a long silent pause is normal, but an error saying &quot;no such table: chunk_vec&quot; means your Module 10 schema uses different names and you must edit the two SQL strings.</span></div>
+        </li>
+        <li><h3>Put a second door on it: the MCP server</h3><p><strong>MCP</strong>, the Model Context Protocol, is an agreed way for one program to offer tools to another program. This step puts the same <code>search</code> function behind that standard, so any MCP client can search your notes without importing a line of your Python. Watch the import: in the official SDK version 2.0.0 the class is <code>MCPServer</code>, and <code>mcp.server.fastmcp</code> no longer exists, so any tutorial importing FastMCP from there is from the old era (there is also an unrelated package on PyPI called fastmcp, which is a different project by different people). The protocol has been stateless since 2026-07-28, meaning there is no initialize handshake to write and no session id to carry around, so videos showing those steps are out of date too. Keep this tool read-only and give it no way to send anything anywhere, which is the cheapest security decision in the whole module, because a model cannot reliably tell your instructions apart from text that arrived inside one of your documents. Running <code>python server.py</code> prints nothing and looks frozen, and that is correct: it is waiting for a client to talk to it over standard input, so test it with a client script exactly as you did in Module 13.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># ---- server.py ----</span>
+<span class="t-k">from</span> mcp.server <span class="t-k">import</span> MCPServer          <span class="t-c"># NOT mcp.server.fastmcp, that module is gone</span>
+<span class="t-k">from</span> retrieve <span class="t-k">import</span> search
+
+mcp = <span class="t-f">MCPServer</span>(<span class="t-s">&quot;capstone-notes&quot;</span>)
+
+@mcp.<span class="t-f">tool</span>()
+<span class="t-k">def</span> <span class="t-f">search_notes</span>(query: str, k: int = <span class="t-s">4</span>) -&gt; dict:
+    <span class="t-s">&quot;&quot;&quot;Search the local notes index. Read only. Returns chunks with source ids.&quot;&quot;&quot;</span>
+    hits = <span class="t-f">search</span>(query, k=k)
+    <span class="t-k">return</span> {<span class="t-s">&quot;hits&quot;</span>: [{<span class="t-s">&quot;source_id&quot;</span>: h[<span class="t-s">&quot;id&quot;</span>], <span class="t-s">&quot;doc&quot;</span>: h[<span class="t-s">&quot;doc&quot;</span>], <span class="t-s">&quot;text&quot;</span>: h[<span class="t-s">&quot;text&quot;</span>][:<span class="t-s">800</span>]}
+                     <span class="t-k">for</span> h <span class="t-k">in</span> hits]}
+
+<span class="t-k">if</span> __name__ == <span class="t-s">&quot;__main__&quot;</span>:
+    mcp.<span class="t-f">run</span>()        <span class="t-c"># stdio transport, the default</span>
+
+<span class="t-c"># Test it the same way you tested Module 13's server.</span>
+<span class="t-c"># Returning a dict gives the client structured output. On the wire that field is</span>
+<span class="t-c"># camelCase (structuredContent); in Python it is snake_case (structured_content).</span>
+<span class="t-c"># For deployment you switch to the Streamable HTTP transport; check the SDK</span>
+<span class="t-c"># README for the exact flag, since standalone HTTP+SSE was removed.</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>from mcp.server import MCPServer          # NOT mcp.server.fastmcp, that module is gone</dt><dd>This is the single line most likely to be wrong if you copy from an older blog post or video. The class moved, and the old import path fails with ModuleNotFoundError rather than anything that explains itself.</dd>
+        <dt>@mcp.tool()</dt><dd>The decorator registers the function as a tool that clients can list and call. The SDK reads your type hints (query: str, k: int = 4) and builds the tool's input schema from them, so you never hand-write that JSON.</dd>
+        <dt>&quot;&quot;&quot;Search the local notes index. Read only. Returns chunks with source ids.&quot;&quot;&quot;</dt><dd>The docstring is not only for humans. It becomes the tool description the model reads when deciding whether this tool is the right one, so vague wording here shows up later as the model calling the wrong tool or not calling anything.</dd>
+        <dt>h[&quot;text&quot;][:800]</dt><dd>Truncating each chunk keeps the tool result small. Everything you return travels back into the model as input tokens and gets paid for on that call and on every call afterwards.</dd>
+        <dt>mcp.run()        # stdio transport, the default</dt><dd>stdio means the client launches this file as a child process and talks to it over standard input and output. Nothing opens a network port, which is exactly why the program looks frozen when you run it by hand.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>One number here is worth doing arithmetic on: the 800 in h[&quot;text&quot;][:800].
+
+  tokens is roughly characters / 4                 (English prose, rough rule)
+  tool result tokens is roughly k * chunk characters / 4
+
+Symbols: k is how many chunks you return, 4 by default. The 4 characters per token is an average for ordinary English; code, URLs and unusual words come out worse than that.
+
+Worked example with 4 chunks of 800 characters each:
+  4 * 800 = 3,200 characters
+  3,200 / 4 = about 800 tokens for that one tool result
+  cost of sending it once, at 0.20 dollars per million input tokens:
+  800 * 0.20 / 1,000,000 = 0.00016 dollars, about one sixtieth of a cent
+And it is resent on every later turn of the loop, so multiply by the number of turns that follow it.
+
+Intuitively the truncation number is a dial with cost on one side and evidence on the other. Raise it to 4,000 and each result becomes about 1,000 tokens per chunk, five times the price, and you also give the model more room to lose the one useful sentence inside a wall of text.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>python server.py sitting silently is the stdio transport waiting for a client, not a hang, so drive it from a client script instead of staring at an empty terminal.</span></div>
+        </li>
+        <li><h3>The loop: fixed everywhere except the searching</h3><p>This is the agent, and it is the only place in the program where the model decides what happens next. It works as a loop: you send the conversation, the model either asks to call the search tool or writes the final answer, and if it asked for a search you run the search, paste the results back in as a new message, and go round again. A plain integer counter caps it at four searches, and once the cap is reached the tools list is not even sent, so the model has nothing to call and has to answer. Every chunk gets a short label like S1 or S2 the first time it is seen, and the model is told to cite those labels, which is the thing that makes the citations checkable by ordinary code in the next step. Without the cap, a model that keeps deciding it needs one more search will run until the money ceiling fires, which works but is a much worse way to stop. When you run this through step 6 you should see an answer printed with labels in square brackets, and <code>traces/run.jsonl</code> should hold one search line per search the model made. The two lines marked ADAPT read the OpenAI-style response shape, which is what the shared <code>llm.py</code> returns, so leave them alone unless you swapped that helper out.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># ---- agent.py ----</span>
+<span class="t-k">import</span> json, sys, pathlib
+sys.path.<span class="t-f">insert</span>(<span class="t-s">0</span>, <span class="t-f">str</span>(pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parents[<span class="t-s">2</span>] / <span class="t-s">&quot;_shared&quot;</span>))
+<span class="t-k">from</span> llm <span class="t-k">import</span> chat_raw                       <span class="t-c"># ADAPT if your helper differs</span>
+
+<span class="t-k">from</span> config <span class="t-k">import</span> MAX_SEARCHES
+<span class="t-k">from</span> guard <span class="t-k">import</span> Budget, trace
+<span class="t-k">from</span> retrieve <span class="t-k">import</span> search
+
+TOOLS = [{<span class="t-s">&quot;type&quot;</span>: <span class="t-s">&quot;function&quot;</span>, <span class="t-s">&quot;function&quot;</span>: {
+    <span class="t-s">&quot;name&quot;</span>: <span class="t-s">&quot;search_notes&quot;</span>,
+    <span class="t-s">&quot;description&quot;</span>: <span class="t-s">&quot;Search the local notes. Returns chunks with source labels.&quot;</span>,
+    <span class="t-s">&quot;parameters&quot;</span>: {<span class="t-s">&quot;type&quot;</span>: <span class="t-s">&quot;object&quot;</span>,
+                   <span class="t-s">&quot;properties&quot;</span>: {<span class="t-s">&quot;query&quot;</span>: {<span class="t-s">&quot;type&quot;</span>: <span class="t-s">&quot;string&quot;</span>}},
+                   <span class="t-s">&quot;required&quot;</span>: [<span class="t-s">&quot;query&quot;</span>]}}}]
+
+SYSTEM = (
+    <span class="t-s">&quot;You answer questions using only the search_notes tool.\n&quot;</span>
+    f<span class="t-s">&quot;You may search at most {MAX_SEARCHES} times, then you must answer.\n&quot;</span>
+    <span class="t-s">&quot;Every sentence that states a fact ends with a source label in square &quot;</span>
+    <span class="t-s">&quot;brackets, like [S2]. Use only labels that appeared in tool results.\n&quot;</span>
+    <span class="t-s">&quot;If the notes do not answer the question, say so plainly.\n&quot;</span>
+    <span class="t-s">&quot;Keep the answer under 200 words.&quot;</span>)
+
+<span class="t-k">def</span> <span class="t-f">research</span>(question, budget=<span class="t-k">None</span>):
+    budget = budget <span class="t-k">or</span> <span class="t-f">Budget</span>()
+    labels, label_of, searches = {}, {}, <span class="t-s">0</span>
+
+    <span class="t-k">def</span> <span class="t-f">label_for</span>(hit):
+        <span class="t-k">if</span> hit[<span class="t-s">&quot;id&quot;</span>] <span class="t-k">not</span> <span class="t-k">in</span> label_of:
+            name = f<span class="t-s">&quot;S{len(labels) + 1}&quot;</span>
+            label_of[hit[<span class="t-s">&quot;id&quot;</span>]] = name
+            labels[name] = hit
+        <span class="t-k">return</span> label_of[hit[<span class="t-s">&quot;id&quot;</span>]]
+
+    messages = [{<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;system&quot;</span>, <span class="t-s">&quot;content&quot;</span>: SYSTEM},
+                {<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: question}]
+
+    <span class="t-k">for</span> turn <span class="t-k">in</span> <span class="t-f">range</span>(MAX_SEARCHES + <span class="t-s">2</span>):
+        <span class="t-k">if</span> searches &lt; MAX_SEARCHES:
+            resp = <span class="t-f">chat_raw</span>(messages=messages, tools=TOOLS)
+        <span class="t-k">else</span>:
+            resp = <span class="t-f">chat_raw</span>(messages=messages)
+        msg = resp.choices[<span class="t-s">0</span>].message                        <span class="t-c"># ADAPT</span>
+        budget.<span class="t-f">add</span>(<span class="t-f">getattr</span>(resp, <span class="t-s">&quot;usage&quot;</span>, <span class="t-k">None</span>))
+        calls = <span class="t-f">getattr</span>(msg, <span class="t-s">&quot;tool_calls&quot;</span>, <span class="t-k">None</span>) <span class="t-k">or</span> []
+
+        <span class="t-k">if</span> <span class="t-k">not</span> calls:
+            answer = msg.content <span class="t-k">or</span> <span class="t-s">&quot;&quot;</span>
+            <span class="t-f">trace</span>(<span class="t-s">&quot;answer&quot;</span>, turn=turn, words=<span class="t-f">len</span>(answer.<span class="t-f">split</span>()), searches=searches)
+            <span class="t-k">return</span> {<span class="t-s">&quot;question&quot;</span>: question, <span class="t-s">&quot;answer&quot;</span>: answer, <span class="t-s">&quot;searches&quot;</span>: searches,
+                    <span class="t-s">&quot;labels&quot;</span>: {k: {<span class="t-s">&quot;doc&quot;</span>: v[<span class="t-s">&quot;doc&quot;</span>], <span class="t-s">&quot;text&quot;</span>: v[<span class="t-s">&quot;text&quot;</span>]}
+                               <span class="t-k">for</span> k, v <span class="t-k">in</span> labels.<span class="t-f">items</span>()},
+                    <span class="t-s">&quot;usd&quot;</span>: <span class="t-f">round</span>(budget.usd, <span class="t-s">4</span>)}
+
+        messages.<span class="t-f">append</span>(msg.<span class="t-f">model_dump</span>(exclude_none=<span class="t-k">True</span>))   <span class="t-c"># ADAPT</span>
+        <span class="t-k">for</span> call <span class="t-k">in</span> calls:
+            args = json.<span class="t-f">loads</span>(call.function.arguments <span class="t-k">or</span> <span class="t-s">&quot;{}&quot;</span>)
+            query = args.<span class="t-f">get</span>(<span class="t-s">&quot;query&quot;</span>) <span class="t-k">or</span> question
+            hits = <span class="t-f">search</span>(query, k=<span class="t-s">4</span>)
+            searches += <span class="t-s">1</span>
+            <span class="t-f">trace</span>(<span class="t-s">&quot;search&quot;</span>, turn=turn, query=query, hits=[h[<span class="t-s">&quot;id&quot;</span>] <span class="t-k">for</span> h <span class="t-k">in</span> hits])
+            block = <span class="t-s">&quot;\n\n&quot;</span>.<span class="t-f">join</span>(f<span class="t-s">&quot;[{label_for(h)}] ({h['doc']}) {h['text'][:600]}&quot;</span>
+                                <span class="t-k">for</span> h <span class="t-k">in</span> hits)
+            messages.<span class="t-f">append</span>({<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;tool&quot;</span>, <span class="t-s">&quot;tool_call_id&quot;</span>: call.id,
+                             <span class="t-s">&quot;content&quot;</span>: block <span class="t-k">or</span> <span class="t-s">&quot;No matching notes.&quot;</span>})
+
+        <span class="t-k">if</span> searches &gt;= MAX_SEARCHES:
+            messages.<span class="t-f">append</span>({<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>,
+                             <span class="t-s">&quot;content&quot;</span>: <span class="t-s">&quot;Search budget spent. Write the final answer now.&quot;</span>})
+
+    <span class="t-f">trace</span>(<span class="t-s">&quot;gave_up&quot;</span>, searches=searches)
+    <span class="t-k">return</span> {<span class="t-s">&quot;question&quot;</span>: question, <span class="t-s">&quot;answer&quot;</span>: <span class="t-s">&quot;&quot;</span>, <span class="t-s">&quot;labels&quot;</span>: {},
+            <span class="t-s">&quot;searches&quot;</span>: searches, <span class="t-s">&quot;usd&quot;</span>: <span class="t-f">round</span>(budget.usd, <span class="t-s">4</span>)}</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>the TOOLS list</dt><dd>This is a JSON description of one tool: its name, a sentence telling the model when to use it, and the shape of its arguments. The model never sees your Python, only this description, so this text is your only lever on when it decides to search.</dd>
+        <dt>the if searches &lt; MAX_SEARCHES branch</dt><dd>Once the cap is hit, the tools list is simply left out of the call, so the model is not being politely asked to stop searching, it has no tool left to call. Removing the option in code beats asking for restraint in a prompt every time.</dd>
+        <dt>def label_for(hit):</dt><dd>Each chunk id gets a short name the first time it turns up, and keeps that same name for the rest of the run. Short labels are easy for a model to copy without mangling and easy for a regular expression to find afterwards.</dd>
+        <dt>for turn in range(MAX_SEARCHES + 2):</dt><dd>A for loop rather than a while loop means the function physically cannot spin forever, even if every other guard fails. The extra 2 leaves room for the final answer turn plus one wasted turn.</dd>
+        <dt>messages.append(msg.model_dump(exclude_none=True))   # ADAPT</dt><dd>The model's own tool-call message has to go back into the conversation before the tool results do, or the next call sees answers to a request that was never made and the provider rejects it. exclude_none drops empty fields that some providers refuse to accept.</dd>
+        <dt>messages.append({&quot;role&quot;: &quot;tool&quot;, &quot;tool_call_id&quot;: call.id,</dt><dd>The tool_call_id ties this result back to the exact request the model made, which matters when it asks for two searches in a single turn. The content is plain text with the labels already stitched in, so the model reads each label right next to the text it belongs to.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Why the cap is 4 and not 40, in tokens and dollars.
+
+Every call resends the whole conversation, so the input grows on every turn. If each search adds S tokens of tool result, the input sizes look like this:
+
+  call 1: B
+  call 2: B + S
+  call 3: B + 2S
+  ...
+  call n: B + (n-1)S
+  total input over the whole run = n*B + S * (0 + 1 + 2 + ... + (n-1))
+                                 = n*B + S * n * (n-1) / 2
+
+Symbols: B is the fixed base, meaning the system prompt plus the question. S is how many tokens one tool result adds. The n*(n-1)/2 part is a triangular number, and it is the reason cost grows with the square of the number of turns rather than in a straight line.
+
+Worked example with B = 200, S = 800, and 5 calls (4 searches, then the answer):
+  total input = 5*200 + 800 * 5 * 4 / 2 = 1,000 + 8,000 = 9,000 tokens
+  at 0.20 per million: 9,000 * 0.20 / 1,000,000 = 0.0018 dollars
+
+Now double the cap to 8 searches, so 9 calls:
+  total input = 9*200 + 800 * 9 * 8 / 2 = 1,800 + 28,800 = 30,600 tokens
+  that is about 3.4 times the cost for twice the searches
+
+Intuitively: doubling the search cap does not double your bill, it roughly quadruples it. That is why the cap is a small number written in code, and why the money ceiling sits behind it as a second net.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If you delete or break the ADAPT line that appends msg back into messages, the very next call fails with a complaint about a tool message that has no matching tool call, which reads like an API bug but is your message order.</span></div>
+        </li>
+        <li><h3>Check the citations in code, then run one question</h3><p>Now you verify the citations with ordinary code instead of trusting the prompt to have been obeyed. Three checks run, and all three are <strong>deterministic</strong>, meaning they give the same answer every time with no model involved. First, every label the answer uses must be one you actually handed over, which catches the model writing [S7] when only S1 to S4 ever existed. Second, every sentence longer than 40 characters must carry a label, which catches confident factual sentences with no source attached. Third, the sentence and the chunk it points at must share at least 20 percent of the sentence's content words, which catches an answer pointing at a real chunk about a completely different topic. Be honest about that third check: it is the weak one, and a careful-sounding wrong paraphrase of the right chunk will sail straight past it. Running <code>python cite.py</code> calls the agent once and prints the answer, then the cost and the search count, then a dictionary with either ok True or a list of problems.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># ---- cite.py ----</span>
+<span class="t-k">import</span> re
+
+TAG = re.<span class="t-f">compile</span>(r<span class="t-s">&quot;\[(S\d+)\]&quot;</span>)
+
+<span class="t-k">def</span> <span class="t-f">_content_words</span>(s):
+    <span class="t-k">return</span> {w <span class="t-k">for</span> w <span class="t-k">in</span> re.<span class="t-f">findall</span>(r<span class="t-s">&quot;[a-z]{4,}&quot;</span>, s.<span class="t-f">lower</span>())}
+
+<span class="t-k">def</span> <span class="t-f">check</span>(answer, labels):
+    problems = []
+    <span class="t-k">for</span> tag <span class="t-k">in</span> <span class="t-f">sorted</span>(<span class="t-f">set</span>(TAG.<span class="t-f">findall</span>(answer))):
+        <span class="t-k">if</span> tag <span class="t-k">not</span> <span class="t-k">in</span> labels:
+            problems.<span class="t-f">append</span>(f<span class="t-s">&quot;{tag} was never retrieved&quot;</span>)
+
+    <span class="t-k">for</span> sentence <span class="t-k">in</span> re.<span class="t-f">split</span>(r<span class="t-s">&quot;(?&lt;=[.!?])\s+&quot;</span>, answer):
+        sentence = sentence.<span class="t-f">strip</span>()
+        <span class="t-k">if</span> <span class="t-f">len</span>(sentence) &lt; <span class="t-s">40</span>:
+            <span class="t-k">continue</span>
+        tags = TAG.<span class="t-f">findall</span>(sentence)
+        <span class="t-k">if</span> <span class="t-k">not</span> tags:
+            problems.<span class="t-f">append</span>(f<span class="t-s">&quot;no source label: {sentence[:60]}...&quot;</span>)
+            <span class="t-k">continue</span>
+        <span class="t-k">for</span> tag <span class="t-k">in</span> tags:
+            <span class="t-k">if</span> tag <span class="t-k">not</span> <span class="t-k">in</span> labels:
+                <span class="t-k">continue</span>
+            words = <span class="t-f">_content_words</span>(sentence) - {tag.<span class="t-f">lower</span>()}
+            shared = words &amp; <span class="t-f">_content_words</span>(labels[tag][<span class="t-s">&quot;text&quot;</span>])
+            <span class="t-k">if</span> words <span class="t-k">and</span> <span class="t-f">len</span>(shared) / <span class="t-f">len</span>(words) &lt; <span class="t-s">0.20</span>:
+                problems.<span class="t-f">append</span>(f<span class="t-s">&quot;{tag} looks unrelated to: {sentence[:60]}...&quot;</span>)
+
+    <span class="t-k">return</span> {<span class="t-s">&quot;ok&quot;</span>: <span class="t-k">not</span> problems, <span class="t-s">&quot;problems&quot;</span>: problems,
+            <span class="t-s">&quot;used&quot;</span>: <span class="t-f">sorted</span>(<span class="t-f">set</span>(TAG.<span class="t-f">findall</span>(answer)))}
+
+<span class="t-k">if</span> __name__ == <span class="t-s">&quot;__main__&quot;</span>:
+    <span class="t-k">from</span> agent <span class="t-k">import</span> research
+    r = <span class="t-f">research</span>(<span class="t-s">&quot;What did I write about reranking?&quot;</span>)
+    <span class="t-f">print</span>(r[<span class="t-s">&quot;answer&quot;</span>], <span class="t-s">&quot;\n&quot;</span>)
+    <span class="t-f">print</span>(f<span class="t-s">&quot;${r['usd']}  searches={r['searches']}&quot;</span>)
+    <span class="t-f">print</span>(<span class="t-f">check</span>(r[<span class="t-s">&quot;answer&quot;</span>], r[<span class="t-s">&quot;labels&quot;</span>]))</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>TAG = re.compile(r&quot;\[(S\d+)\]&quot;)</dt><dd>The square brackets are escaped with backslashes because brackets already mean something else inside a regular expression. The round brackets capture just the S and its digits, so findall gives you S2 rather than [S2].</dd>
+        <dt>re.split(r&quot;(?&lt;=[.!?])\s+&quot;, answer)</dt><dd>This cuts the answer into sentences at the whitespace that follows a full stop, question mark or exclamation mark. (?&lt;=...) is a lookbehind, meaning it matches the position after those characters without eating them, so the punctuation stays attached to the sentence.</dd>
+        <dt>if len(sentence) &lt; 40:</dt><dd>Short fragments like &quot;Here is what I found.&quot; are not factual claims, so demanding a source label on them would fill your problems list with noise. 40 characters is a rough dividing line you chose, and you can move it.</dd>
+        <dt>words = _content_words(sentence) - {tag.lower()}</dt><dd>_content_words keeps only runs of 4 or more letters in lowercase, which quietly drops &quot;the&quot;, &quot;and&quot;, numbers and punctuation. Subtracting the tag stops the label itself, such as s2, from counting as a word the sentence and the chunk happen to share.</dd>
+        <dt>if words and len(shared) / len(words) &lt; 0.20:</dt><dd>The `words and` part guards against dividing by zero when a sentence has no long words at all. 0.20 is a threshold you picked rather than a law, so lowering it makes the check quieter and raising it produces more false alarms.</dd>
+        <dt>return {&quot;ok&quot;: not problems, &quot;problems&quot;: problems,</dt><dd>An empty list is falsy in Python, so `not problems` is True exactly when nothing went wrong. Returning the verdict and the list together means the caller can print a reason instead of just a red light.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>The third check is one fraction.
+
+  overlap = (content words shared with the cited chunk) / (content words in the sentence)
+  flag a problem when overlap &lt; 0.20
+
+Symbols: a content word here is any run of 4 or more letters, lowercased. Short words such as &quot;the&quot; and &quot;and&quot; are dropped on purpose, because nearly every sentence contains them and they would inflate the score for free.
+
+Worked example. Sentence: &quot;Reranking pushes the best chunks to the top after retrieval [S2].&quot;
+  content words = {reranking, pushes, best, chunks, after, retrieval}  -&gt; 6 words
+  the chunk behind S2 contains reranking, chunks and retrieval          -&gt; 3 shared
+  overlap = 3 / 6 = 0.50, which is above 0.20, so no problem is reported
+
+Same sentence, but pointed at a chunk about installing sqlite-vec that only shares &quot;chunks&quot;:
+  overlap = 1 / 6 = 0.167, which is below 0.20, so it is flagged as &quot;looks unrelated&quot;
+
+Intuitively this measures topic overlap and nothing else. It is a smoke alarm, not a fact checker: a sentence that reuses the chunk's vocabulary while stating the exact opposite of what the chunk says scores high and passes cleanly.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Expect a few false alarms from the 0.20 rule on answers that paraphrase well, so read the problems list before you conclude the agent is broken.</span></div>
+        </li>
+        <li><h3>Run eight questions, label them yourself, then let a judge disagree</h3><p>Two files here. <code>run_batch.py</code> runs every question, checks the citations, prints a one-line summary per question and writes the whole lot to <code>answers.json</code>. Then you do the part most tutorials skip: open <code>answers.json</code> and set <code>my_label</code> to &quot;pass&quot; or &quot;fail&quot; on every row with your own eyes, because without your labels the judge's score is a number with nothing to be measured against. <code>judge.py</code> then reads that file, asks a model to grade each answer PASS or FAIL, and counts how often the model agreed with you. Before you run it, change <code>LLM_PROVIDER</code> in your <code>.env</code> to a different model family than the one that wrote the answers, because a model grades its own family generously by roughly 10 to 25 percent, and the script prints <code>whoami()</code> at the top so you can confirm the switch actually took. Read the two rates separately: a lazy judge that says PASS to everything scores 100 percent on one rate and 0 percent on the other, and a single agreement percentage would hide that completely. You should finish with one printed line per question showing your label beside the judge's, then the two rates underneath.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># ---- run_batch.py ----</span>
+<span class="t-k">import</span> json
+<span class="t-k">from</span> pathlib <span class="t-k">import</span> Path
+<span class="t-k">from</span> agent <span class="t-k">import</span> research
+<span class="t-k">from</span> cite <span class="t-k">import</span> check
+<span class="t-k">from</span> guard <span class="t-k">import</span> Budget, OverBudget
+
+QUESTIONS = [
+    <span class="t-s">&quot;What did I write about reranking?&quot;</span>,
+    <span class="t-s">&quot;Which vector store does the course use, and why that one?&quot;</span>,
+    <span class="t-s">&quot;What is the cheapest way to cut retrieval failures?&quot;</span>,
+    <span class="t-s">&quot;What is the population of Mars?&quot;</span>,          <span class="t-c"># should refuse</span>
+    <span class="t-c"># add four more of your own, including at least one more it must refuse</span>
+]
+OUT = <span class="t-f">Path</span>(__file__).<span class="t-f">with_name</span>(<span class="t-s">&quot;answers.json&quot;</span>)
+
+rows = []
+<span class="t-k">for</span> q <span class="t-k">in</span> QUESTIONS:
+    <span class="t-k">try</span>:
+        r = <span class="t-f">research</span>(q, budget=<span class="t-f">Budget</span>())
+    <span class="t-k">except</span> OverBudget <span class="t-k">as</span> e:
+        r = {<span class="t-s">&quot;question&quot;</span>: q, <span class="t-s">&quot;answer&quot;</span>: <span class="t-s">&quot;&quot;</span>, <span class="t-s">&quot;labels&quot;</span>: {}, <span class="t-s">&quot;usd&quot;</span>: <span class="t-k">None</span>, <span class="t-s">&quot;error&quot;</span>: <span class="t-f">str</span>(e)}
+    r[<span class="t-s">&quot;citations&quot;</span>] = <span class="t-f">check</span>(r[<span class="t-s">&quot;answer&quot;</span>], r.<span class="t-f">get</span>(<span class="t-s">&quot;labels&quot;</span>, {}))
+    r[<span class="t-s">&quot;my_label&quot;</span>] = <span class="t-k">None</span>            <span class="t-c"># you fill this in by hand: &quot;pass&quot; or &quot;fail&quot;</span>
+    rows.<span class="t-f">append</span>(r)
+    <span class="t-f">print</span>(f<span class="t-s">&quot;${str(r.get('usd')):7s} cites_ok={r['citations']['ok']}  {q[:55]}&quot;</span>)
+
+OUT.<span class="t-f">write_text</span>(json.<span class="t-f">dumps</span>(rows, indent=<span class="t-s">2</span>, ensure_ascii=<span class="t-k">False</span>), encoding=<span class="t-s">&quot;utf-8&quot;</span>)
+<span class="t-f">print</span>(f<span class="t-s">&quot;\nNow open {OUT.name} and set my_label on every row.&quot;</span>)
+
+<span class="t-c"># ---- judge.py ----</span>
+<span class="t-k">import</span> json, sys, pathlib
+sys.path.<span class="t-f">insert</span>(<span class="t-s">0</span>, <span class="t-f">str</span>(pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parents[<span class="t-s">2</span>] / <span class="t-s">&quot;_shared&quot;</span>))
+<span class="t-k">from</span> llm <span class="t-k">import</span> chat, whoami                    <span class="t-c"># ADAPT</span>
+
+RUBRIC = (<span class="t-s">&quot;Grade one answer. Reply with one word: PASS or FAIL.\n&quot;</span>
+          <span class="t-s">&quot;PASS needs all three: it answers the question, every factual sentence &quot;</span>
+          <span class="t-s">&quot;ends with a source label, and it claims nothing missing from the sources.\n&quot;</span>
+          <span class="t-s">&quot;An honest 'the notes do not cover this' is a PASS.\n&quot;</span>)
+
+rows = json.<span class="t-f">loads</span>(pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">with_name</span>(<span class="t-s">&quot;answers.json&quot;</span>).<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>))
+<span class="t-f">print</span>(<span class="t-s">&quot;judging with:&quot;</span>, <span class="t-f">whoami</span>())
+tp = fn = tn = fp = <span class="t-s">0</span>
+
+<span class="t-k">for</span> r <span class="t-k">in</span> rows:
+    <span class="t-k">if</span> r[<span class="t-s">&quot;my_label&quot;</span>] <span class="t-k">not</span> <span class="t-k">in</span> (<span class="t-s">&quot;pass&quot;</span>, <span class="t-s">&quot;fail&quot;</span>):
+        <span class="t-k">raise</span> <span class="t-f">SystemExit</span>(<span class="t-s">&quot;Label every row by hand first.&quot;</span>)
+    sources = <span class="t-s">&quot;\n&quot;</span>.<span class="t-f">join</span>(f<span class="t-s">&quot;[{k}] {v['text'][:400]}&quot;</span> <span class="t-k">for</span> k, v <span class="t-k">in</span> r[<span class="t-s">&quot;labels&quot;</span>].<span class="t-f">items</span>())
+    prompt = (f<span class="t-s">&quot;{RUBRIC}\nQUESTION: {r['question']}\n\nSOURCES:\n{sources or '(none)'}&quot;</span>
+              f<span class="t-s">&quot;\n\nANSWER:\n{r['answer'] or '(empty)'}\n\nPASS or FAIL:&quot;</span>)
+    verdict = <span class="t-s">&quot;pass&quot;</span> <span class="t-k">if</span> <span class="t-f">chat</span>(prompt).<span class="t-f">strip</span>().<span class="t-f">upper</span>().<span class="t-f">startswith</span>(<span class="t-s">&quot;PASS&quot;</span>) <span class="t-k">else</span> <span class="t-s">&quot;fail&quot;</span>
+    <span class="t-f">print</span>(f<span class="t-s">&quot;mine={r['my_label']:4s} judge={verdict:4s}  {r['question'][:50]}&quot;</span>)
+    <span class="t-k">if</span> r[<span class="t-s">&quot;my_label&quot;</span>] == <span class="t-s">&quot;pass&quot;</span>:
+        tp += verdict == <span class="t-s">&quot;pass&quot;</span>
+        fn += verdict == <span class="t-s">&quot;fail&quot;</span>
+    <span class="t-k">else</span>:
+        tn += verdict == <span class="t-s">&quot;fail&quot;</span>
+        fp += verdict == <span class="t-s">&quot;pass&quot;</span>
+
+<span class="t-f">print</span>(f<span class="t-s">&quot;\ntrue positive rate: {tp}/{tp + fn}   (of the ones I passed)&quot;</span>)
+<span class="t-f">print</span>(f<span class="t-s">&quot;true negative rate: {tn}/{tn + fp}   (of the ones I failed)&quot;</span>)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>&quot;What is the population of Mars?&quot;,          # should refuse</dt><dd>You need questions your documents cannot answer, because a system that never refuses is not honest, it has just been lucky about which questions you asked it. At least two of your eight should be things it must decline.</dd>
+        <dt>except OverBudget as e:</dt><dd>One question hitting the ceiling should record a row and move on, not kill the whole batch. The row is kept with an empty answer, so the failure shows up in your results instead of quietly disappearing.</dd>
+        <dt>r[&quot;my_label&quot;] = None            # you fill this in by hand: &quot;pass&quot; or &quot;fail&quot;</dt><dd>The field exists but is deliberately empty, so the file itself reminds you that the hand labelling is still owed. judge.py refuses to run until every row has been filled in.</dd>
+        <dt>sources = &quot;\n&quot;.join(f&quot;[{k}] {v['text'][:400]}&quot; for k, v in r[&quot;labels&quot;].items())</dt><dd>The judge is shown the same chunks the agent was shown, so it can tell whether a claim really appears in the sources. Without this the judge would only be marking whether the answer reads nicely.</dd>
+        <dt>verdict = &quot;pass&quot; if chat(prompt).strip().upper().startswith(&quot;PASS&quot;) else &quot;fail&quot;</dt><dd>The rubric asks for one word but models add politeness anyway, so this reads only the start of the cleaned-up reply. Anything that is not clearly PASS counts as fail, which is the safer default for a grader.</dd>
+        <dt>tp += verdict == &quot;pass&quot;</dt><dd>In Python True is 1 and False is 0, so adding a comparison straight onto a counter works and stays short. tp, fn, tn and fp are the four boxes every row falls into once your label is compared with the judge's.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Four counters and two rates.
+
+Every row lands in one of four boxes once you compare your label with the judge's:
+  tp (true positive)  = you said pass, judge said pass
+  fn (false negative) = you said pass, judge said fail
+  tn (true negative)  = you said fail, judge said fail
+  fp (false positive) = you said fail, judge said pass
+
+  true positive rate = tp / (tp + fn)     how much of your good work the judge recognises
+  true negative rate = tn / (tn + fp)     how much of your bad work the judge catches
+
+Worked example. Eight questions. You passed 6 and failed 2. The judge passed all eight.
+  tp = 6, fn = 0, tn = 0, fp = 2
+  true positive rate = 6 / 6 = 1.00, which looks perfect
+  true negative rate = 0 / 2 = 0.00, which is useless
+  raw agreement      = (tp + tn) / 8 = (6 + 0) / 8 = 0.75
+
+That 0.75 sounds respectable and tells you nothing. A judge that says PASS to everything scored 75 percent, purely because most of your answers were good. That is the whole reason the script prints two rates instead of one number.
+
+One more number from the module notes: a judge marks answers from its own model family about 10 to 25 percent more generously. On 8 rows, 10 to 25 percent is one or two rows, which is enough to move both rates on a set this small, so switch LLM_PROVIDER before you judge anything.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>judge.py exits with &quot;Label every row by hand first&quot; if any my_label is still null, and if the whoami() line prints the same provider that wrote the answers, both rates are flattering you rather than measuring you.</span></div>
+        </li>
+        </ol>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> Running python run_batch.py prints one line per question, every line shows a cost under 0.25, cites_ok=True appears on every answer that has content, and the questions your documents do not cover come back as a plain refusal instead of a guess. traces/run.jsonl exists and holds one line per search, one per cost update and one per answer, all sharing the same run id. After you have hand labelled every row in answers.json, python judge.py runs with a different LLM_PROVIDER than the one that wrote the answers, prints your label next to the judge's for every question, and ends with a true positive rate and a true negative rate. You can point at one row where the judge disagreed with you and say out loud why it did.</div></div>
+        </section>
+        <section class="section section--mini"><h2 class="section__h" data-stamp="hands on"><span>Mini-project: your turn</span></h2>
+        <p class="prose">Deploy the capstone to a free host and write the README that gets a stranger from a cold laptop to a cited answer. The artefact is my-work/labs/lab18/ship/RELEASE.json, a record of what you deployed, what it costs and what it cannot do.</p>
+        <p class="small muted">No code given. Produce the file, then run the checker.</p>
+        <ol class="steps">
+        <li><p>Make the folder my-work/labs/lab18/ship/ and copy config.py, guard.py, retrieve.py, agent.py and cite.py into it from the lab. Change config.py so both limits come from the environment, with tighter defaults than your laptop uses: USD_CEILING = float(os.environ.get(&quot;USD_CEILING&quot;, &quot;0.05&quot;)) and MAX_SEARCHES = int(os.environ.get(&quot;MAX_SEARCHES&quot;, &quot;2&quot;)). Nobody is watching the deployed copy, so it gets the smaller numbers.</p></li>
+        <li><p>Deploy to one of Modal, Hugging Face Spaces, Cloudflare Workers AI or Render. Get a hello-world running there first, before your agent goes near it. Put your API key in the host's secret store, add a .env.example holding placeholder values, and leave no .env file in ship/.</p></li>
+        <li><p>Decide what ships with it. Either include a small sample index you built, or make the first run build one from the user's own files. Record the choice as index_mode, either &quot;sample&quot; or &quot;user_builds&quot;.</p></li>
+        <li><p>Write ship/README.md with these seven headings, in this order: ## What this does, ## Install, ## Build the index, ## Run it, ## Example, ## Cost, ## What it cannot do. Under Example, paste a real question and the real answer your deployed copy gave, source labels included.</p></li>
+        <li><p>Run the stranger test. Hand the URL and the README to someone who has never seen the project, on a machine you have not touched, and time them. Fix the README everywhere they stopped, and keep the list of fixes.</p></li>
+        <li><p>Write ship/RELEASE.json with exactly this shape: {&quot;host&quot;: &quot;Modal&quot;, &quot;public_url&quot;: &quot;https://...&quot;, &quot;index_mode&quot;: &quot;sample&quot;, &quot;deployed_usd_ceiling&quot;: 0.05, &quot;deployed_max_searches&quot;: 2, &quot;cost_per_question_usd&quot;: 0.0015, &quot;example&quot;: {&quot;question&quot;: &quot;...&quot;, &quot;answer&quot;: &quot;... [S1].&quot;, &quot;labels&quot;: {&quot;S1&quot;: {&quot;doc&quot;: &quot;rag-notes.md&quot;}}}, &quot;cannot_do&quot;: [&quot;...&quot;, &quot;...&quot;, &quot;...&quot;], &quot;stranger_test&quot;: {&quot;tested_by&quot;: &quot;Priya&quot;, &quot;minutes&quot;: 7, &quot;readme_fixes&quot;: [&quot;...&quot;]}}. Each cannot_do entry needs at least 15 characters, so &quot;no web&quot; will not pass.</p></li>
+        </ol>
+        <div class="checker"><div class="checker__h">Check it yourself, automatically</div>
+        <p>Save this as <code>check.py</code> next to your work, then run <code>cd my-work/labs/lab18/ship &amp;&amp; python check.py</code>. It reads what you produced, tests it, and prints a line per check.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>check.py</span></div>
+<pre><span class="t-c">#!/usr/bin/env python3</span>
+<span class="t-s">&quot;&quot;&quot;Checks the Module 18 mini-project. Run from my-work/labs/lab18/ship/:  python check.py&quot;&quot;&quot;</span>
+<span class="t-k">import</span> json, re, sys
+<span class="t-k">from</span> pathlib <span class="t-k">import</span> Path
+
+HERE = <span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parent
+HOSTS = {<span class="t-s">&quot;modal&quot;</span>, <span class="t-s">&quot;hugging face spaces&quot;</span>, <span class="t-s">&quot;cloudflare workers ai&quot;</span>, <span class="t-s">&quot;render&quot;</span>}
+SECTIONS = [<span class="t-s">&quot;## What this does&quot;</span>, <span class="t-s">&quot;## Install&quot;</span>, <span class="t-s">&quot;## Build the index&quot;</span>,
+            <span class="t-s">&quot;## Run it&quot;</span>, <span class="t-s">&quot;## Example&quot;</span>, <span class="t-s">&quot;## Cost&quot;</span>, <span class="t-s">&quot;## What it cannot do&quot;</span>]
+fails = []
+
+<span class="t-k">def</span> <span class="t-f">check</span>(ok, msg):
+    <span class="t-f">print</span>((<span class="t-s">&quot;PASS &quot;</span> <span class="t-k">if</span> ok <span class="t-k">else</span> <span class="t-s">&quot;FAIL &quot;</span>) + msg)
+    <span class="t-k">if</span> <span class="t-k">not</span> ok:
+        fails.<span class="t-f">append</span>(msg)
+
+<span class="t-c"># The artefact must exist and be valid JSON before anything else can run.</span>
+p = HERE / <span class="t-s">&quot;RELEASE.json&quot;</span>
+<span class="t-k">if</span> <span class="t-k">not</span> p.<span class="t-f">exists</span>():
+    sys.<span class="t-f">exit</span>(f<span class="t-s">&quot;FAIL RELEASE.json not found at {p}\n      Write it, then run check.py again.&quot;</span>)
+<span class="t-k">try</span>:
+    r = json.<span class="t-f">loads</span>(p.<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>))
+<span class="t-k">except</span> json.JSONDecodeError <span class="t-k">as</span> e:
+    sys.<span class="t-f">exit</span>(f<span class="t-s">&quot;FAIL RELEASE.json is not valid JSON: {e.msg} on line {e.lineno}&quot;</span>)
+
+<span class="t-f">check</span>(<span class="t-f">str</span>(r.<span class="t-f">get</span>(<span class="t-s">&quot;host&quot;</span>, <span class="t-s">&quot;&quot;</span>)).<span class="t-f">lower</span>() <span class="t-k">in</span> HOSTS,
+      f<span class="t-s">&quot;host is a free tier that still exists (got {r.get('host')!r})&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">str</span>(r.<span class="t-f">get</span>(<span class="t-s">&quot;public_url&quot;</span>, <span class="t-s">&quot;&quot;</span>)).<span class="t-f">startswith</span>(<span class="t-s">&quot;https://&quot;</span>),
+      f<span class="t-s">&quot;public_url is an https address (got {r.get('public_url')!r})&quot;</span>)
+<span class="t-f">check</span>(r.<span class="t-f">get</span>(<span class="t-s">&quot;index_mode&quot;</span>) <span class="t-k">in</span> (<span class="t-s">&quot;sample&quot;</span>, <span class="t-s">&quot;user_builds&quot;</span>),
+      f<span class="t-s">&quot;index_mode says what ships (got {r.get('index_mode')!r})&quot;</span>)
+
+<span class="t-c"># The deployed copy is unwatched, so its limits must be tighter than the laptop's.</span>
+ceil, caps = r.<span class="t-f">get</span>(<span class="t-s">&quot;deployed_usd_ceiling&quot;</span>), r.<span class="t-f">get</span>(<span class="t-s">&quot;deployed_max_searches&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">isinstance</span>(ceil, (int, float)) <span class="t-k">and</span> <span class="t-s">0</span> &lt; ceil &lt; <span class="t-s">0.25</span>,
+      f<span class="t-s">&quot;deployed ceiling is under the laptop's $0.25 (got {ceil!r})&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">isinstance</span>(caps, int) <span class="t-k">and</span> <span class="t-s">0</span> &lt; caps &lt; <span class="t-s">4</span>,
+      f<span class="t-s">&quot;deployed search cap is under the laptop's 4 (got {caps!r})&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">isinstance</span>(r.<span class="t-f">get</span>(<span class="t-s">&quot;cost_per_question_usd&quot;</span>), (int, float)),
+      <span class="t-s">&quot;cost_per_question_usd is a number you measured&quot;</span>)
+
+<span class="t-c"># The example answer must survive the same citation check the agent's answers do.</span>
+ex = r.<span class="t-f">get</span>(<span class="t-s">&quot;example&quot;</span>) <span class="t-k">or</span> {}
+labels = ex.<span class="t-f">get</span>(<span class="t-s">&quot;labels&quot;</span>) <span class="t-k">or</span> {}
+used = <span class="t-f">set</span>(re.<span class="t-f">findall</span>(r<span class="t-s">&quot;\[(S\d+)\]&quot;</span>, <span class="t-f">str</span>(ex.<span class="t-f">get</span>(<span class="t-s">&quot;answer&quot;</span>, <span class="t-s">&quot;&quot;</span>))))
+<span class="t-f">check</span>(<span class="t-f">len</span>(<span class="t-f">str</span>(ex.<span class="t-f">get</span>(<span class="t-s">&quot;question&quot;</span>, <span class="t-s">&quot;&quot;</span>)).<span class="t-f">strip</span>()) &gt; <span class="t-s">10</span>, <span class="t-s">&quot;example question is a real question&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">bool</span>(used), <span class="t-s">&quot;example answer carries at least one [S1]-style label&quot;</span>)
+<span class="t-f">check</span>(<span class="t-k">not</span> <span class="t-f">sorted</span>(used - <span class="t-f">set</span>(labels)),
+      f<span class="t-s">&quot;every label used is declared (missing {sorted(used - set(labels))})&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">bool</span>(labels) <span class="t-k">and</span> <span class="t-f">all</span>(<span class="t-f">isinstance</span>(v, dict) <span class="t-k">and</span> v.<span class="t-f">get</span>(<span class="t-s">&quot;doc&quot;</span>) <span class="t-k">for</span> v <span class="t-k">in</span> labels.<span class="t-f">values</span>()),
+      <span class="t-s">&quot;every declared label names the document behind it&quot;</span>)
+
+cannot = r.<span class="t-f">get</span>(<span class="t-s">&quot;cannot_do&quot;</span>) <span class="t-k">or</span> []
+<span class="t-f">check</span>(<span class="t-f">isinstance</span>(cannot, list) <span class="t-k">and</span> <span class="t-f">len</span>(cannot) &gt;= <span class="t-s">3</span> <span class="t-k">and</span> <span class="t-f">all</span>(<span class="t-f">len</span>(<span class="t-f">str</span>(c)) &gt;= <span class="t-s">15</span> <span class="t-k">for</span> c <span class="t-k">in</span> cannot),
+      f<span class="t-s">&quot;cannot_do lists 3 or more real limits (got {len(cannot)})&quot;</span>)
+
+st = r.<span class="t-f">get</span>(<span class="t-s">&quot;stranger_test&quot;</span>) <span class="t-k">or</span> {}
+<span class="t-f">check</span>(<span class="t-f">isinstance</span>(st.<span class="t-f">get</span>(<span class="t-s">&quot;minutes&quot;</span>), (int, float)) <span class="t-k">and</span> <span class="t-s">0</span> &lt; st[<span class="t-s">&quot;minutes&quot;</span>] &lt;= <span class="t-s">10</span>,
+      f<span class="t-s">&quot;a stranger got a cited answer within 10 minutes (got {st.get('minutes')!r})&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">isinstance</span>(st.<span class="t-f">get</span>(<span class="t-s">&quot;readme_fixes&quot;</span>), list),
+      <span class="t-s">&quot;stranger_test.readme_fixes lists what you had to fix&quot;</span>)
+
+<span class="t-c"># README sections, present and in the order a stranger reads them.</span>
+readme = HERE / <span class="t-s">&quot;README.md&quot;</span>
+text = readme.<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>) <span class="t-k">if</span> readme.<span class="t-f">exists</span>() <span class="t-k">else</span> <span class="t-s">&quot;&quot;</span>
+<span class="t-f">check</span>(<span class="t-f">bool</span>(text), <span class="t-s">&quot;README.md exists next to RELEASE.json&quot;</span>)
+found = [text.<span class="t-f">find</span>(s) <span class="t-k">for</span> s <span class="t-k">in</span> SECTIONS]
+<span class="t-k">for</span> s, i <span class="t-k">in</span> <span class="t-f">zip</span>(SECTIONS, found):
+    <span class="t-f">check</span>(i &gt;= <span class="t-s">0</span>, f<span class="t-s">&quot;README has a {s} section&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">all</span>(a &gt;= <span class="t-s">0</span> <span class="t-k">for</span> a <span class="t-k">in</span> found) <span class="t-k">and</span> found == <span class="t-f">sorted</span>(found),
+      <span class="t-s">&quot;README sections appear in reading order&quot;</span>)
+
+<span class="t-c"># Limits must live in environment variables, and no key may sit in the folder.</span>
+src = (HERE / <span class="t-s">&quot;config.py&quot;</span>).<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>) <span class="t-k">if</span> (HERE / <span class="t-s">&quot;config.py&quot;</span>).<span class="t-f">exists</span>() <span class="t-k">else</span> <span class="t-s">&quot;&quot;</span>
+<span class="t-f">check</span>(<span class="t-s">&quot;USD_CEILING&quot;</span> <span class="t-k">in</span> src <span class="t-k">and</span> (<span class="t-s">&quot;environ&quot;</span> <span class="t-k">in</span> src <span class="t-k">or</span> <span class="t-s">&quot;getenv&quot;</span> <span class="t-k">in</span> src),
+      <span class="t-s">&quot;config.py reads the ceiling from an environment variable&quot;</span>)
+<span class="t-f">check</span>(<span class="t-k">not</span> (HERE / <span class="t-s">&quot;.env&quot;</span>).<span class="t-f">exists</span>(), <span class="t-s">&quot;no .env file sits in the shipped folder&quot;</span>)
+SECRET = re.<span class="t-f">compile</span>(r<span class="t-s">&quot;(sk-[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{30,})&quot;</span>)
+leaks = <span class="t-f">sorted</span>(f.name <span class="t-k">for</span> f <span class="t-k">in</span> HERE.<span class="t-f">rglob</span>(<span class="t-s">&quot;*&quot;</span>) <span class="t-k">if</span> f.<span class="t-f">is_file</span>()
+               <span class="t-k">and</span> f.suffix <span class="t-k">in</span> (<span class="t-s">&quot;.py&quot;</span>, <span class="t-s">&quot;.md&quot;</span>, <span class="t-s">&quot;.json&quot;</span>, <span class="t-s">&quot;.yaml&quot;</span>, <span class="t-s">&quot;.toml&quot;</span>, <span class="t-s">&quot;.txt&quot;</span>, <span class="t-s">&quot;.example&quot;</span>)
+               <span class="t-k">and</span> SECRET.<span class="t-f">search</span>(f.<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>, errors=<span class="t-s">&quot;ignore&quot;</span>)))
+<span class="t-f">check</span>(<span class="t-k">not</span> leaks, f<span class="t-s">&quot;no API-key-shaped string in the shipped files (found in {leaks})&quot;</span>)
+
+<span class="t-f">print</span>(<span class="t-s">&quot;\nnot checked automatically: whether the URL is live, whether the README actually\n&quot;</span>
+      <span class="t-s">&quot;reads well, and whether the host enforces the ceiling. Open the URL and ask your\n&quot;</span>
+      <span class="t-s">&quot;example question to settle those three yourself.&quot;</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;\nALL CHECKS PASSED&quot;</span> <span class="t-k">if</span> <span class="t-k">not</span> fails <span class="t-k">else</span> f<span class="t-s">&quot;\n{len(fails)} CHECK(S) FAILED&quot;</span>)
+sys.<span class="t-f">exit</span>(<span class="t-s">1</span> <span class="t-k">if</span> fails <span class="t-k">else</span> <span class="t-s">0</span>)
+</pre></div>
+        </div>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> python check.py prints 25 PASS lines and ends with ALL CHECKS PASSED and exit code 0. It also prints one &quot;not checked automatically&quot; line covering the three things a program cannot see: whether your URL is live, whether the README reads well, and whether the host really enforces the ceiling. Open your own URL, ask your example question, and settle those three yourself.</div></div>
+        <div class="note" style="margin-top:12px"><div class="note__t">If you want more</div><p>Add one tool that reaches outside your own documents, such as fetching a web page. You have now completed Simon Willison's lethal trifecta: private data, untrusted content, and a way to send data out. Remove one leg in code, not in the prompt, then add a trifecta_leg_removed field to RELEASE.json naming the leg and the exact line that removes it.</p></div>
+        </section>
+        <section class="section section--quiz"><h2 class="section__h" data-stamp="on record"><span>Check yourself</span></h2>
+        <p class="small muted">Explained either way.</p>
+        <div class="quiz" data-quiz>
+        <div class="q" data-answer="1"><p class="q__q">In this capstone, where does the agent loop belong?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Everywhere, so the model can choose retrieval, drafting, checking and printing</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Only around searching, where the number and wording of searches cannot be known ahead of time</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Only around drafting, so the model can rewrite the answer until it likes it</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Nowhere, because agents are always slower and more expensive than fixed code</span></button>
+        </div><div class="q__why" hidden>Searching is the one step where you genuinely cannot know in advance how many queries a question needs, so that is where a capped loop earns its keep. Making everything agentic (option A) costs more, runs slower and turns every bug into a guessing game, which is why Anthropic's published guidance is to prefer fixed paths and use agents only where the path is unknown. Option D goes too far the other way: some questions really do need two or three searches, and a fixed single search would fail them.</div></div>
+        <div class="q" data-answer="2"><p class="q__q">You add a timestamp to your prompt so the model knows today's date. Where should it go, and why?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>At the very top, so the model definitely notices it</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>In the middle, between the instructions and the documents</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>At the very end, because prompt caching matches from the start of the prompt onwards</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Anywhere, since caching works on whole prompts either way</span></button>
+        </div><div class="q__why" hidden>Prompt caching matches a prefix, meaning it compares from the first character forward and stops at the first difference. A timestamp at the top changes on every run and throws away the cache for everything below it, which matters a lot when cached input costs roughly a tenth of fresh input and agent runs are input-heavy. Put anything that changes per run, such as timestamps and session ids, at the end.</div></div>
+        <div class="q" data-answer="2"><p class="q__q">You have 40 saved runs and want to know how often your agent cites badly. What is the sound way to measure it?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Ask the same model that wrote the answers to score each one from 1 to 5 and take the average</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Report the percentage of runs where your judge and your own opinion agree</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Hand label the runs yourself, then have a judge from a different model family give pass or fail, and report true positive rate and true negative rate separately</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Ask the agent to grade its own answers at the end of each run, since it has the sources in front of it</span></button>
+        </div><div class="q__why" hidden>Binary pass or fail is more stable than a 1 to 5 scale, where adjacent points are not consistently meaningful and graders bunch up in the middle. A different model family matters because judges favour their own family by roughly 10 to 25 percent, and self-grading (option D) has the same problem in its purest form. Raw agreement percentage (option B) is misleading when most runs pass, since a judge that always says pass would score very well, which is exactly why you report the two rates separately.</div></div>
+        </div></section>
+        <section class="section section--notes notes" data-notes><h2 class="section__h" data-stamp="on record"><span>Your notes</span></h2>
+        <p class="small muted">Saves as you type, in this browser.</p>
+        <label class="sr" for="n18">Notes for this module</label>
+        <textarea id="n18" placeholder="What clicked? What is still fuzzy? What do you want to come back to?"></textarea><div class="notes__status"></div></section>
+        <section class="section section--done"><h2 class="section__h" data-stamp="on record"><span>Mark it done</span></h2>
+        <div class="marks"><button class="mark" data-mark="read" aria-pressed="false"><span>Read the notes</span></button><button class="mark" data-mark="lab" aria-pressed="false"><span>Finished the lab</span></button><button class="mark" data-mark="mini" aria-pressed="false"><span>Finished the mini-project</span></button></div></section>
+        <section class="section section--docs"><h2 class="section__h" data-stamp="reference"><span>Go to the source</span></h2>
+        <p class="small muted">If this course and the docs disagree, the docs are newer.</p><ul class="prose">
+        <li><a href="https://modelcontextprotocol.io/" target="_blank" rel="noopener">Model Context Protocol documentation (spec, transports, current revision)</a></li>
+        <li><a href="https://github.com/modelcontextprotocol/python-sdk" target="_blank" rel="noopener">Official MCP Python SDK (mcp 2.0.0, MCPServer, decorators)</a></li>
+        <li><a href="https://www.anthropic.com/engineering/building-effective-agents" target="_blank" rel="noopener">Anthropic engineering: Building effective agents (workflows vs agents)</a></li>
+        <li><a href="https://modal.com/docs" target="_blank" rel="noopener">Modal documentation (free credits, deploying Python apps)</a></li>
+        <li><a href="https://huggingface.co/docs/hub/spaces" target="_blank" rel="noopener">Hugging Face Spaces documentation (free hosting for small apps)</a></li>
+        <li><a href="https://genai.owasp.org/" target="_blank" rel="noopener">OWASP GenAI Security Project (Top 10 for Agentic Applications)</a></li>
+        </ul></section>
+    </div>
+    <nav data-chrome="pager"></nav>
+  </main>
+</div>
+
+<script src="../assets/data.js"></script>
+<script src="../assets/widgets.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

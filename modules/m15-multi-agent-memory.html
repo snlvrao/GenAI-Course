@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>15. Many agents, memory, and A2A</title>
+<meta name="description" content="Make several agents work together without them quietly failing, and give them memory that survives a restart.">
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+</head>
+<body data-module="m15" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="4">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+        <div data-chrome="modhead"></div>
+        <p class="prose">This module covers when a second agent actually earns its place, how to give agents memory that survives a restart, and what the A2A protocol does. You will build a researcher and a writer that share one SQLite file and pass nothing between them but an eight character run id.</p>
+        <section class="section section--watch"><h2 class="section__h" data-stamp="take in"><span>Watch this first</span></h2>
+        <div data-videos="core"></div></section>
+        <section class="section section--ideas"><h2 class="section__h" data-stamp="take in"><span>The ideas, in plain English</span></h2>
+        <p class="small muted">Each idea, then a worked example of it.</p>
+        <div class="concepts">
+        <div class="concept"><div class="concept__n" aria-hidden="true">1</div><h3 class="concept__t">One agent first, always</h3><p class="concept__b">Get one agent doing the whole job before you split it. Every extra agent adds a handoff where information gets dropped, and it re-reads shared context you pay for again. Anthropic advises no framework at first, and <strong>workflows</strong> (fixed paths you write in code) over <strong>agents</strong> (paths the model chooses). Split when the subtasks are genuinely independent, or when one context window is filling with detail the others do not need.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>job</th><th>split it?</th><th>why</th></tr></thead><tbody><tr><td>summarise one 40-page PDF</td><td>no</td><td>one context, nothing runs in parallel</td></tr><tr><td>check a claim against 4 sources</td><td>yes</td><td>the 4 searches do not depend on each other</td></tr><tr><td>research a topic then write a brief</td><td>maybe</td><td>only if the research detail crowds out the writing</td></tr><tr><td>one agent holding 15 tools</td><td>yes</td><td>3 agents with 5 tools each keeps every choice set small</td></tr></tbody></table><div class="eg__cap">Four real jobs, and the reason each one does or does not split.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">2</div><h3 class="concept__t">Supervisor pattern</h3><p class="concept__b">A <strong>supervisor</strong> is an agent whose tools are other agents. Workers report to it and never to each other, so one place holds the plan and one trace explains what happened. The cost is that the supervisor's context grows with every worker reply it reads. The loose alternative, workers calling each other freely, is a <strong>swarm</strong>, and it is harder to debug because no single trace shows who decided what.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">run.py, the supervisor: it owns the order, not the data</p><pre><span class="t-k">import</span> uuid
+<span class="t-k">from</span> researcher <span class="t-k">import</span> research
+<span class="t-k">from</span> writer <span class="t-k">import</span> write
+topic = <span class="t-s">&quot;the cost of running LLM agents in production&quot;</span>
+run_id = uuid.<span class="t-f">uuid4</span>().hex[:<span class="t-s">8</span>]      <span class="t-c"># '9f2c1ab4'</span>
+<span class="t-f">research</span>(run_id, topic)            <span class="t-c"># writes 4 finding rows</span>
+<span class="t-f">print</span>(<span class="t-f">write</span>(run_id))               <span class="t-c"># reads those 4 rows, writes 1 draft row</span></pre><p class="eg__say">everything the supervisor holds: run_id (8 chars) and topic. No findings.</p><div class="eg__cap">The supervisor decides the order and carries an 8-character id, not the output.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 640 230" role="img" aria-label="A supervisor hands work to specialists that share written memory" xmlns="http://www.w3.org/2000/svg"><title>A supervisor hands work to specialists that share written memory</title><defs><marker id="ah-multi" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><rect x="250" y="20" width="140" height="40" rx="6" class="d-fill"/><text x="320.0" y="45.0" text-anchor="middle" class="d-t">supervisor</text><path d="M290 60 L200 100" class="d-arrow" marker-end="url(#ah-multi)"/><path d="M320 60 L320 100" class="d-arrow" marker-end="url(#ah-multi)"/><path d="M350 60 L440 100" class="d-arrow" marker-end="url(#ah-multi)"/><rect x="130" y="100" width="140" height="40" rx="6" class="d-box"/><text x="200.0" y="125.0" text-anchor="middle" class="d-t">researcher</text><rect x="250" y="100" width="140" height="40" rx="6" class="d-box"/><text x="320.0" y="125.0" text-anchor="middle" class="d-t">writer</text><rect x="390" y="100" width="140" height="40" rx="6" class="d-box"/><text x="460.0" y="125.0" text-anchor="middle" class="d-t">checker</text><rect x="190" y="172" width="260" height="36" rx="6" class="d-ok"/><text x="320.0" y="195.0" text-anchor="middle" class="d-t">shared memory (a file or a table)</text><path d="M200 140 L250 170" class="d-line"/><path d="M320 140 L320 170" class="d-line"/><path d="M440 140 L400 170" class="d-line"/><text x="60" y="118" text-anchor="start" class="d-s">each one</text><text x="60" y="134" text-anchor="start" class="d-s">has its own</text><text x="60" y="150" text-anchor="start" class="d-s">context window</text><text x="320" y="224" text-anchor="middle" class="d-s">everything one agent knows must be written down, or the next one never learns it</text></svg><figcaption><b>Multi-agent systems.</b> Agents do not share a brain. Anything the researcher was unsure about is lost unless it writes that doubt down, which is how a team of agents produces a confident answer nobody actually checked. Research into multi-agent failures found most of them are design faults, not model faults, so start with one agent and split only when you can say why.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">3</div><h3 class="concept__t">Handoffs lose information</h3><p class="concept__b">A <strong>handoff</strong> is one agent finishing and passing the task to another. Only text crosses the gap, so anything the first agent understood but did not write down is gone. Make the handoff a fixed JSON shape with named fields such as <code>claim</code>, <code>confidence</code> and <code>unknowns</code>, so a doubt that was skipped shows up as an empty field. Structure does not make the first agent smarter, it turns a hidden gap into one you can see.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">What the writer received as free prose: the doubt is gone.</p><pre>{<span class="t-f">&quot;summary&quot;</span>: <span class="t-s">&quot;Caching cuts input cost by roughly 90%.&quot;</span>}</pre><p class="eg__say">The same finding as a fixed shape: the doubt has a field.</p><pre>{<span class="t-f">&quot;claim&quot;</span>: <span class="t-s">&quot;cached input costs about a tenth of fresh input&quot;</span>,
+ <span class="t-f">&quot;confidence&quot;</span>: <span class="t-s">&quot;medium&quot;</span>,
+ <span class="t-f">&quot;unknowns&quot;</span>: <span class="t-s">&quot;ratio is per-provider and the cache expires; not checked for ours&quot;</span>}</pre><div class="eg__cap">Same finding twice. Only the second tells the writer what is unverified.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">4</div><h3 class="concept__t">Shared state beats passing chat</h3><p class="concept__b"><strong>Shared state</strong> means both agents read and write one small store, and the message between them carries a pointer instead of the transcript. The researcher writes four findings and hands over a run id, and the writer pulls back those rows instead of the exchange that produced them. This is a cost question as much as an accuracy one, because agent runs are input-token-heavy and every pasted token is paid for again on the next turn.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>what the writer receives</th><th>characters</th><th>tokens (characters / 4)</th></tr></thead><tbody><tr><td>the researcher's whole exchange</td><td>4,800</td><td>1,200</td></tr><tr><td>four bullet lines plus the run id</td><td>600</td><td>150</td></tr><tr><td>saved per run</td><td>4,200</td><td>1,050</td></tr><tr><td>saved over 10,000 runs</td><td>42,000,000</td><td>10.5M tokens, $5.25 at $0.50/M</td></tr></tbody></table><div class="eg__cap">Lab step 6 numbers: the pointer version sends an eighth as much.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">5</div><h3 class="concept__t">Short-term and long-term memory</h3><p class="concept__b"><strong>Short-term memory</strong> is the current context window, gone when the process exits. <strong>Long-term memory</strong> is what you deliberately wrote to disk, so nothing becomes long-term by accident. SQLite is the default here: one file, ships with Python, two processes can open it, and <code>sqlite-vec</code> lives in the same file when you need to search by meaning. Timestamp every row, because <strong>temporal drift</strong> (stored text that still reads fine but is no longer true) usually shows up nowhere else.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">a fresh terminal, months later, no agent running</p><pre><span class="t-k">import</span> time
+<span class="t-k">from</span> memory <span class="t-k">import</span> recall</pre><pre>m = <span class="t-f">recall</span>(<span class="t-s">&quot;9f2c1ab4&quot;</span>)[<span class="t-s">0</span>]
+age = (time.<span class="t-f">time</span>() - m[<span class="t-s">&quot;created_at&quot;</span>]) / <span class="t-s">86400</span>
+<span class="t-f">print</span>(m[<span class="t-s">&quot;content&quot;</span>][<span class="t-s">&quot;claim&quot;</span>], <span class="t-f">round</span>(age, <span class="t-s">1</span>), <span class="t-s">&quot;days old&quot;</span>)  <span class="t-c"># LangGraph is at version 1.2 213.4 days old</span></pre><div class="eg__cap">The timestamp is what tells you a stored version claim is 213 days stale.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">6</div><h3 class="concept__t">A2A and agent cards</h3><p class="concept__b"><strong>A2A</strong> (Agent2Agent) lets one agent call another agent over HTTP, including one built by a different team in a different framework. It sits beside MCP rather than replacing it: MCP reaches tools and data, A2A reaches an agent that does its own reasoning. Discovery goes through the <strong>agent card</strong>, a JSON document at a fixed URL naming the agent, its skills, its input and output types, and how to authenticate. Read the card as a claim the other team wrote about itself, because calling a stranger's agent puts untrusted text inside your prompt.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">GET https://research.acme.com/.well-known/agent-card.json</p><pre>{<span class="t-f">&quot;name&quot;</span>: <span class="t-s">&quot;research-agent&quot;</span>,
+ <span class="t-f">&quot;description&quot;</span>: <span class="t-s">&quot;returns 4 sourced findings for a topic&quot;</span>,
+ <span class="t-f">&quot;url&quot;</span>: <span class="t-s">&quot;https://research.acme.com/a2a&quot;</span>,
+ <span class="t-f">&quot;version&quot;</span>: <span class="t-s">&quot;1.0.0&quot;</span>,
+ <span class="t-f">&quot;skills&quot;</span>: [{<span class="t-f">&quot;id&quot;</span>: <span class="t-s">&quot;find_facts&quot;</span>, <span class="t-f">&quot;name&quot;</span>: <span class="t-s">&quot;Find facts&quot;</span>,
+             <span class="t-f">&quot;inputModes&quot;</span>: [<span class="t-s">&quot;text/plain&quot;</span>],
+             <span class="t-f">&quot;outputModes&quot;</span>: [<span class="t-s">&quot;application/json&quot;</span>]}],
+ <span class="t-f">&quot;securitySchemes&quot;</span>: {<span class="t-f">&quot;bearer&quot;</span>: {<span class="t-f">&quot;type&quot;</span>: <span class="t-s">&quot;http&quot;</span>, <span class="t-f">&quot;scheme&quot;</span>: <span class="t-s">&quot;bearer&quot;</span>}}}</pre><p class="eg__say">The card path has moved between spec versions, so check the one you target.</p><div class="eg__cap">A whole agent card. Every line is the other team's own claim.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">7</div><h3 class="concept__t">MAST: your design, not the model</h3><p class="concept__b"><strong>MAST</strong> (Multi-Agent System Failure Taxonomy) is a named list of how multi-agent systems break, built by reading real failed traces. Most failures are coordination faults rather than model limits: vague roles, one agent ignoring another, the original goal dropped mid-run, agents restating each other, and nobody verifying the result. Use it diagnostically, because &quot;step 3 dropped the user's constraint&quot; points at a fix and &quot;the model is dumb&quot; does not. A bigger model will not repair a system where nobody was assigned to check the answer.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>failure mode</th><th>what it looks like in lab 15</th><th>structural fix</th></tr></thead><tbody><tr><td>information withheld</td><td>brief states a figure the finding marked unverified, with no hedge</td><td>remember() rejects a finding missing the unknowns key</td></tr><tr><td>task derailment</td><td>brief drifts to a neighbouring topic nobody asked about</td><td>pass topic into the writer prompt and compare it back</td></tr><tr><td>no verification</td><td>one invented sentence survives into the draft</td><td>third agent marks each sentence supported or unsupported</td></tr></tbody></table><div class="eg__cap">Three modes you can cause on purpose, and the fix each one points at.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">8</div><h3 class="concept__t">Too many tools makes it worse</h3><p class="concept__b">Every tool you attach puts its name, description and parameter schema into the prompt on every turn, and the model has to tell them all apart each time. Past roughly a dozen, the errors get confusing: it picks a plausible neighbour, or invents an argument that belongs to another tool. Cheapest fixes first: merge near-duplicates, attach only the tools the current step needs, and write in each description when NOT to use it. Where accuracy slides depends on your model and how alike your tools are, so measure your own.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>setup</th><th>tool schemas resent every turn</th><th>typical symptom</th></tr></thead><tbody><tr><td>3 tools: search_docs, read_file, write_note</td><td>about 300 tokens</td><td>picks the right one</td></tr><tr><td>15 tools including search_docs, search_web, search_notes</td><td>about 1,500 tokens</td><td>calls search_web when you meant search_docs</td></tr><tr><td>3 agents with 5 tools each</td><td>about 500 tokens per agent</td><td>each choice set stays small</td></tr></tbody></table><div class="eg__cap">Roughly 100 tokens per tool schema, re-sent on every single turn.</div></div>
+        </div>
+        </div></section>
+        <div class="note note--gap"><div class="note__t">Worth knowing</div><p>Multi-agent memory has no standard. Every framework ships its own memory object with its own storage format and its own idea of what gets saved, so skills here transfer less well than they do for MCP or RAG. A2A is real and now widely supported, but published evidence of teams running cross-organisation agent calls in production is still thin, and the loudest claims come from the companies selling the platforms. Treat an agent card as a self-description you should verify, not a contract.</p></div>
+        <section class="section section--lab"><h2 class="section__h" data-stamp="hands on"><span>Lab: follow along</span></h2>
+        <div data-setupbanner></div>
+        <div class="note note--warn" data-path="offline" hidden><div class="note__t">Expect this to be harder on a local model</div><p>Two agents means twice the chances of a format slip, and a small model handling a handoff will sometimes drop a field. That is genuinely one of the MAST failure modes this module is about, so it is worth seeing, but do not spend an hour assuming your code is wrong.</p></div>
+        <p class="prose">You will build two agents, a researcher and a writer, that never pass their conversations to each other. They share one SQLite file instead: the researcher writes its findings into it, and the writer reads them back out and writes the final text, so the only thing travelling between the two is an eight character run id. This is the smallest honest version of shared memory, and unlike a Python dictionary it is still there after you close the terminal. Before you start, make sure <code>python llm.py</code> works, see <code>setup.html</code>.</p>
+        <p class="small muted">Code given, every line explained.</p>
+        <ol class="steps">
+        <li><h3>Set up the shared memory store</h3><p>Create <code>memory.py</code> in your <code>my-work/labs/lab15</code> folder. It opens a SQLite file, which is a complete database kept inside one ordinary file on your disk, and gives you two functions: <code>remember()</code> writes one memory, <code>recall()</code> reads memories back for one run. Every row stores a <code>run_id</code>, so two different runs never see each other's data, and a <code>created_at</code> timestamp, so you can later ask how old a stored fact is. Nothing in this file mentions the researcher or the writer, and that is deliberate: memory is a place both agents visit, not a feature bolted onto one of them. Without it the two agents would have to hand each other their whole conversation, which is the expensive habit this lab exists to break. Saving this file prints nothing, because it only defines functions. You will see <code>shared_memory.db</code> appear next to <code>memory.py</code> the first time an agent actually writes something.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># memory.py</span>
+<span class="t-k">import</span> sqlite3, json, time, os
+
+DB = os.path.<span class="t-f">join</span>(os.path.<span class="t-f">dirname</span>(os.path.<span class="t-f">abspath</span>(__file__)), <span class="t-s">&quot;shared_memory.db&quot;</span>)
+
+<span class="t-k">def</span> <span class="t-f">connect</span>():
+    con = sqlite3.<span class="t-f">connect</span>(DB)
+    con.<span class="t-f">execute</span>(<span class="t-s">&quot;&quot;&quot;CREATE TABLE IF NOT EXISTS memory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id TEXT NOT NULL,
+        agent  TEXT NOT NULL,
+        kind   TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at REAL NOT NULL)&quot;&quot;&quot;</span>)
+    con.<span class="t-f">commit</span>()
+    <span class="t-k">return</span> con
+
+<span class="t-k">def</span> <span class="t-f">remember</span>(run_id, agent, kind, content):
+    con = <span class="t-f">connect</span>()
+    con.<span class="t-f">execute</span>(
+        <span class="t-s">&quot;INSERT INTO memory (run_id, agent, kind, content, created_at) VALUES (?,?,?,?,?)&quot;</span>,
+        (run_id, agent, kind, json.<span class="t-f">dumps</span>(content), time.<span class="t-f">time</span>()))
+    con.<span class="t-f">commit</span>(); con.<span class="t-f">close</span>()
+
+<span class="t-k">def</span> <span class="t-f">recall</span>(run_id, kind=<span class="t-k">None</span>):
+    con = <span class="t-f">connect</span>()
+    <span class="t-k">if</span> kind:
+        rows = con.<span class="t-f">execute</span>(<span class="t-s">&quot;SELECT agent, kind, content, created_at FROM memory &quot;</span>
+                           <span class="t-s">&quot;WHERE run_id=? AND kind=? ORDER BY id&quot;</span>, (run_id, kind)).<span class="t-f">fetchall</span>()
+    <span class="t-k">else</span>:
+        rows = con.<span class="t-f">execute</span>(<span class="t-s">&quot;SELECT agent, kind, content, created_at FROM memory &quot;</span>
+                           <span class="t-s">&quot;WHERE run_id=? ORDER BY id&quot;</span>, (run_id,)).<span class="t-f">fetchall</span>()
+    con.<span class="t-f">close</span>()
+    <span class="t-k">return</span> [{<span class="t-s">&quot;agent&quot;</span>: a, <span class="t-s">&quot;kind&quot;</span>: k, <span class="t-s">&quot;content&quot;</span>: json.<span class="t-f">loads</span>(c), <span class="t-s">&quot;created_at&quot;</span>: t}
+            <span class="t-k">for</span> a, k, c, t <span class="t-k">in</span> rows]</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>DB = os.path.join(os.path.dirname(os.path.abspath(__file__)), &quot;shared_memory.db&quot;)</dt><dd>This pins the database file next to memory.py, not to whichever folder you happen to be standing in when you type a command. That is what lets run.py and inspect_memory.py, started from different places and at different times, open the same file.</dd>
+        <dt>CREATE TABLE IF NOT EXISTS memory (</dt><dd>IF NOT EXISTS makes connect() safe to call on every single read and write. The first call builds the table and every later call quietly does nothing, so you never need a separate setup script.</dd>
+        <dt>run_id TEXT NOT NULL</dt><dd>This column is what keeps runs apart. Every query filters on it, so ten runs can share one file without their findings bleeding into each other.</dd>
+        <dt>json.dumps(content) ... json.loads(c)</dt><dd>A SQLite text column holds text, not Python dictionaries, so you turn the finding into a JSON string on the way in and parse it back on the way out. This pair is the reason a finding survives the process exiting.</dd>
+        <dt>VALUES (?,?,?,?,?)</dt><dd>The question marks are placeholders and the values arrive separately as a tuple, so they are never glued into the SQL text. A claim containing a quote mark therefore cannot break the query or rewrite it.</dd>
+        <dt>ORDER BY id</dt><dd>id is AUTOINCREMENT, so it only ever goes up. Ordering by it hands the findings back in exactly the order they were written, without you needing to sort on the timestamp.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Formula:
+  age_seconds = time.time() - created_at
+  age_days    = age_seconds / 86400
+
+What the symbols mean:
+  time.time() is the current Unix timestamp, meaning the number of seconds that have passed since 1 January 1970 at 00:00 UTC. It is a plain float, for example 1772582400.0.
+  created_at is that same clock, captured at the moment the row was written.
+  86400 is the number of seconds in a day, because 60 seconds * 60 minutes * 24 hours = 86400.
+
+Worked example:
+  created_at = 1772323200.0
+  now        = 1772582400.0
+  age_seconds = 1772582400.0 - 1772323200.0 = 259200.0
+  age_days    = 259200 / 86400 = 3.0
+  So that stored finding is exactly 3 days old.
+
+What it means:
+  The timestamp is the only thing in the row that lets you say &quot;this was true three days ago&quot;, which is how you catch a stored fact that still reads as relevant but is no longer correct.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If you copy memory.py into a second folder, you get a second shared_memory.db, and recall() will return an empty list with no error at all.</span></div>
+        </li>
+        <li><h3>Write the researcher agent</h3><p><code>researcher.py</code> asks the model for four findings about your topic and stores each one as its own row. Look at the shape it demands back: a <code>claim</code>, a <code>confidence</code> word, and an <code>unknowns</code> field for whatever the model could not verify. That last field matters, because doubt that stays inside the model's reasoning is doubt the writer will never see. The model replies as ordinary text, so you slice out the part between the first <code>{</code> and the last <code>}</code> before handing it to <code>json.loads</code>. Each finding is stored as a separate row rather than one blob, so <code>recall()</code> can hand them back as a clean list later. Note that the call passes your prompt first and the system message as <code>system=</code>, because that is the real signature of <code>chat()</code> in <code>my-work/labs/_shared/llm.py</code>. When you run this you should see exactly one line: <code>researcher: stored 4 findings for run &amp;lt;id&amp;gt;</code>.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># researcher.py</span>
+<span class="t-k">import</span> json, sys, os
+sys.path.<span class="t-f">append</span>(os.path.<span class="t-f">join</span>(os.path.<span class="t-f">dirname</span>(os.path.<span class="t-f">abspath</span>(__file__)), <span class="t-s">&quot;..&quot;</span>, <span class="t-s">&quot;_shared&quot;</span>))
+<span class="t-k">from</span> llm <span class="t-k">import</span> chat
+<span class="t-k">from</span> memory <span class="t-k">import</span> remember
+
+SYS = (<span class="t-s">&quot;You are a research agent. Given a topic, produce 4 short findings.\n&quot;</span>
+       <span class="t-s">&quot;Return ONLY JSON: {\&quot;findings\&quot;:[{\&quot;claim\&quot;:\&quot;...\&quot;,\&quot;confidence\&quot;:\&quot;high|medium|low\&quot;,&quot;</span>
+       <span class="t-s">&quot;\&quot;unknowns\&quot;:\&quot;what you could not verify, or empty string\&quot;}]}\n&quot;</span>
+       <span class="t-s">&quot;Never guess a number you are unsure of. Put the doubt in unknowns.&quot;</span>)
+
+<span class="t-k">def</span> <span class="t-f">research</span>(run_id, topic):
+    raw = <span class="t-f">chat</span>(f<span class="t-s">&quot;Topic: {topic}&quot;</span>, system=SYS)
+    start, end = raw.<span class="t-f">find</span>(<span class="t-s">&quot;{&quot;</span>), raw.<span class="t-f">rfind</span>(<span class="t-s">&quot;}&quot;</span>)
+    data = json.<span class="t-f">loads</span>(raw[start:end + <span class="t-s">1</span>])
+    <span class="t-k">for</span> f <span class="t-k">in</span> data[<span class="t-s">&quot;findings&quot;</span>]:
+        <span class="t-f">remember</span>(run_id, <span class="t-s">&quot;researcher&quot;</span>, <span class="t-s">&quot;finding&quot;</span>, f)
+    <span class="t-f">print</span>(f<span class="t-s">&quot;researcher: stored {len(data['findings'])} findings for run {run_id}&quot;</span>)
+    <span class="t-k">return</span> run_id</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), &quot;..&quot;, &quot;_shared&quot;))</dt><dd>This adds my-work/labs/_shared to the list of folders Python searches when you import something. Without it, from llm import chat fails, because Python only looks in the current folder and the standard library.</dd>
+        <dt>the SYS string</dt><dd>This is the system message, the standing instruction the model reads before your question. It fixes the reply shape so your code can parse it, and the last line pushes uncertainty into the unknowns field instead of into a confident sentence.</dd>
+        <dt>raw = chat(f&quot;Topic: {topic}&quot;, system=SYS)</dt><dd>chat() in my-work/labs/_shared/llm.py is defined as chat(prompt, *, system=None, ...), so the star makes system keyword-only. Passing the system text as a second positional argument, as some earlier drafts of this lab did, raises TypeError before the model is ever called.</dd>
+        <dt>start, end = raw.find(&quot;{&quot;), raw.rfind(&quot;}&quot;)</dt><dd>find() returns the index of the first opening brace and rfind() the index of the last closing brace. Together they locate the JSON even when the model wrapped it in a code fence or added a friendly sentence around it.</dd>
+        <dt>json.loads(raw[start:end + 1])</dt><dd>The +1 is there because a Python slice stops just before the end index, so without it you would cut off the final closing brace and the parse would fail.</dd>
+        <dt>for f in data[&quot;findings&quot;]: remember(run_id, &quot;researcher&quot;, &quot;finding&quot;, f)</dt><dd>One row per finding, each tagged with kind &quot;finding&quot;. That tag is what lets the writer later ask for only the findings and never accidentally pick up a draft.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>The model does not pick words directly. It produces a score for every possible next token and turns those scores into probabilities with the softmax function, adjusted by temperature.
+
+Formula:
+  p(i) = exp(z_i / T) / sum over all j of exp(z_j / T)
+
+What the symbols mean:
+  z_i is the logit for token i, meaning the raw score the model gives that token before it becomes a probability.
+  T is the temperature. chat() in my-work/labs/_shared/llm.py defaults to T = 0.2.
+  exp is the exponential function, exp(1) = 2.718.
+  p(i) is the chance that token i gets chosen.
+
+Worked example with three candidate tokens whose logits are 2.0, 1.0 and 0.5.
+
+At T = 1.0:
+  exp(2.0) = 7.389, exp(1.0) = 2.718, exp(0.5) = 1.649
+  total = 7.389 + 2.718 + 1.649 = 11.756
+  p = 7.389/11.756 = 0.629, 2.718/11.756 = 0.231, 1.649/11.756 = 0.140
+
+At T = 0.2, divide each logit by 0.2 first:
+  2.0/0.2 = 10, 1.0/0.2 = 5, 0.5/0.2 = 2.5
+  exp(10) = 22026, exp(5) = 148.4, exp(2.5) = 12.2
+  total = 22186.6
+  p = 22026/22186.6 = 0.993, 148.4/22186.6 = 0.0067, 12.2/22186.6 = 0.00055
+
+What it means:
+  A low temperature squashes the runners-up, so the model almost always takes its top choice. That is what you want when the reply has to parse as JSON, and it is also why running the same topic twice gives you nearly the same four findings.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>chat() caps the reply at 800 tokens, so a chatty model can get cut off mid-JSON and json.loads raises JSONDecodeError; print raw before parsing and you will see the truncated text immediately.</span></div>
+        </li>
+        <li><h3>Write the writer agent</h3><p><code>writer.py</code> never sees the researcher's conversation. It calls <code>recall(run_id, kind=&quot;finding&quot;)</code>, pulls the four findings out of SQLite, flattens them into four bullet lines, and asks the model for a 150 word brief. The system message tells it to use only the claims given and to hedge any sentence whose finding had a non-empty <code>unknowns</code>, which is how the researcher's doubt survives the handoff. Look at how thin the connection between the two agents is: the writer receives a run id of eight characters and fetches everything else itself. The draft is written back into the same table with kind <code>&quot;draft&quot;</code>, so the finished text sits next to the evidence it came from. If you call <code>write()</code> with a run id that has nothing stored, it raises <code>RuntimeError</code> rather than quietly carrying on. That guard matters, because an empty findings list would otherwise give you a confident, entirely invented brief.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># writer.py</span>
+<span class="t-k">import</span> sys, os
+sys.path.<span class="t-f">append</span>(os.path.<span class="t-f">join</span>(os.path.<span class="t-f">dirname</span>(os.path.<span class="t-f">abspath</span>(__file__)), <span class="t-s">&quot;..&quot;</span>, <span class="t-s">&quot;_shared&quot;</span>))
+<span class="t-k">from</span> llm <span class="t-k">import</span> chat
+<span class="t-k">from</span> memory <span class="t-k">import</span> recall, remember
+
+SYS = (<span class="t-s">&quot;You are a writing agent. You are given findings from a research agent.\n&quot;</span>
+       <span class="t-s">&quot;Write a 150-word brief. Rules:\n&quot;</span>
+       <span class="t-s">&quot;- Use ONLY the claims given. Add nothing.\n&quot;</span>
+       <span class="t-s">&quot;- If a finding has a non-empty 'unknowns', you MUST hedge that sentence &quot;</span>
+       <span class="t-s">&quot;and say what is unverified.\n&quot;</span>
+       <span class="t-s">&quot;- If confidence is 'low', say so in the text.&quot;</span>)
+
+<span class="t-k">def</span> <span class="t-f">write</span>(run_id):
+    findings = [m[<span class="t-s">&quot;content&quot;</span>] <span class="t-k">for</span> m <span class="t-k">in</span> <span class="t-f">recall</span>(run_id, kind=<span class="t-s">&quot;finding&quot;</span>)]
+    <span class="t-k">if</span> <span class="t-k">not</span> findings:
+        <span class="t-k">raise</span> <span class="t-f">RuntimeError</span>(f<span class="t-s">&quot;no findings in memory for run {run_id}&quot;</span>)
+    lines = [f<span class="t-s">&quot;- {f['claim']} (confidence: {f['confidence']}; unknowns: {f['unknowns'] or 'none'})&quot;</span>
+             <span class="t-k">for</span> f <span class="t-k">in</span> findings]
+    brief = <span class="t-f">chat</span>(<span class="t-s">&quot;Findings:\n&quot;</span> + <span class="t-s">&quot;\n&quot;</span>.<span class="t-f">join</span>(lines), system=SYS)
+    <span class="t-f">remember</span>(run_id, <span class="t-s">&quot;writer&quot;</span>, <span class="t-s">&quot;draft&quot;</span>, brief)
+    <span class="t-k">return</span> brief</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>findings = [m[&quot;content&quot;] for m in recall(run_id, kind=&quot;finding&quot;)]</dt><dd>The kind filter keeps drafts out, so the writer only ever reads the researcher's rows. The list comprehension then unwraps each row down to the finding dictionary itself, dropping the agent and timestamp the writer does not need.</dd>
+        <dt>if not findings:
+        raise RuntimeError(f&quot;no findings in memory for run {run_id}&quot;)</dt><dd>An empty list is falsy in Python, so this catches a wrong or stale run id. Failing loudly here is the difference between an obvious error and a fluent brief built on nothing.</dd>
+        <dt>f['unknowns'] or 'none'</dt><dd>An empty string is falsy in Python, so this prints the word &quot;none&quot; when the researcher had no doubts. The model then sees an explicit word rather than a label with nothing after it, which it might otherwise try to fill in.</dd>
+        <dt>brief = chat(&quot;Findings:\n&quot; + &quot;\n&quot;.join(lines), system=SYS)</dt><dd>Same keyword-only system argument as the researcher, for the same reason. join() glues the bullets with newlines so the model reads a list of four separate items rather than one run-on paragraph.</dd>
+        <dt>remember(run_id, &quot;writer&quot;, &quot;draft&quot;, brief)</dt><dd>Storing the output with kind &quot;draft&quot; keeps it separate from the inputs. Without that separation a second call to write() would recall its own previous draft as if it were a finding.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>This step is where you can see why a pointer beats a transcript. Suppose each step forwards the entire conversation so far.
+
+Formula:
+  total input tokens = N * B + C * N * (N - 1) / 2
+
+What the symbols mean:
+  N is the number of steps or agents in the chain.
+  B is the base tokens in every prompt, meaning the system message and instructions that are always there.
+  C is the tokens each step adds to the growing transcript.
+  The N * (N - 1) / 2 part is just 0 + 1 + 2 + ... + (N - 1), the number of times earlier text gets re-sent.
+
+Worked example with N = 10, B = 200, C = 500:
+  first term  = 10 * 200 = 2000
+  second term = 500 * (10 * 9 / 2) = 500 * 45 = 22500
+  total       = 24500 input tokens
+
+Now the shared-state version, where each step reads only what it needs, roughly B + C = 700 tokens:
+  total = 10 * 700 = 7000 input tokens
+  ratio = 24500 / 7000 = 3.5 times cheaper
+
+What it means:
+  Passing the transcript makes your cost grow with the square of the chain length, while passing a run id keeps it a straight line. At two agents nobody notices. At ten, it is the whole bill.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>A KeyError on 'unknowns' means the model returned a finding without that field; fix it by rejecting bad findings at write time in step 2, not by hoping the next run behaves.</span></div>
+        </li>
+        <li><h3>Add a supervisor that runs both</h3><p><code>run.py</code> is the supervisor, the piece that decides who runs and in what order. It makes a fresh run id, calls <code>research()</code>, then calls <code>write()</code>, then prints the brief and the id. Keep it deliberately dumb, because a supervisor written in plain Python is a <strong>workflow</strong>, meaning a fixed path you control and can read top to bottom when something goes wrong. The alternative, letting a model choose the order, is something you should reach for only after you hit a real case where the fixed order fails. Notice that the supervisor holds no findings of its own; it passes the run id along and nothing else, so its memory stays tiny no matter how much the agents produce. Run it with <code>python run.py &quot;your topic&quot;</code> and you should see the researcher's stored-count line, a divider, a brief of roughly 150 words, then the run id.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># run.py</span>
+<span class="t-k">import</span> uuid, sys
+<span class="t-k">from</span> researcher <span class="t-k">import</span> research
+<span class="t-k">from</span> writer <span class="t-k">import</span> write
+
+topic = sys.argv[<span class="t-s">1</span>] <span class="t-k">if</span> <span class="t-f">len</span>(sys.argv) &gt; <span class="t-s">1</span> <span class="t-k">else</span> <span class="t-s">&quot;the cost of running LLM agents in production&quot;</span>
+run_id = uuid.<span class="t-f">uuid4</span>().hex[:<span class="t-s">8</span>]
+
+<span class="t-f">research</span>(run_id, topic)
+<span class="t-f">print</span>(<span class="t-s">&quot;\n--- BRIEF ---\n&quot;</span>)
+<span class="t-f">print</span>(<span class="t-f">write</span>(run_id))
+<span class="t-f">print</span>(f<span class="t-s">&quot;\nrun_id={run_id}  (inspect with: python inspect_memory.py {run_id})&quot;</span>)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>topic = sys.argv[1] if len(sys.argv) &gt; 1 else &quot;the cost of running LLM agents in production&quot;</dt><dd>sys.argv[1] is the first thing you typed after the filename. The length check avoids an IndexError when you run the file with no argument, and hands you a sensible default topic instead.</dd>
+        <dt>run_id = uuid.uuid4().hex[:8]</dt><dd>uuid4() makes a random 128 bit identifier, .hex turns it into 32 hexadecimal characters, and [:8] keeps the first eight so it is short enough to retype by hand into the inspector.</dd>
+        <dt>research(run_id, topic)
+print(...)
+print(write(run_id))</dt><dd>This is the whole handoff. The only value crossing between the two agents is run_id, because everything else travels through the database.</dd>
+        <dt>print(f&quot;\nrun_id={run_id}  (inspect with: python inspect_memory.py {run_id})&quot;)</dt><dd>Printing the id is not decoration. Lose it and the findings are still on disk but you have no way to ask for them, since every query filters on run_id.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>You threw away 24 of the 32 hex characters, so it is fair to ask when two runs collide.
+
+Formula:
+  number of possible ids  N = 16 ^ 8
+  approximate collision chance for n runs, p = n^2 / (2 * N)
+
+What the symbols mean:
+  16 because each hex character is one of 0 to 9 or a to f, which is 16 options.
+  8 because you kept 8 characters.
+  n is how many runs you do.
+  N is how many distinct ids exist.
+  This is the birthday approximation, and it holds while p stays well below 1.
+
+Worked example:
+  N = 16 ^ 8 = 4,294,967,296 (about 4.29 billion)
+  With n = 1,000 runs:
+    p = 1,000^2 / (2 * 4,294,967,296) = 1,000,000 / 8,589,934,592 = 0.000116
+    That is about 1 chance in 8,600.
+  With n = 100,000 runs:
+    p = 10,000,000,000 / 8,589,934,592 = 1.16
+    A result above 1 just tells you the approximation has broken down and a collision is near certain.
+
+What it means:
+  The chance grows with n squared, not with n, so it stays negligible for a long time and then arrives fast. Eight characters is fine for a lab notebook and not fine for a production log.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>from researcher import research only works when you run python run.py from inside my-work/labs/lab15, because Python adds the script's own folder to the import path; launching it from the parent folder gives ModuleNotFoundError.</span></div>
+        </li>
+        <li><h3>Prove the memory is real</h3><p>Memory that only exists inside one running process is not memory, it is a variable. <code>inspect_memory.py</code> proves the difference: it is five lines, it imports nothing from either agent, and it reads the database directly. Open a brand new terminal, run <code>python inspect_memory.py &amp;lt;run_id&amp;gt;</code> with the id <code>run.py</code> printed, and you should see five lines, four tagged <code>researcher/finding</code> and one tagged <code>writer/draft</code>. Then do the stronger test: start a fresh Python session, <code>from writer import write</code>, and call <code>write(run_id)</code> with that same id. You will get a new brief with the researcher never running at all, because everything it knew is sitting on disk. If that second test fails, you do not have shared memory, you have a variable that happened to still be in scope.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># inspect_memory.py</span>
+<span class="t-k">import</span> sys
+<span class="t-k">from</span> memory <span class="t-k">import</span> recall
+
+run_id = sys.argv[<span class="t-s">1</span>]
+<span class="t-k">for</span> m <span class="t-k">in</span> <span class="t-f">recall</span>(run_id):
+    <span class="t-f">print</span>(f<span class="t-s">&quot;[{m['agent']}/{m['kind']}] {str(m['content'])[:160]}&quot;</span>)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>run_id = sys.argv[1]</dt><dd>There is no default here on purpose. The inspector is meaningless without an id, and an immediate IndexError is a clearer signal than silently printing nothing.</dd>
+        <dt>for m in recall(run_id):</dt><dd>Calling recall without a kind returns every row for that run, findings and draft together, in the order they were written. That mixed view is exactly what you want when checking a handoff.</dd>
+        <dt>str(m['content'])[:160]</dt><dd>content can be a dictionary (a finding) or a long string (the draft), so str() handles both without you branching. The slice caps each line at 160 characters so one memory stays on one terminal row.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>A quick sanity check on how big this file gets, so you know whether to clean it up.
+
+Formula:
+  rows_per_run = findings + drafts
+  total_rows   = rows_per_run * runs
+  file_size    is roughly total_rows * bytes_per_row
+
+What the symbols mean:
+  findings is 4 per run in this lab, drafts is 1 per run.
+  bytes_per_row is an estimate, not a measurement, because it depends entirely on how long your text is.
+
+Worked example:
+  rows_per_run = 4 + 1 = 5
+  200 runs     -&gt; 5 * 200 = 1,000 rows
+  a finding is a short JSON dict and a draft is about 150 words, so call it 400 bytes per row on average
+  file_size    = 1,000 * 400 = 400,000 bytes, about 0.4 MB
+
+What it means:
+  This table will not get large by accident during the lab, so leave old runs in place and treat shared_memory.db as a log you can go back through. Be clear that the 400 bytes is a guess; run the numbers again on your own file if it ever matters.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Empty output almost always means a mistyped or half-copied run id, not lost data, because recall() returns an empty list rather than raising when nothing matches.</span></div>
+        </li>
+        <li><h3>Count what the split cost you</h3><p>Now measure what splitting the work actually bought you. Add a <code>len()</code> print of the prompt each agent sends, so the researcher reports the length of its topic prompt plus <code>SYS</code>, and the writer reports the length of its bullet list plus <code>SYS</code>. The writer's number should be far smaller than the researcher's request and reply combined, because the writer only ever received four short lines. That gap is the entire reason shared state exists: agent runs are heavy on input tokens and light on output tokens, so the size of what you send on each step is your main lever on cost. Characters are not tokens, so treat these as a ratio you are watching rather than as a bill. Write both numbers into your notes now, because the mini-project asks you to take the same measurement again and compare.</p>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Two formulas turn your character counts into money.
+
+Formula:
+  tokens is roughly characters / 4
+  cost = (input_tokens / 1,000,000) * price_per_million_input
+       + (output_tokens / 1,000,000) * price_per_million_output
+
+What the symbols mean:
+  The 4 is a rough average of characters per token for ordinary English. Real tokenisers land somewhere between about 3 and 5, and JSON or code sits at the low end.
+  price_per_million is whatever your provider charges per million tokens, and input is normally much cheaper than output.
+
+Worked example:
+  researcher prompt = 1,200 characters -&gt; 1,200 / 4 = 300 tokens
+  writer prompt     =   600 characters -&gt;   600 / 4 = 150 tokens
+  if you had instead pasted the researcher's whole exchange into the writer:
+                      4,800 characters -&gt; 4,800 / 4 = 1,200 tokens
+  saving per run    = 1,200 - 150 = 1,050 input tokens
+  over 10,000 runs  = 1,050 * 10,000 = 10,500,000 tokens
+  at $0.50 per million input tokens:
+    10,500,000 / 1,000,000 = 10.5
+    10.5 * 0.50 = $5.25 saved
+
+What it means:
+  One run's saving looks trivial, and that is exactly why this gets ignored. The number only becomes visible once you multiply by how often the thing runs.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Do not quote character counts as if they were tokens; JSON, code and non-English text can run closer to 2 or 3 characters per token, which makes the real number bigger than your estimate.</span></div>
+        </li>
+        </ol>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> Running python run.py &quot;your topic&quot; prints the researcher's stored-count line and then a brief of roughly 150 words. Running python inspect_memory.py &lt;run_id&gt; in a brand new terminal prints five lines for that run, four tagged researcher/finding and one tagged writer/draft, which proves shared_memory.db outlived the process that wrote it. At least one sentence in the brief hedges, because the finding behind it had a non-empty unknowns field. And you have the two prompt lengths from step 6 written down, ready to compare in the mini-project.</div></div>
+        </section>
+        <section class="section section--mini"><h2 class="section__h" data-stamp="hands on"><span>Mini-project: your turn</span></h2>
+        <p class="prose">Break your two-agent system on purpose, name the MAST failure mode, fix it structurally, then prove the fix with counts from twenty real runs. The artefact is my-work/labs/lab15/failure_report.json, and check.py verifies it against the run ids sitting in shared_memory.db.</p>
+        <p class="small muted">No code given. Produce the file, then run the checker.</p>
+        <ol class="steps">
+        <li><p>Pick one mode and write the rule you will judge by. Use exactly one of these strings: information_withheld, task_derailment, no_verification. Then write one binary test you can apply to any brief, for example &quot;the brief states a figure whose stored finding had a non-empty unknowns, with no hedge&quot;.</p></li>
+        <li><p>Break it in code, not by luck. For information_withheld, drop the unknowns key before calling remember(). For task_derailment, remove the topic from the writer's input. For no_verification, store one finding you know is false.</p></li>
+        <li><p>Run run.py ten times on the same topic. Keep every run id it prints, apply your rule to each brief, and record pass or fail. If fewer than seven of the ten fail, the break is too weak to prove a fix, so make it harder before you carry on.</p></li>
+        <li><p>Fix it structurally, not with a firmer instruction. Make remember() reject a finding that is missing a required key, pass the topic explicitly into the writer prompt, or add a third checker agent that answers supported or unsupported for each sentence. Run ten fresh runs and judge them with the same rule.</p></li>
+        <li><p>Write my-work/labs/lab15/failure_report.json with these keys: mast_mode (one of the three strings), break_description, fix_description, still_missed (each a sentence of 20 characters or more), and before and after, each a list of ten objects shaped {&quot;run_id&quot;: &quot;9f2c1ab4&quot;, &quot;topic&quot;: &quot;solid-state batteries&quot;, &quot;failed&quot;: true}. Use the real run ids run.py printed. If the after count did not drop, add honest_null_result saying why.</p></li>
+        <li><p>Save check.py next to it and run python check.py from inside my-work/labs/lab15.</p></li>
+        </ol>
+        <div class="checker"><div class="checker__h">Check it yourself, automatically</div>
+        <p>Save this as <code>check.py</code> next to your work, then run <code>cd my-work/labs/lab15 &amp;&amp; python check.py</code>. It reads what you produced, tests it, and prints a line per check.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>check.py</span></div>
+<pre><span class="t-c"># check.py - verifies the module 15 mini-project. Run: python check.py</span>
+<span class="t-c"># Reads failure_report.json and cross-checks its run ids against shared_memory.db.</span>
+<span class="t-k">import</span> json, os, re, sqlite3, sys
+
+HERE = os.path.<span class="t-f">dirname</span>(os.path.<span class="t-f">abspath</span>(__file__))
+REPORT = os.path.<span class="t-f">join</span>(HERE, <span class="t-s">&quot;failure_report.json&quot;</span>)
+DB = os.path.<span class="t-f">join</span>(HERE, <span class="t-s">&quot;shared_memory.db&quot;</span>)
+MODES = {<span class="t-s">&quot;information_withheld&quot;</span>, <span class="t-s">&quot;task_derailment&quot;</span>, <span class="t-s">&quot;no_verification&quot;</span>}
+HEX8 = re.<span class="t-f">compile</span>(r<span class="t-s">&quot;^[0-9a-f]{8}$&quot;</span>)
+fails = []
+
+<span class="t-k">def</span> <span class="t-f">check</span>(ok, msg):
+    <span class="t-f">print</span>((<span class="t-s">&quot;PASS &quot;</span> <span class="t-k">if</span> ok <span class="t-k">else</span> <span class="t-s">&quot;FAIL &quot;</span>) + msg)
+    <span class="t-k">if</span> <span class="t-k">not</span> ok:
+        fails.<span class="t-f">append</span>(msg)
+
+<span class="t-k">def</span> <span class="t-f">need</span>(ok, msg):                     <span class="t-c"># if this one fails, nothing later can run</span>
+    <span class="t-f">check</span>(ok, msg)
+    <span class="t-k">if</span> <span class="t-k">not</span> ok:
+        <span class="t-f">print</span>(<span class="t-s">&quot;%d CHECK(S) FAILED&quot;</span> % <span class="t-f">len</span>(fails))
+        sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+
+<span class="t-c"># 1. the artefact exists and is one JSON object</span>
+<span class="t-f">need</span>(os.path.<span class="t-f">isfile</span>(REPORT), <span class="t-s">&quot;failure_report.json is present in &quot;</span> + HERE)
+<span class="t-k">try</span>:
+    <span class="t-k">with</span> <span class="t-f">open</span>(REPORT, encoding=<span class="t-s">&quot;utf-8&quot;</span>) <span class="t-k">as</span> fh:
+        report = json.<span class="t-f">load</span>(fh)
+<span class="t-k">except</span> json.JSONDecodeError <span class="t-k">as</span> e:
+    <span class="t-f">need</span>(<span class="t-k">False</span>, <span class="t-s">&quot;failure_report.json is valid JSON (line %d: %s)&quot;</span> % (e.lineno, e.msg))
+<span class="t-f">need</span>(<span class="t-f">isinstance</span>(report, dict), <span class="t-s">&quot;failure_report.json holds one JSON object&quot;</span>)
+
+<span class="t-c"># 2. required keys, the mode name, and three written answers</span>
+gone = [k <span class="t-k">for</span> k <span class="t-k">in</span> (<span class="t-s">&quot;mast_mode&quot;</span>, <span class="t-s">&quot;break_description&quot;</span>, <span class="t-s">&quot;fix_description&quot;</span>,
+                    <span class="t-s">&quot;still_missed&quot;</span>, <span class="t-s">&quot;before&quot;</span>, <span class="t-s">&quot;after&quot;</span>) <span class="t-k">if</span> k <span class="t-k">not</span> <span class="t-k">in</span> report]
+<span class="t-f">need</span>(<span class="t-k">not</span> gone, <span class="t-s">&quot;six top-level keys present&quot;</span> + (<span class="t-s">&quot;; missing: &quot;</span> + <span class="t-s">&quot;, &quot;</span>.<span class="t-f">join</span>(gone) <span class="t-k">if</span> gone <span class="t-k">else</span> <span class="t-s">&quot;&quot;</span>))
+<span class="t-f">check</span>(report[<span class="t-s">&quot;mast_mode&quot;</span>] <span class="t-k">in</span> MODES, <span class="t-s">&quot;mast_mode is one of %s&quot;</span> % <span class="t-s">&quot;, &quot;</span>.<span class="t-f">join</span>(<span class="t-f">sorted</span>(MODES)))
+<span class="t-k">for</span> k <span class="t-k">in</span> (<span class="t-s">&quot;break_description&quot;</span>, <span class="t-s">&quot;fix_description&quot;</span>, <span class="t-s">&quot;still_missed&quot;</span>):
+    <span class="t-f">check</span>(<span class="t-f">len</span>(<span class="t-f">str</span>(report[k]).<span class="t-f">strip</span>()) &gt;= <span class="t-s">20</span>, <span class="t-s">&quot;%s is a real sentence, 20+ characters&quot;</span> % k)
+
+<span class="t-c"># 3. ten run records a side, right shape, no id reused</span>
+<span class="t-k">def</span> <span class="t-f">runs</span>(name):
+    v = report[name]
+    <span class="t-k">return</span> [r <span class="t-k">for</span> r <span class="t-k">in</span> v <span class="t-k">if</span> <span class="t-f">isinstance</span>(r, dict)] <span class="t-k">if</span> <span class="t-f">isinstance</span>(v, list) <span class="t-k">else</span> []
+<span class="t-k">for</span> name <span class="t-k">in</span> (<span class="t-s">&quot;before&quot;</span>, <span class="t-s">&quot;after&quot;</span>):
+    rs = <span class="t-f">runs</span>(name)
+    <span class="t-f">check</span>(<span class="t-f">len</span>(rs) == <span class="t-s">10</span>, <span class="t-s">&quot;%s holds 10 run records (got %d)&quot;</span> % (name, <span class="t-f">len</span>(rs)))
+    bad = [r <span class="t-k">for</span> r <span class="t-k">in</span> rs <span class="t-k">if</span> <span class="t-k">not</span> (HEX8.<span class="t-f">match</span>(<span class="t-f">str</span>(r.<span class="t-f">get</span>(<span class="t-s">&quot;run_id&quot;</span>, <span class="t-s">&quot;&quot;</span>)))
+           <span class="t-k">and</span> <span class="t-f">isinstance</span>(r.<span class="t-f">get</span>(<span class="t-s">&quot;failed&quot;</span>), bool) <span class="t-k">and</span> <span class="t-f">str</span>(r.<span class="t-f">get</span>(<span class="t-s">&quot;topic&quot;</span>, <span class="t-s">&quot;&quot;</span>)).<span class="t-f">strip</span>())]
+    <span class="t-f">check</span>(<span class="t-k">not</span> bad, <span class="t-s">&quot;%s records all carry run_id (8 hex), topic, failed true/false&quot;</span>
+                   <span class="t-s">&quot; (%d malformed)&quot;</span> % (name, <span class="t-f">len</span>(bad)))
+ids = [<span class="t-f">str</span>(r.<span class="t-f">get</span>(<span class="t-s">&quot;run_id&quot;</span>, <span class="t-s">&quot;&quot;</span>)) <span class="t-k">for</span> n <span class="t-k">in</span> (<span class="t-s">&quot;before&quot;</span>, <span class="t-s">&quot;after&quot;</span>) <span class="t-k">for</span> r <span class="t-k">in</span> <span class="t-f">runs</span>(n)]
+<span class="t-f">check</span>(<span class="t-f">len</span>(<span class="t-f">set</span>(ids)) == <span class="t-f">len</span>(ids), <span class="t-s">&quot;all 20 run ids are distinct (%d unique)&quot;</span> % <span class="t-f">len</span>(<span class="t-f">set</span>(ids)))
+
+<span class="t-c"># 4. those ids must be on disk, so the counts cannot be written from memory</span>
+<span class="t-k">if</span> <span class="t-k">not</span> os.path.<span class="t-f">isfile</span>(DB):
+    <span class="t-f">check</span>(<span class="t-k">False</span>, <span class="t-s">&quot;shared_memory.db not found next to check.py; run the lab first&quot;</span>)
+<span class="t-k">else</span>:
+    con = sqlite3.<span class="t-f">connect</span>(DB)
+    absent, nodraft = [], []
+    <span class="t-k">for</span> rid <span class="t-k">in</span> ids:
+        c = <span class="t-f">dict</span>(con.<span class="t-f">execute</span>(<span class="t-s">&quot;SELECT kind, COUNT(*) FROM memory WHERE run_id=? &quot;</span>
+                             <span class="t-s">&quot;GROUP BY kind&quot;</span>, (rid,)).<span class="t-f">fetchall</span>())
+        <span class="t-k">if</span> <span class="t-k">not</span> c:
+            absent.<span class="t-f">append</span>(rid)
+        <span class="t-k">elif</span> c.<span class="t-f">get</span>(<span class="t-s">&quot;draft&quot;</span>, <span class="t-s">0</span>) &lt; <span class="t-s">1</span>:
+            nodraft.<span class="t-f">append</span>(rid)
+    con.<span class="t-f">close</span>()
+    <span class="t-f">check</span>(<span class="t-k">not</span> absent, <span class="t-s">&quot;every run id is in shared_memory.db (%d missing: %s)&quot;</span>
+          % (<span class="t-f">len</span>(absent), <span class="t-s">&quot;, &quot;</span>.<span class="t-f">join</span>(absent[:<span class="t-s">3</span>]) <span class="t-k">or</span> <span class="t-s">&quot;-&quot;</span>))
+    <span class="t-f">check</span>(<span class="t-k">not</span> nodraft, <span class="t-s">&quot;every run stored a writer draft (%d without: %s)&quot;</span>
+          % (<span class="t-f">len</span>(nodraft), <span class="t-s">&quot;, &quot;</span>.<span class="t-f">join</span>(nodraft[:<span class="t-s">3</span>]) <span class="t-k">or</span> <span class="t-s">&quot;-&quot;</span>))
+
+<span class="t-c"># 5. the two counts, with room for an honest null result</span>
+b = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> r <span class="t-k">in</span> <span class="t-f">runs</span>(<span class="t-s">&quot;before&quot;</span>) <span class="t-k">if</span> r.<span class="t-f">get</span>(<span class="t-s">&quot;failed&quot;</span>) <span class="t-k">is</span> <span class="t-k">True</span>)
+a = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> r <span class="t-k">in</span> <span class="t-f">runs</span>(<span class="t-s">&quot;after&quot;</span>) <span class="t-k">if</span> r.<span class="t-f">get</span>(<span class="t-s">&quot;failed&quot;</span>) <span class="t-k">is</span> <span class="t-k">True</span>)
+<span class="t-f">check</span>(b &gt;= <span class="t-s">7</span>, <span class="t-s">&quot;the break is strong: %d/10 before-runs failed (7 is the floor, below that &quot;</span>
+              <span class="t-s">&quot;a fix cannot be shown to work)&quot;</span> % b)
+<span class="t-k">if</span> a &lt; b:
+    <span class="t-f">check</span>(<span class="t-k">True</span>, <span class="t-s">&quot;the fix moved the number: %d/10 failed before, %d/10 after&quot;</span> % (b, a))
+<span class="t-k">else</span>:
+    ok = <span class="t-f">len</span>(<span class="t-f">str</span>(report.<span class="t-f">get</span>(<span class="t-s">&quot;honest_null_result&quot;</span>, <span class="t-s">&quot;&quot;</span>)).<span class="t-f">strip</span>()) &gt;= <span class="t-s">20</span>
+    <span class="t-f">check</span>(ok, <span class="t-s">&quot;no movement (%d/10 -&gt; %d/10)%s&quot;</span> % (b, a, <span class="t-s">&quot;, and honest_null_result says why&quot;</span>
+          <span class="t-k">if</span> ok <span class="t-k">else</span> <span class="t-s">&quot;; add an honest_null_result note of 20+ characters&quot;</span>))
+<span class="t-f">print</span>(<span class="t-s">&quot;not checked automatically: whether the fix is structural rather than a firmer &quot;</span>
+      <span class="t-s">&quot;instruction, and whether each failed judgement was called correctly.&quot;</span>)
+<span class="t-k">if</span> fails:
+    <span class="t-f">print</span>(<span class="t-s">&quot;%d CHECK(S) FAILED&quot;</span> % <span class="t-f">len</span>(fails))
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;ALL CHECKS PASSED&quot;</span>)
+</pre></div>
+        </div>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> python check.py prints one PASS or FAIL line per check and ends with ALL CHECKS PASSED and exit code 0. Passing means all twenty run ids really exist in shared_memory.db with a stored draft, your break failed at least seven of ten runs, and the after count dropped or honest_null_result explains why it did not. The checker also prints a line naming what it cannot judge: whether your fix is structural rather than a firmer prompt, and whether you called each pass or fail correctly.</div></div>
+        <div class="note" style="margin-top:12px"><div class="note__t">If you want more</div><p>Add a fourth agent and spread eight more tools across the team, then run the same ten topics again as a third block and count the failures. If the rate rises with nothing else changed, you have measured coordination overhead in your own system instead of trusting the roughly-a-dozen-tools rule of thumb.</p></div>
+        </section>
+        <section class="section section--quiz"><h2 class="section__h" data-stamp="on record"><span>Check yourself</span></h2>
+        <p class="small muted">Explained either way.</p>
+        <div class="quiz" data-quiz>
+        <div class="q" data-answer="0"><p class="q__q">Your researcher agent and writer agent produce a confident brief containing a number the researcher was actually unsure about. What is the most useful way to describe this failure?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Information was lost at the handoff, because the doubt was never written into a field the writer could see</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>The model is not smart enough and needs a larger tier</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>The context window was too small</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>The two agents needed the A2A protocol between them</span></button>
+        </div><div class="q__why" hidden>This is a design failure, which is what MAST found for most multi-agent breakdowns. The doubt existed inside the researcher's reasoning and got smoothed away in prose, so the writer never had it. A bigger model may hedge more often by luck, but the structural fix is a required unknowns field that makes the gap visible, and A2A is about how agents call each other, not about what they remember to say.</div></div>
+        <div class="q" data-answer="1"><p class="q__q">You want two agents to share what they learn, and you want it to survive the program exiting. Which is the right default for this course?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Pass the full conversation history from one agent to the other on every turn</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>A SQLite file both agents read and write, with a timestamp on each row</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>A Python dictionary held in the supervisor process</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Fine-tune a model on the findings</span></button>
+        </div><div class="q__why" hidden>Long-term memory means something you deliberately wrote to disk, and SQLite gives you that in a single file with no server. A dictionary in the supervisor vanishes when the process ends, so it is short-term memory only. Passing full history does work, but it is the expensive option, because agent runs are input-token-heavy and you re-pay for every pasted token on every turn.</div></div>
+        <div class="q" data-answer="1"><p class="q__q">An agent with fifteen similar tools starts picking the wrong one and inventing arguments. Which response is the least useful?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Split the work across agents so each has around five tools</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Add a line to the system prompt saying 'always choose the correct tool'</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Attach only the tools relevant to the current step</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Merge near-duplicate tools and describe when NOT to use each one</span></button>
+        </div><div class="q__why" hidden>Every tool's name, description and schema sits in the prompt on every turn, so the problem is how many similar options the model must tell apart, not how firmly you asked. Splitting, filtering and merging all shrink the choice set, which is the actual cause. Accuracy tends to slide past roughly a dozen tools, but the exact point depends on your model and how alike your tools are, so measure it in your own system.</div></div>
+        </div></section>
+        <section class="section section--notes notes" data-notes><h2 class="section__h" data-stamp="on record"><span>Your notes</span></h2>
+        <p class="small muted">Saves as you type, in this browser.</p>
+        <label class="sr" for="n15">Notes for this module</label>
+        <textarea id="n15" placeholder="What clicked? What is still fuzzy? What do you want to come back to?"></textarea><div class="notes__status"></div></section>
+        <section class="section section--done"><h2 class="section__h" data-stamp="on record"><span>Mark it done</span></h2>
+        <div class="marks"><button class="mark" data-mark="read" aria-pressed="false"><span>Read the notes</span></button><button class="mark" data-mark="lab" aria-pressed="false"><span>Finished the lab</span></button><button class="mark" data-mark="mini" aria-pressed="false"><span>Finished the mini-project</span></button></div></section>
+        <section class="section section--docs"><h2 class="section__h" data-stamp="reference"><span>Go to the source</span></h2>
+        <p class="small muted">If this course and the docs disagree, the docs are newer.</p><ul class="prose">
+        <li><a href="https://a2a-protocol.org/" target="_blank" rel="noopener">A2A protocol specification and agent cards</a></li>
+        <li><a href="https://arxiv.org/abs/2503.13657" target="_blank" rel="noopener">MAST: Multi-Agent System Failure Taxonomy (paper)</a></li>
+        <li><a href="https://www.anthropic.com/engineering/building-effective-agents" target="_blank" rel="noopener">Anthropic: building effective agents (workflows vs agents)</a></li>
+        <li><a href="https://langchain-ai.github.io/langgraph/" target="_blank" rel="noopener">LangGraph documentation (supervisor, handoffs, persistence)</a></li>
+        <li><a href="https://docs.python.org/3/library/sqlite3.html" target="_blank" rel="noopener">Python sqlite3 module documentation</a></li>
+        <li><a href="https://github.com/asg017/sqlite-vec" target="_blank" rel="noopener">sqlite-vec, single-file vector search for memory</a></li>
+        </ul></section>
+    </div>
+    <nav data-chrome="pager"></nav>
+  </main>
+</div>
+
+<script src="../assets/data.js"></script>
+<script src="../assets/widgets.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

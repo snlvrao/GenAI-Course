@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>19. B1 · Train your own tokenizer</title>
+<meta name="description" content="Build byte pair encoding from scratch and train it on your own text, so you own the thing that decides what a token is.">
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+</head>
+<body data-module="m19" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="7">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+        <div data-chrome="modhead"></div>
+        <p class="prose">A model never sees your letters. Something turns text into a list of integers first, and in this module you build that something: byte pair encoding, about forty lines of Python, trained on your own writing.</p>
+        <section class="section section--watch"><h2 class="section__h" data-stamp="take in"><span>Watch this first</span></h2>
+        <div data-videos="core"></div></section>
+        <section class="section section--ideas"><h2 class="section__h" data-stamp="take in"><span>The ideas, in plain English</span></h2>
+        <p class="small muted">Each idea, then a worked example of it.</p>
+        <div class="concepts">
+        <div class="concept"><div class="concept__n" aria-hidden="true">1</div><h3 class="concept__t">Chunks, not characters or words</h3><p class="concept__b">A tokenizer needs a fixed list of symbols, called the <strong>vocabulary</strong>, and every piece of text must be spelled out of it. Split on characters and the vocabulary is tiny but sequences are enormous, and cost grows with sequence length. Split on words and sequences are short but the vocabulary is huge and any unseen word has no symbol at all. Byte pair encoding takes the middle: common chunks get one symbol, rare ones get spelled from pieces.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>Split</th><th>Tokens for the 1.1 MB corpus</th><th>Vocabulary</th><th>Text it has never seen</th></tr></thead><tbody><tr><td>characters</td><td>1,115,394</td><td>65</td><td>fine if every character is one of the 65, but there is no symbol for an accent or an emoji</td></tr><tr><td>whitespace words</td><td>202,651</td><td>25,670</td><td>no symbol exists for it</td></tr><tr><td>BPE, 300 merges</td><td>549,002</td><td>556</td><td>fine, spelled from pieces</td></tr></tbody></table><div class="eg__cap">The same 1.1 MB of text counted three ways. BPE halves the character count with 2% of the word vocabulary, and unlike words it can spell anything.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">2</div><h3 class="concept__t">The BPE algorithm</h3><p class="concept__b">Start from raw bytes, values 0 to 255, so every possible input is already representable and there is no unknown token. Count every adjacent pair, glue the most frequent one into a single new token, give it the next free id, repeat. A later round can glue a token an earlier round created, which is how whole words appear without anyone listing them.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre><span class="t-k">>>></span> <span class="t-k">import</span> bpe
+<span class="t-k">>>></span> m, v, ids = bpe.<span class="t-f">train</span>(<span class="t-s">&quot;banana banana&quot;</span>, <span class="t-s">3</span>)
+<span class="t-o">  merge    0: 'an' appeared 4 times</span>
+<span class="t-o">  merge    1: 'ban' appeared 2 times</span>
+<span class="t-o">  merge    2: 'banan' appeared 2 times</span>
+<span class="t-k">>>></span> {k: v[k] <span class="t-k">for</span> k <span class="t-k">in</span> <span class="t-f">sorted</span>(v) <span class="t-k">if</span> k &gt;= <span class="t-s">256</span>}
+<span class="t-o">{256: b'an', 257: b'ban', 258: b'banan'}</span>
+<span class="t-k">>>></span> ids
+<span class="t-o">[258, 97, 32, 258, 97]</span></pre><div class="eg__cap">Three merges on 13 bytes, real output from the lab file. Token 257 is built from 256, and 258 from both of them.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">3</div><h3 class="concept__t">The merge order is the tokenizer</h3><p class="concept__b">The trained artefact is not a list of chunks, it is an <strong>ordered</strong> list of pairs. Row 273 of the real table is <code>32,257</code>, a space glued to token 257, and 257 is itself the merge <code>116,104</code>, which is <code>th</code>. Replay those rows in a different order and the encoder produces different ids for the same text. It still decodes, so nothing raises and nothing warns you.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre><span class="t-k">>>></span> m, v, _ = bpe.<span class="t-f">train</span>(<span class="t-s">&quot;banana banana&quot;</span>, <span class="t-s">3</span>)
+<span class="t-k">>>></span> bpe.<span class="t-f">encode</span>(<span class="t-s">&quot;banana banana&quot;</span>, m)
+<span class="t-o">[258, 97, 32, 258, 97]</span>
+<span class="t-k">>>></span> shuffled = {k: n <span class="t-k">for</span> k, n <span class="t-k">in</span> <span class="t-f">reversed</span>(<span class="t-f">list</span>(m.<span class="t-f">items</span>()))}
+<span class="t-k">>>></span> bpe.<span class="t-f">encode</span>(<span class="t-s">&quot;banana banana&quot;</span>, shuffled)
+<span class="t-o">[98, 256, 256, 97, 32, 98, 256, 256, 97]</span>
+<span class="t-k">>>></span> bpe.<span class="t-f">decode</span>(bpe.<span class="t-f">encode</span>(<span class="t-s">&quot;banana banana&quot;</span>, shuffled), v)
+<span class="t-o">'banana banana'</span></pre><div class="eg__cap">Same merges, wrong order: nine tokens instead of five, completely different ids, and the text still comes back perfectly. A silent failure.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">4</div><h3 class="concept__t">Compression ratio and your bill</h3><p class="concept__b">Compression here means <strong>bytes per token</strong>: corpus bytes divided by token count. Providers bill per token, so this number is your invoice multiplier for the same text. The measured run turned 1,115,394 bytes into 549,002 tokens, which is 2.03 bytes per token.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>Merges</th><th>Tokens for the 1.1 MB corpus</th><th>Bytes per token</th><th>Cost at $3 per million tokens</th></tr></thead><tbody><tr><td>100</td><td>688,066</td><td>1.62</td><td>$2.06</td></tr><tr><td>300</td><td>549,002</td><td>2.03</td><td>$1.65</td></tr><tr><td>600</td><td>470,334</td><td>2.37</td><td>$1.41</td></tr></tbody></table><div class="eg__cap">Measured on a laptop processor with no graphics card. The same text, three tokenizers, a 46% spread in what you would pay to send it.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">5</div><h3 class="concept__t">Round trip must be lossless</h3><p class="concept__b">Encode then decode has to return the original text byte for byte. The vocabulary stores raw <code>bytes</code>, not strings, so decoding is a join followed by one UTF-8 decode. If the round trip loses anything, every number downstream is wrong and no error will tell you.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">the check that ships inside bpe.py</p><pre>probe = text[:<span class="t-s">2000</span>]
+ok = <span class="t-f">decode</span>(<span class="t-f">encode</span>(probe, merges), vocab) == probe
+<span class="t-f">print</span>(f<span class="t-s">&quot;round trip   {'lossless' if ok else 'LOSSY - something is wrong'}&quot;</span>)</pre><p class="eg__say">real output on the 1.1 MB corpus, 300 merges</p><pre>bytes before 1,115,394  -&gt;  tokens after 549,002
+compression  2.03x  (2.03 bytes per token)
+vocabulary   556 entries
+round trip   lossless</pre><div class="eg__cap">Starting from bytes rather than characters is what makes this hold for any input, including emoji and text in scripts your corpus never contained.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">6</div><h3 class="concept__t">Vocabulary size is a trade-off</h3><p class="concept__b">Every merge buys you shorter sequences and costs you a vocabulary row. The return shrinks fast: the first 100 merges buy 0.62 bytes per token, the next 500 buy only 0.75 more. The row is not free later either, because in B2 the embedding table is vocabulary times width, so a 556-entry vocabulary needs 556 x 128 = 71,168 parameters there. The 65-character model you build in B2 spends only 8,320. The output layer grows with the vocabulary too, so switching to this tokenizer would take that model from 824,897 parameters to 951,084.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>Merges</th><th>Vocabulary</th><th>Tokens</th><th>Bytes per token</th><th>Gain per merge since the previous row</th></tr></thead><tbody><tr><td>100</td><td>356</td><td>688,066</td><td>1.62</td><td>0.0062</td></tr><tr><td>150</td><td>406</td><td>635,062</td><td>1.76</td><td>0.0028</td></tr><tr><td>200</td><td>456</td><td>598,357</td><td>1.86</td><td>0.0020</td></tr><tr><td>300</td><td>556</td><td>549,002</td><td>2.03</td><td>0.0017</td></tr><tr><td>450</td><td>706</td><td>502,377</td><td>2.22</td><td>0.0013</td></tr><tr><td>600</td><td>856</td><td>470,334</td><td>2.37</td><td>0.0010</td></tr></tbody></table><div class="eg__cap">Measured on the 1.1 MB corpus. Production tokenizers use 50,000 to 200,000 entries because they are trained once and reused by millions of calls.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">7</div><h3 class="concept__t">Your tokenizer only fits text like its training text</h3><p class="concept__b">The merge table is a frequency photograph of one corpus. A corpus of plays learns word endings first; a corpus of Python source learns runs of indent spaces first. Point a tokenizer at foreign text and it still round trips perfectly, it just costs you far more tokens, which is the expensive kind of failure because nothing looks broken.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>Tokenizer, 300 merges</th><th>merge 0</th><th>merge 1</th><th>merge 2</th><th>merge 3</th><th>Bytes per token on 92 KB of Python source</th></tr></thead><tbody><tr><td>trained on 1.1 MB of plays</td><td>'e '</td><td>'th'</td><td>'t '</td><td>'s '</td><td>1.37</td></tr><tr><td>trained on that Python source</td><td>'  '</td><td>'    '</td><td>'        '</td><td>'\n        '</td><td>2.79</td></tr></tbody></table><div class="eg__cap">Measured. The same 91,650 bytes became 66,720 tokens with the plays tokenizer and 32,881 with the matched one: twice the bill, zero errors.</div></div>
+        </div>
+        </div></section>
+        <div class="note note--gap"><div class="note__t">Worth knowing</div><p>Three honest limits. First, bpe.py has no pre-tokenization step: real tokenizers split text on a regex before counting, so a merge can never span a word boundary or swallow punctuation, while yours will happily learn a token straddling ', ' if that pair is frequent enough. Second, it rescans the entire corpus once per merge, which is fine up to a few megabytes and a thousand merges and painfully slow past that, so do not point it at a gigabyte. Third, every compression figure in this module except the 1.37 cross-domain number was measured on the same text the tokenizer was trained on, which is the best case that tokenizer will ever see; if you want the number you would actually pay, hold out text the trainer never touched and measure on that.</p></div>
+        <section class="section section--lab"><h2 class="section__h" data-stamp="hands on"><span>Lab: follow along</span></h2>
+        <div data-setupbanner></div>
+        
+        <p class="prose">You are going to read and run my-work/labs/lab19/bpe.py, the whole tokenizer in about forty lines. Run it once, take the two core functions apart in a Python prompt, then break the merge order on purpose so you can see what a broken tokenizer looks like.</p>
+        <p class="small muted">Code given, every line explained.</p>
+        <ol class="steps">
+        <li><h3>Run it once and read the log</h3><p>Move into my-work/labs/lab19 and train 300 merges on the corpus that ships with the course. The first argument is the text file, the second is the number of merges, and both have defaults so a bare python bpe.py works too. Watch the first merges: the most common adjacent pair in English prose is not a word, it is the letter e followed by a space, which is the end of a word. Nothing prints between merge 4 and merge 100 because the code only logs the first five and then every hundredth. By merge 100 the log shows the whole word 'with' and by merge 200 it shows 'sha', neither of which anyone listed anywhere.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>cd my-work/labs/lab19
+python bpe.py corpus.txt <span class="t-s">300</span>
+
+corpus <span class="t-s">1</span>,<span class="t-s">115</span>,<span class="t-s">394</span> characters, <span class="t-s">1</span>,<span class="t-s">115</span>,<span class="t-s">394</span> bytes
+training <span class="t-s">300</span> merges
+
+  merge    <span class="t-s">0</span>: <span class="t-s">'e '</span> appeared <span class="t-s">27643</span> times
+  merge    <span class="t-s">1</span>: <span class="t-s">'th'</span> appeared <span class="t-s">22739</span> times
+  merge    <span class="t-s">2</span>: <span class="t-s">'t '</span> appeared <span class="t-s">16508</span> times
+  merge    <span class="t-s">3</span>: <span class="t-s">'s '</span> appeared <span class="t-s">15364</span> <span class="t-f">times</span>
+(merges scroll past, the next log lines are merge <span class="t-s">100</span> <span class="t-k">with</span> <span class="t-s">'with'</span> <span class="t-k">and</span> merge <span class="t-s">200</span> <span class="t-k">with</span> <span class="t-s">'sha'</span>)
+
+bytes before <span class="t-s">1</span>,<span class="t-s">115</span>,<span class="t-s">394</span>  -&gt;  tokens after <span class="t-s">549</span>,<span class="t-s">002</span>
+compression  <span class="t-s">2.03x</span>  (<span class="t-s">2.03</span> bytes per token)
+vocabulary   <span class="t-s">556</span> entries
+round trip   lossless
+
+wrote tokenizer.json
+first <span class="t-s">20</span> tokens: [<span class="t-s">'F'</span>, <span class="t-s">'ir'</span>, <span class="t-s">'st '</span>, <span class="t-s">'C'</span>, <span class="t-s">'it'</span>, <span class="t-s">'i'</span>, <span class="t-s">'z'</span>, <span class="t-s">'en'</span>, <span class="t-s">':\n'</span>, ...]</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>python bpe.py corpus.txt 300</dt><dd>File first, merge count second. Read at the top of the file: CORPUS = sys.argv[1] if len(sys.argv) &gt; 1 else &quot;corpus.txt&quot;.</dd>
+        <dt>'e ' appeared 27643 times</dt><dd>BPE learns word boundaries before it learns words, because the space is the most predictable neighbour any letter has.</dd>
+        <dt>'with' at merge 100</dt><dd>Merges compound. By merge 100 the algorithm is gluing tokens that earlier merges produced, not single letters.</dd>
+        <dt>first 20 tokens: 'F', 'ir', 'st '</dt><dd>This is the split your model would actually see. Note that 'st ' includes the trailing space, which is normal and is why token counts do not match word counts.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>compression = corpus bytes / token count = 1,115,394 / 549,002 = 2.03 bytes per token
+vocabulary = 256 byte values + one per merge = 256 + 300 = 556</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Training 300 merges takes about a minute on a laptop processor with no graphics card, and 600 takes about two minutes, because every merge rescans the whole sequence in pure Python. It is not stuck. If you see 'FAIL no corpus.txt here' you are running from the wrong folder.</span></div>
+        </li>
+        <li><h3>Take apart the two functions that do all the work</h3><p>Everything else in the file is bookkeeping around pair_counts and merge. pair_counts pairs the list with itself shifted by one position, so Counter(zip(ids, ids[1:])) counts every adjacent pair in a single line. merge walks the list once and rebuilds it, replacing the target pair with one new id. Open a Python prompt in my-work/labs/lab19 and drive both by hand on a string short enough to check with your eyes. Importing bpe is safe because the training run sits behind if __name__ == &quot;__main__&quot;.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-k">def</span> <span class="t-f">pair_counts</span>(ids: list[int]) -&gt; Counter:
+    <span class="t-s">&quot;&quot;&quot;How often each adjacent pair appears. (1,2,3) has pairs (1,2) and (2,3).&quot;&quot;&quot;</span>
+    <span class="t-k">return</span> <span class="t-f">Counter</span>(<span class="t-f">zip</span>(ids, ids[<span class="t-s">1</span>:]))
+
+
+<span class="t-k">def</span> <span class="t-f">merge</span>(ids: list[int], pair: tuple[int, int], new_id: int) -&gt; list[int]:
+    <span class="t-s">&quot;&quot;&quot;Replace every occurrence of `pair` with the single token `new_id`.&quot;&quot;&quot;</span>
+    out, i = [], <span class="t-s">0</span>
+    <span class="t-k">while</span> i &lt; <span class="t-f">len</span>(ids):
+        <span class="t-k">if</span> i &lt; <span class="t-f">len</span>(ids) - <span class="t-s">1</span> <span class="t-k">and</span> (ids[i], ids[i + <span class="t-s">1</span>]) == pair:
+            out.<span class="t-f">append</span>(new_id)
+            i += <span class="t-s">2</span>          <span class="t-c"># skip both halves of the pair we just replaced</span>
+        <span class="t-k">else</span>:
+            out.<span class="t-f">append</span>(ids[i])
+            i += <span class="t-s">1</span>
+    <span class="t-k">return</span> out
+
+<span class="t-c"># in a Python prompt, real output:</span>
+&gt;&gt;&gt; <span class="t-k">import</span> bpe
+&gt;&gt;&gt; ids = <span class="t-f">list</span>(<span class="t-s">&quot;banana banana&quot;</span>.<span class="t-f">encode</span>())
+&gt;&gt;&gt; ids
+[<span class="t-s">98</span>, <span class="t-s">97</span>, <span class="t-s">110</span>, <span class="t-s">97</span>, <span class="t-s">110</span>, <span class="t-s">97</span>, <span class="t-s">32</span>, <span class="t-s">98</span>, <span class="t-s">97</span>, <span class="t-s">110</span>, <span class="t-s">97</span>, <span class="t-s">110</span>, <span class="t-s">97</span>]
+&gt;&gt;&gt; bpe.<span class="t-f">pair_counts</span>(ids).<span class="t-f">most_common</span>(<span class="t-s">3</span>)
+[((<span class="t-s">97</span>, <span class="t-s">110</span>), <span class="t-s">4</span>), ((<span class="t-s">110</span>, <span class="t-s">97</span>), <span class="t-s">4</span>), ((<span class="t-s">98</span>, <span class="t-s">97</span>), <span class="t-s">2</span>)]
+&gt;&gt;&gt; bpe.<span class="t-f">merge</span>(ids, (<span class="t-s">97</span>, <span class="t-s">110</span>), <span class="t-s">256</span>)
+[<span class="t-s">98</span>, <span class="t-s">256</span>, <span class="t-s">256</span>, <span class="t-s">97</span>, <span class="t-s">32</span>, <span class="t-s">98</span>, <span class="t-s">256</span>, <span class="t-s">256</span>, <span class="t-s">97</span>]</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>Counter(zip(ids, ids[1:]))</dt><dd>ids[1:] is the same list starting one step later, so zipping them yields every adjacent pair. The whole counting step is one line.</dd>
+        <dt>(ids[i], ids[i + 1]) == pair</dt><dd>The only comparison in the algorithm. There is no linguistics anywhere in this file, only counting.</dd>
+        <dt>i += 2</dt><dd>Skips both halves so the token just created cannot be merged again in the same pass. Left to right, greedy.</dd>
+        <dt>new_id</dt><dd>merge is handed the id and never asks what it means. Meaning lives entirely in the vocabulary dictionary.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>&quot;banana banana&quot; is 13 bytes. One merge of (97,110) removes 4 occurrences, one byte each: 13 - 4 = 9 tokens.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Because of that i += 2, overlapping pairs are consumed left to right. pair_counts on b'aaa' reports the pair (97,97) twice, but merging it produces [256, 97], only one replacement. The counts are a good enough guide, not a promise.</span></div>
+        </li>
+        <li><h3>Read train() and watch the ordering being created</h3><p>train is where the ordered table comes from. It starts ids from raw bytes and seeds the vocabulary with all 256 byte values, so nothing is ever out of vocabulary. Each round it hands out new_id = 256 + k, so ids are issued strictly in order and merge number 300 can never exist before merge 299. The new token's text is simply its two halves concatenated, which is why 'with' can appear at merge 100 without any word list. If no pair repeats it stops early, because there is nothing left to compress.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-k">def</span> <span class="t-f">train</span>(text: str, n_merges: int):
+    <span class="t-s">&quot;&quot;&quot;Return the merge table and the vocabulary it produces.&quot;&quot;&quot;</span>
+    ids = <span class="t-f">list</span>(text.<span class="t-f">encode</span>(<span class="t-s">&quot;utf-8&quot;</span>))          <span class="t-c"># start from raw bytes, 0 to 255</span>
+    merges: dict[tuple[int, int], int] = {}
+    vocab = {i: <span class="t-f">bytes</span>([i]) <span class="t-k">for</span> i <span class="t-k">in</span> <span class="t-f">range</span>(<span class="t-s">256</span>)}
+
+    <span class="t-k">for</span> k <span class="t-k">in</span> <span class="t-f">range</span>(n_merges):
+        counts = <span class="t-f">pair_counts</span>(ids)
+        <span class="t-k">if</span> <span class="t-k">not</span> counts:
+            <span class="t-k">break</span>
+        pair, freq = counts.<span class="t-f">most_common</span>(<span class="t-s">1</span>)[<span class="t-s">0</span>]
+        <span class="t-k">if</span> freq &lt; <span class="t-s">2</span>:                           <span class="t-c"># nothing repeats, stop early</span>
+            <span class="t-f">print</span>(f<span class="t-s">&quot;  stopped at merge {k}: no pair appears twice&quot;</span>)
+            <span class="t-k">break</span>
+        new_id = <span class="t-s">256</span> + k
+        ids = <span class="t-f">merge</span>(ids, pair, new_id)
+        merges[pair] = new_id
+        vocab[new_id] = vocab[pair[<span class="t-s">0</span>]] + vocab[pair[<span class="t-s">1</span>]]
+
+<span class="t-c"># real output, three merges on a tiny string:</span>
+&gt;&gt;&gt; m, v, ids = bpe.<span class="t-f">train</span>(<span class="t-s">&quot;banana banana&quot;</span>, <span class="t-s">3</span>)
+&gt;&gt;&gt; m
+{(<span class="t-s">97</span>, <span class="t-s">110</span>): <span class="t-s">256</span>, (<span class="t-s">98</span>, <span class="t-s">256</span>): <span class="t-s">257</span>, (<span class="t-s">257</span>, <span class="t-s">256</span>): <span class="t-s">258</span>}
+&gt;&gt;&gt; {k: v[k] <span class="t-k">for</span> k <span class="t-k">in</span> <span class="t-f">sorted</span>(v) <span class="t-k">if</span> k &gt;= <span class="t-s">256</span>}
+{<span class="t-s">256</span>: b<span class="t-s">'an'</span>, <span class="t-s">257</span>: b<span class="t-s">'ban'</span>, <span class="t-s">258</span>: b<span class="t-s">'banan'</span>}</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>ids = list(text.encode(&quot;utf-8&quot;))</dt><dd>Bytes, not characters. This one choice is why the tokenizer can encode any text on earth without an unknown token.</dd>
+        <dt>vocab = {i: bytes([i]) for i in range(256)}</dt><dd>The 256 starting tokens are the 256 byte values. Your vocabulary is 256 entries before training does anything.</dd>
+        <dt>new_id = 256 + k</dt><dd>Ids are handed out in loop order, so the id itself records when the merge was learned. That is the ordering you must preserve forever.</dd>
+        <dt>vocab[new_id] = vocab[pair[0]] + vocab[pair[1]]</dt><dd>Two byte strings concatenated. (98,256) is b'b' + b'an' = b'ban', built out of a token that did not exist one round earlier.</dd>
+        <dt>if freq &lt; 2: break</dt><dd>Guards tiny or highly varied corpora. If you ask for 5,000 merges on a small file you will get fewer and a printed reason.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>vocabulary size = 256 + number of merges. For the tiny run: 256 + 3 = 259 entries, of which 3 are new.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Three merges took 13 bytes down to 5 tokens, which looks like enormous compression. Tiny corpora always flatter themselves, and so does measuring compression on the exact text you trained on. The honest number comes from text the tokenizer has not seen.</span></div>
+        </li>
+        <li><h3>Encode, decode, then break the order on purpose</h3><p>encode replays the merges in the order the dictionary holds them, which works because Python dictionaries keep insertion order. decode joins the byte strings and decodes once. The round trip check inside bpe.py is four lines and it is the only test that really matters. Now do the destructive experiment: reverse the merge table and encode the same string. You get nine tokens instead of five and totally different ids, and the text still decodes perfectly, which is exactly why this bug is so easy to ship.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-k">def</span> <span class="t-f">encode</span>(text: str, merges: dict) -&gt; list[int]:
+    <span class="t-s">&quot;&quot;&quot;Apply the merges in the order they were learned. Order matters.&quot;&quot;&quot;</span>
+    ids = <span class="t-f">list</span>(text.<span class="t-f">encode</span>(<span class="t-s">&quot;utf-8&quot;</span>))
+    <span class="t-k">for</span> pair, new_id <span class="t-k">in</span> merges.<span class="t-f">items</span>():
+        ids = <span class="t-f">merge</span>(ids, pair, new_id)
+    <span class="t-k">return</span> ids
+
+
+<span class="t-k">def</span> <span class="t-f">decode</span>(ids: list[int], vocab: dict) -&gt; str:
+    <span class="t-k">return</span> b<span class="t-s">&quot;&quot;</span>.<span class="t-f">join</span>(vocab[i] <span class="t-k">for</span> i <span class="t-k">in</span> ids).<span class="t-f">decode</span>(<span class="t-s">&quot;utf-8&quot;</span>, errors=<span class="t-s">&quot;replace&quot;</span>)
+
+<span class="t-c"># the experiment, real output:</span>
+&gt;&gt;&gt; m, v, _ = bpe.<span class="t-f">train</span>(<span class="t-s">&quot;banana banana&quot;</span>, <span class="t-s">3</span>)
+&gt;&gt;&gt; bpe.<span class="t-f">encode</span>(<span class="t-s">&quot;banana banana&quot;</span>, m)
+[<span class="t-s">258</span>, <span class="t-s">97</span>, <span class="t-s">32</span>, <span class="t-s">258</span>, <span class="t-s">97</span>]
+&gt;&gt;&gt; shuffled = {k: n <span class="t-k">for</span> k, n <span class="t-k">in</span> <span class="t-f">reversed</span>(<span class="t-f">list</span>(m.<span class="t-f">items</span>()))}
+&gt;&gt;&gt; bpe.<span class="t-f">encode</span>(<span class="t-s">&quot;banana banana&quot;</span>, shuffled)
+[<span class="t-s">98</span>, <span class="t-s">256</span>, <span class="t-s">256</span>, <span class="t-s">97</span>, <span class="t-s">32</span>, <span class="t-s">98</span>, <span class="t-s">256</span>, <span class="t-s">256</span>, <span class="t-s">97</span>]
+&gt;&gt;&gt; bpe.<span class="t-f">decode</span>(bpe.<span class="t-f">encode</span>(<span class="t-s">&quot;banana banana&quot;</span>, shuffled), v)
+<span class="t-s">'banana banana'</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>for pair, new_id in merges.items()</dt><dd>Replays the merges in learned order. If you ever rebuild this table from a set, a sorted list, or a JSON parser that reorders keys, your encoder is quietly wrong.</dd>
+        <dt>errors=&quot;replace&quot; in decode</dt><dd>A merge can split a multi-byte character, so decoding one token alone may not be valid UTF-8. The full sequence decodes exactly; this only softens the single-token case.</dd>
+        <dt>decode(encode(probe, merges), vocab) == probe</dt><dd>The one assertion to run against any tokenizer you build or receive. Lossy in means garbage out, forever.</dd>
+        <dt>[98, 256, 256, 97, ...]</dt><dd>The shuffled table never produced 257 or 258 because their inputs did not exist yet when their rows were applied.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>learned order: 13 bytes / 5 tokens = 2.60 bytes per token
+shuffled order: 13 bytes / 9 tokens = 1.44 bytes per token, 80% more tokens for identical text</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>The shuffled tokenizer raises nothing, loses nothing, and passes a naive round trip test. The only symptoms are a worse compression ratio and different ids. Feed those ids to a model trained on the correct ids and you get noise with no error message anywhere.</span></div>
+        </li>
+        <li><h3>Read the artefact it wrote</h3><p>The run wrote tokenizer.json into the folder you ran from. JSON keys must be strings, so each pair (a, b) is stored as the string &quot;a,b&quot;, and the file keeps them in learned order. Find the row &quot;32,257&quot; and work out what it is: 32 is a space, 257 is the merge that made 'th', so that row is the token ' th'. That single row is the proof that this table is a sequence and not a set. sample_tokens holds the first 40 tokens of your corpus already decoded, so you can see the split without writing any code.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>&gt;&gt;&gt; <span class="t-k">import</span> json
+&gt;&gt;&gt; d = json.<span class="t-f">load</span>(<span class="t-f">open</span>(<span class="t-s">&quot;tokenizer.json&quot;</span>, encoding=<span class="t-s">&quot;utf-8&quot;</span>))
+&gt;&gt;&gt; d[<span class="t-s">&quot;n_merges&quot;</span>], d[<span class="t-s">&quot;vocab_size&quot;</span>], d[<span class="t-s">&quot;compression&quot;</span>], d[<span class="t-s">&quot;round_trip_ok&quot;</span>]
+(<span class="t-s">300</span>, <span class="t-s">556</span>, <span class="t-s">2.0317</span>, <span class="t-k">True</span>)
+&gt;&gt;&gt; <span class="t-f">list</span>(d[<span class="t-s">&quot;merges&quot;</span>].<span class="t-f">items</span>())[:<span class="t-s">4</span>]
+[(<span class="t-s">'101,32'</span>, <span class="t-s">256</span>), (<span class="t-s">'116,104'</span>, <span class="t-s">257</span>), (<span class="t-s">'116,32'</span>, <span class="t-s">258</span>), (<span class="t-s">'115,32'</span>, <span class="t-s">259</span>)]
+&gt;&gt;&gt; d[<span class="t-s">&quot;merges&quot;</span>][<span class="t-s">&quot;32,257&quot;</span>]
+<span class="t-s">273</span>
+&gt;&gt;&gt; d[<span class="t-s">&quot;sample_tokens&quot;</span>][:<span class="t-s">9</span>]
+[<span class="t-s">'F'</span>, <span class="t-s">'ir'</span>, <span class="t-s">'st '</span>, <span class="t-s">'C'</span>, <span class="t-s">'it'</span>, <span class="t-s">'i'</span>, <span class="t-s">'z'</span>, <span class="t-s">'en'</span>, <span class="t-s">':\n'</span>]</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>('101,32', 256)</dt><dd>Byte 101 is 'e', byte 32 is a space. The very first token you trained is a word ending.</dd>
+        <dt>d[&quot;merges&quot;][&quot;32,257&quot;] is 273</dt><dd>A merge whose right half is another merge. Any code that applies row 273 before row 257 produces a different, silently wrong encoding.</dd>
+        <dt>sample_tokens</dt><dd>Written with vocab[i].decode(...), so it is the human-readable view of the first 40 ids. ':\n' being one token is the model learning that speaker labels end with a line break.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Recompute the file's own claim: corpus_bytes / token_count = 1,115,394 / 549,002 = 2.0317, which is the compression field rounded to four places. Any mismatch means the file was edited by hand.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>tokenizer.json is written into the current folder and every run overwrites it. Rename the ones you want to compare before rerunning.</span></div>
+        </li>
+        <li><h3>Change the merge count and see the curve flatten</h3><p>Run the trainer at 100 merges and again at 600, then compare the compression lines. More merges always help, but each one helps less than the last, and each one is a permanent row in your vocabulary. That row costs real parameters later: in B2 the embedding table is vocabulary times embedding width, so a 556-entry vocabulary at width 128 needs 71,168 numbers there, where the 65-character model you build in B2 needs only 8,320. Moving that model to this vocabulary would take it from 824,897 parameters to 951,084. Pick the smallest vocabulary that gets you the compression you need, then stop.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>python bpe.py corpus.txt <span class="t-s">100</span>
+python bpe.py corpus.txt <span class="t-s">600</span>
+
+<span class="t-c"># measured on 1.1 MB, laptop processor, no graphics card</span>
+<span class="t-c"># merges  vocab   tokens   bytes/token   training time</span>
+<span class="t-c">#    100    356  688,066      1.62           21s</span>
+<span class="t-c">#    150    406  635,062      1.76           32s</span>
+<span class="t-c">#    200    456  598,357      1.86           45s</span>
+<span class="t-c">#    300    556  549,002      2.03           67s</span>
+<span class="t-c">#    450    706  502,377      2.22           99s</span>
+<span class="t-c">#    600    856  470,334      2.37          133s</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>100 to 300 merges</dt><dd>200 extra merges buy 0.41 bytes per token, about 0.0021 each.</dd>
+        <dt>300 to 600 merges</dt><dd>300 extra merges buy 0.34 bytes per token, about 0.0011 each. Half the return for more vocabulary.</dd>
+        <dt>training time column</dt><dd>Time grows faster than linearly at first because every merge rescans the whole sequence. This is the honest cost of a forty-line implementation; production trainers keep incremental pair counts.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>embedding parameters = vocabulary x embedding width. The 65-character model you build in B2 spends 65 x 128 = 8,320 there, 1.0% of its 824,897 parameters. A 556-entry vocabulary would need 71,168, and because the output layer grows with the vocabulary too, that model becomes 951,084 parameters. At 856 entries the embedding table is 109,568 and the model is 1,028,184.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Do not read these bytes-per-token numbers as your future bill on other text. They are measured on the same corpus the tokenizer was trained on, which is the best case it will ever have.</span></div>
+        </li>
+        </ol>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> You can open any tokenizer's merge table, say what each row means, predict what reordering it would do, and prove the round trip. You built the thing that makes tokens, so tokens are no longer something that happens to you.</div></div>
+        </section>
+        <section class="section section--mini"><h2 class="section__h" data-stamp="hands on"><span>Mini-project: your turn</span></h2>
+        <p class="prose">Train a tokenizer on your own writing. Not the shipped corpus, your text: notes, chat logs, code you wrote, old emails, blog drafts. The first merges will tell you something true about how you write, and the compression number will tell you what your text costs.</p>
+        <p class="small muted">No code given. Produce the file, then run the checker.</p>
+        <ol class="steps">
+        <li><p>Make a working folder, copy my-work/labs/lab19/bpe.py into it, and paste at least 50 KB of your own text into one plain UTF-8 file named mytext.txt. Under about 20 KB there is not enough repetition to compress and you will fail the ratio check.</p></li>
+        <li><p>Run: python bpe.py mytext.txt 300. Read the merge log before anything else. Prose gives you word endings first, code gives you indentation runs, chat logs give you your own filler words.</p></li>
+        <li><p>Check the compression line. If it is under 1.5 bytes per token, add more text or raise the merge count and rerun, for example python bpe.py mytext.txt 600.</p></li>
+        <li><p>Save check_tokenizer.py next to tokenizer.json and run: python check_tokenizer.py mytext.txt. Passing the corpus filename is optional and adds a real round trip over the first 5,000 characters of your text.</p></li>
+        <li><p>Keep both tokenizer.json and mytext.txt. B3 trains a model on text like this, and the vocabulary size you just chose is what sets the size of that model's embedding table.</p></li>
+        </ol>
+        <div class="checker"><div class="checker__h">Check it yourself, automatically</div>
+        <p>Save this as <code>check_tokenizer.py</code> next to your work, then run <code>Save it in the same folder as tokenizer.json and run python check_tokenizer.py, or python check_tokenizer.py mytext.txt to add the round trip over your own corpus. Exit code 0 means everything passed. It rebuilds the vocabulary from the merge table and re-implements encode itself, so it is checking your file rather than trusting it. The first check rejects the corpus that ships with the course, so the artefact has to come from your own text.</code>. It reads what you produced, tests it, and prints a line per check.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>check_tokenizer.py</span></div>
+<pre><span class="t-s">&quot;&quot;&quot;Checker for B1. Run: python check_tokenizer.py  (optionally: ... mytext.txt)&quot;&quot;&quot;</span>
+<span class="t-k">import</span> json, pathlib, sys
+
+SHIPPED = <span class="t-s">1115394</span>          <span class="t-c"># size of the corpus.txt that ships with the course</span>
+res = []
+
+<span class="t-k">def</span> <span class="t-f">check</span>(name, ok, detail=<span class="t-s">&quot;&quot;</span>):
+    res.<span class="t-f">append</span>((name, ok, detail))
+
+p = pathlib.<span class="t-f">Path</span>(<span class="t-s">&quot;tokenizer.json&quot;</span>)
+<span class="t-k">if</span> <span class="t-k">not</span> p.<span class="t-f">exists</span>():
+    <span class="t-f">print</span>(<span class="t-s">&quot;FAIL  tokenizer.json not found. Run: python bpe.py mytext.txt 300&quot;</span>)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-k">try</span>:
+    d = json.<span class="t-f">loads</span>(p.<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>))
+<span class="t-k">except</span> json.JSONDecodeError <span class="t-k">as</span> e:
+    <span class="t-f">print</span>(f<span class="t-s">&quot;FAIL  tokenizer.json is not valid JSON: {e}&quot;</span>)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+
+need = [<span class="t-s">&quot;n_merges&quot;</span>, <span class="t-s">&quot;vocab_size&quot;</span>, <span class="t-s">&quot;compression&quot;</span>, <span class="t-s">&quot;corpus_bytes&quot;</span>,
+        <span class="t-s">&quot;token_count&quot;</span>, <span class="t-s">&quot;merges&quot;</span>, <span class="t-s">&quot;sample_tokens&quot;</span>]
+missing = [k <span class="t-k">for</span> k <span class="t-k">in</span> need <span class="t-k">if</span> k <span class="t-k">not</span> <span class="t-k">in</span> d]
+<span class="t-k">if</span> missing:
+    <span class="t-f">print</span>(f<span class="t-s">&quot;FAIL  tokenizer.json is missing keys: {missing}&quot;</span>)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+
+merges = <span class="t-f">list</span>(d[<span class="t-s">&quot;merges&quot;</span>].<span class="t-f">items</span>())          <span class="t-c"># JSON keeps insertion order</span>
+<span class="t-f">check</span>(<span class="t-s">&quot;own corpus, not the shipped corpus.txt&quot;</span>,
+      d[<span class="t-s">&quot;corpus_bytes&quot;</span>] != SHIPPED, f<span class="t-s">&quot;corpus_bytes={d['corpus_bytes']:,}&quot;</span>)
+<span class="t-f">check</span>(<span class="t-s">&quot;merge count matches the table&quot;</span>,
+      d[<span class="t-s">&quot;n_merges&quot;</span>] == <span class="t-f">len</span>(merges), f<span class="t-s">&quot;n_merges={d['n_merges']} table={len(merges)}&quot;</span>)
+<span class="t-f">check</span>(<span class="t-s">&quot;vocab size = 256 + merges&quot;</span>,
+      d[<span class="t-s">&quot;vocab_size&quot;</span>] == <span class="t-s">256</span> + <span class="t-f">len</span>(merges), f<span class="t-s">&quot;vocab_size={d['vocab_size']}&quot;</span>)
+
+<span class="t-c"># merge table ordered and consistent: ids run 256, 257, ... and every pair</span>
+<span class="t-c"># refers only to tokens that already exist when the merge is applied.</span>
+ordered, consistent, vocab = <span class="t-k">True</span>, <span class="t-k">True</span>, {i: <span class="t-f">bytes</span>([i]) <span class="t-k">for</span> i <span class="t-k">in</span> <span class="t-f">range</span>(<span class="t-s">256</span>)}
+<span class="t-k">for</span> k, (key, new_id) <span class="t-k">in</span> <span class="t-f">enumerate</span>(merges):
+    a, b = (<span class="t-f">int</span>(x) <span class="t-k">for</span> x <span class="t-k">in</span> key.<span class="t-f">split</span>(<span class="t-s">&quot;,&quot;</span>))
+    <span class="t-k">if</span> new_id != <span class="t-s">256</span> + k:
+        ordered = <span class="t-k">False</span>
+    <span class="t-k">if</span> a <span class="t-k">not</span> <span class="t-k">in</span> vocab <span class="t-k">or</span> b <span class="t-k">not</span> <span class="t-k">in</span> vocab <span class="t-k">or</span> a &gt;= new_id <span class="t-k">or</span> b &gt;= new_id:
+        consistent = <span class="t-k">False</span>
+        <span class="t-k">break</span>
+    vocab[new_id] = vocab[a] + vocab[b]
+<span class="t-f">check</span>(<span class="t-s">&quot;merge ids are consecutive from 256&quot;</span>, ordered)
+<span class="t-f">check</span>(<span class="t-s">&quot;every merge builds on earlier tokens&quot;</span>, consistent)
+
+ratio = d[<span class="t-s">&quot;corpus_bytes&quot;</span>] / <span class="t-f">max</span>(d[<span class="t-s">&quot;token_count&quot;</span>], <span class="t-s">1</span>)
+<span class="t-f">check</span>(<span class="t-s">&quot;compression above 1.5&quot;</span>, ratio &gt; <span class="t-s">1.5</span>, f<span class="t-s">&quot;{ratio:.2f} bytes per token&quot;</span>)
+<span class="t-f">check</span>(<span class="t-s">&quot;recorded compression matches the counts&quot;</span>,
+      <span class="t-f">abs</span>(ratio - d[<span class="t-s">&quot;compression&quot;</span>]) &lt; <span class="t-s">0.01</span>, f<span class="t-s">&quot;file says {d['compression']}&quot;</span>)
+
+<span class="t-k">def</span> <span class="t-f">encode</span>(text):
+    ids = <span class="t-f">list</span>(text.<span class="t-f">encode</span>(<span class="t-s">&quot;utf-8&quot;</span>))
+    <span class="t-k">for</span> key, new_id <span class="t-k">in</span> merges:
+        pair = <span class="t-f">tuple</span>(<span class="t-f">int</span>(x) <span class="t-k">for</span> x <span class="t-k">in</span> key.<span class="t-f">split</span>(<span class="t-s">&quot;,&quot;</span>))
+        out, i = [], <span class="t-s">0</span>
+        <span class="t-k">while</span> i &lt; <span class="t-f">len</span>(ids):
+            <span class="t-k">if</span> i &lt; <span class="t-f">len</span>(ids) - <span class="t-s">1</span> <span class="t-k">and</span> (ids[i], ids[i + <span class="t-s">1</span>]) == pair:
+                out.<span class="t-f">append</span>(new_id); i += <span class="t-s">2</span>
+            <span class="t-k">else</span>:
+                out.<span class="t-f">append</span>(ids[i]); i += <span class="t-s">1</span>
+        ids = out
+    <span class="t-k">return</span> ids
+
+<span class="t-k">def</span> <span class="t-f">roundtrip</span>(text):
+    <span class="t-k">try</span>:
+        <span class="t-k">return</span> b<span class="t-s">&quot;&quot;</span>.<span class="t-f">join</span>(vocab[i] <span class="t-k">for</span> i <span class="t-k">in</span> <span class="t-f">encode</span>(text)).<span class="t-f">decode</span>(<span class="t-s">&quot;utf-8&quot;</span>, <span class="t-s">&quot;replace&quot;</span>)
+    <span class="t-k">except</span> KeyError:
+        <span class="t-k">return</span> <span class="t-k">None</span>                      <span class="t-c"># merge table is broken, nothing to decode</span>
+
+probe = <span class="t-s">&quot;&quot;</span>.<span class="t-f">join</span>(d[<span class="t-s">&quot;sample_tokens&quot;</span>])
+<span class="t-k">if</span> <span class="t-f">chr</span>(<span class="t-s">0xFFFD</span>) <span class="t-k">in</span> probe <span class="t-k">or</span> <span class="t-k">not</span> probe:   <span class="t-c"># a token split a character in two</span>
+    probe = <span class="t-s">&quot;round trip must be lossless: 1, 2, 3.\n&quot;</span>
+<span class="t-f">check</span>(<span class="t-s">&quot;round trip on the sample is lossless&quot;</span>, <span class="t-f">roundtrip</span>(probe) == probe)
+<span class="t-f">check</span>(<span class="t-s">&quot;file claims a lossless round trip&quot;</span>, d.<span class="t-f">get</span>(<span class="t-s">&quot;round_trip_ok&quot;</span>) <span class="t-k">is</span> <span class="t-k">True</span>)
+
+<span class="t-k">if</span> <span class="t-f">len</span>(sys.argv) &gt; <span class="t-s">1</span> <span class="t-k">and</span> pathlib.<span class="t-f">Path</span>(sys.argv[<span class="t-s">1</span>]).<span class="t-f">exists</span>():
+    t = pathlib.<span class="t-f">Path</span>(sys.argv[<span class="t-s">1</span>]).<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>, errors=<span class="t-s">&quot;replace&quot;</span>)[:<span class="t-s">5000</span>]
+    <span class="t-f">check</span>(f<span class="t-s">&quot;round trip on {sys.argv[1]} is lossless&quot;</span>, <span class="t-f">roundtrip</span>(t) == t)
+
+<span class="t-k">for</span> name, ok, detail <span class="t-k">in</span> res:
+    <span class="t-f">print</span>(f<span class="t-s">&quot;{'PASS' if ok else 'FAIL'}  {name}&quot;</span> + (f<span class="t-s">&quot;  ({detail})&quot;</span> <span class="t-k">if</span> detail <span class="t-k">else</span> <span class="t-s">&quot;&quot;</span>))
+bad = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> _, ok, _ <span class="t-k">in</span> res <span class="t-k">if</span> <span class="t-k">not</span> ok)
+<span class="t-f">print</span>(f<span class="t-s">&quot;\n{len(res) - bad}/{len(res)} checks passed&quot;</span>)
+sys.<span class="t-f">exit</span>(<span class="t-s">1</span> <span class="t-k">if</span> bad <span class="t-k">else</span> <span class="t-s">0</span>)
+</pre></div>
+        </div>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> check_tokenizer.py prints PASS on every line and ends with 10/10 checks passed, and tokenizer.json holds an ordered merge table trained on words you actually wrote.</div></div>
+        <div class="note" style="margin-top:12px"><div class="note__t">If you want more</div><p>Train the same file at 100, 300 and 600 merges, record bytes per token for each, and write one sentence saying which you would ship and why. Then take the tokenizer trained on your text and encode 20 KB of something completely different, such as source code if you trained on prose. Compression will drop sharply and the round trip will still be lossless. That gap, measured on your own files, is the whole reason tokenizers are trained on the data they will serve.</p></div>
+        </section>
+        <section class="section section--quiz"><h2 class="section__h" data-stamp="on record"><span>Check yourself</span></h2>
+        <p class="small muted">Explained either way.</p>
+        <div class="quiz" data-quiz>
+        <div class="q" data-answer="0"><p class="q__q">You reorder two rows in a trained merge table and re-encode the same text. What happens?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>The text still decodes perfectly, but you get different ids and more of them</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>decode() raises an error because the ids no longer exist</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>The vocabulary size changes, so the file fails validation</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Nothing changes, since the same merges are all still present</span></button>
+        </div><div class="q__why" hidden>Measured on 'banana banana': the learned order gives [258, 97, 32, 258, 97] and the reversed order gives nine tokens, and both decode back to the original string. Later merges refer to ids that earlier merges created, so applying them out of order simply skips them. Nothing raises, which is what makes this the dangerous failure: a model trained on the first set of ids sees noise when fed the second.</div></div>
+        <div class="q" data-answer="1"><p class="q__q">You train 300 merges. How many entries does the vocabulary have?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>300, one per merge</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>556, the 256 byte values plus one new token per merge</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>65, one per distinct character in the corpus</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>It depends on how many distinct characters the corpus contains</span></button>
+        </div><div class="q__why" hidden>train() seeds vocab with all 256 byte values before the loop starts, then adds exactly one entry per merge at id 256 + k. That is why the measured run reports 'vocabulary 556 entries'. Starting from bytes also means the count never depends on the corpus, and no input is ever out of vocabulary.</div></div>
+        <div class="q" data-answer="0"><p class="q__q">A tokenizer trained on 1.1 MB of plays gets 2.03 bytes per token on that text. Pointed at 92 KB of Python source it gets 1.37. What does that tell you?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>The same text costs roughly twice as many tokens, while the round trip stays lossless</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>The Python text will be corrupted, so the tokenizer must be retrained first</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Compression is a property of the text, so any tokenizer would score 1.37 there</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>The tokenizer will crash on characters it never saw during training</span></button>
+        </div><div class="q__why" hidden>Measured: those 91,650 bytes became 66,720 tokens under the plays tokenizer and 32,881 under one trained on Python source, and decode returned the file exactly in both cases. Starting from raw bytes guarantees the round trip no matter how foreign the text is. The mismatch shows up only in your token count, which is to say only on your invoice.</div></div>
+        </div></section>
+        <section class="section section--notes notes" data-notes><h2 class="section__h" data-stamp="on record"><span>Your notes</span></h2>
+        <p class="small muted">Saves as you type, in this browser.</p>
+        <label class="sr" for="n19">Notes for this module</label>
+        <textarea id="n19" placeholder="What clicked? What is still fuzzy? What do you want to come back to?"></textarea><div class="notes__status"></div></section>
+        <section class="section section--done"><h2 class="section__h" data-stamp="on record"><span>Mark it done</span></h2>
+        <div class="marks"><button class="mark" data-mark="read" aria-pressed="false"><span>Read the notes</span></button><button class="mark" data-mark="lab" aria-pressed="false"><span>Finished the lab</span></button><button class="mark" data-mark="mini" aria-pressed="false"><span>Finished the mini-project</span></button></div></section>
+        <section class="section section--docs"><h2 class="section__h" data-stamp="reference"><span>Go to the source</span></h2>
+        <p class="small muted">If this course and the docs disagree, the docs are newer.</p><ul class="prose">
+        <li><a href="https://arxiv.org/abs/1508.07909" target="_blank" rel="noopener">Sennrich, Haddow and Birch 2015, the paper that brought BPE to language models</a></li>
+        <li><a href="https://github.com/karpathy/minbpe" target="_blank" rel="noopener">karpathy/minbpe, a clean reference BPE implementation with tests</a></li>
+        <li><a href="https://www.youtube.com/watch?v=zduSFxRajkE" target="_blank" rel="noopener">Let's build the GPT Tokenizer, two hours on exactly this algorithm and its edge cases</a></li>
+        <li><a href="https://github.com/openai/tiktoken" target="_blank" rel="noopener">tiktoken, the encoder OpenAI models actually use, including its regex pre-split patterns</a></li>
+        <li><a href="https://huggingface.co/learn/nlp-course/chapter6/5" target="_blank" rel="noopener">Hugging Face NLP course, the BPE chapter</a></li>
+        </ul></section>
+    </div>
+    <nav data-chrome="pager"></nav>
+  </main>
+</div>
+
+<script src="../assets/data.js"></script>
+<script src="../assets/widgets.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

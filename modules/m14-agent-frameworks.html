@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>14. Agent frameworks, and how to choose</title>
+<meta name="description" content="Run the real frameworks against the same task, and learn to pick one for reasons you can defend.">
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+</head>
+<body data-module="m14" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="4">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+        <div data-chrome="modhead"></div>
+        <p class="prose">You wrote the agent loop by hand in Module 12, so you already own the baseline. This module shows what a framework adds to that loop, what it charges in lines, money and debugging time, and how to decide whether you need one.</p>
+        <section class="section section--watch"><h2 class="section__h" data-stamp="take in"><span>Watch this first</span></h2>
+        <div data-videos="core"></div></section>
+        <section class="section section--ideas"><h2 class="section__h" data-stamp="take in"><span>The ideas, in plain English</span></h2>
+        <p class="small muted">Each idea, then a worked example of it.</p>
+        <div class="concepts">
+        <div class="concept"><div class="concept__n" aria-hidden="true">1</div><h3 class="concept__t">A loop you did not write</h3><p class="concept__b">In Module 12 you wrote the loop: send the messages, read the reply, run the tools it asked for, send the results back, repeat. A framework is a library that owns that loop and calls your code from inside it, adding five things you would otherwise build (state between steps, checkpoints, retries, human approval, tracing hooks). The current set is LangGraph 1.2, CrewAI, the OpenAI Agents SDK, the Claude Agent SDK, Google ADK, Microsoft Agent Framework (which absorbed AutoGen, so AutoGen tutorials are history) and AWS Strands. You are choosing whose plumbing you inherit, not a different idea of what an agent is.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">The whole agent loop. SYSTEM, call_model, assistant_message, tool_calls_of and run_tool come from my-work/labs/lab14/common.py in this module's lab. Every framework in this module wraps these lines.</p><pre>messages = [{<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;system&quot;</span>, <span class="t-s">&quot;content&quot;</span>: SYSTEM},
+            {<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: <span class="t-s">&quot;What is 17 percent of 4830?&quot;</span>}]
+<span class="t-k">for</span> _ <span class="t-k">in</span> <span class="t-f">range</span>(<span class="t-s">6</span>):                    <span class="t-c"># step limit, your only safety belt</span>
+    msg, _secs = <span class="t-f">call_model</span>(messages)
+    messages.<span class="t-f">append</span>(<span class="t-f">assistant_message</span>(msg))
+    calls = <span class="t-f">tool_calls_of</span>(msg)        <span class="t-c"># [{'name':'calc','args':{'expression':'0.17*4830'}}]</span>
+    <span class="t-k">if</span> <span class="t-k">not</span> calls:
+        <span class="t-k">break</span>                         <span class="t-c"># plain text reply: &quot;17% of 4830 is 821.1&quot;</span>
+    <span class="t-k">for</span> c <span class="t-k">in</span> calls:
+        messages.<span class="t-f">append</span>({<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;tool&quot;</span>, <span class="t-s">&quot;tool_call_id&quot;</span>: c[<span class="t-s">&quot;id&quot;</span>],
+                         <span class="t-s">&quot;content&quot;</span>: <span class="t-f">run_tool</span>(c)})   <span class="t-c"># &quot;821.1&quot;</span></pre><div class="eg__cap">The Module 12 loop unchanged: 11 lines and one step limit.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 620 250" role="img" aria-label="What a framework gives you, and what it hides" xmlns="http://www.w3.org/2000/svg"><title>What a framework gives you, and what it hides</title><defs><marker id="ah-fw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><text x="155" y="22" text-anchor="middle" class="d-hi">you wrote this</text><rect x="30" y="34" width="250" height="30" rx="4" class="d-fill"/><text x="155.0" y="54.0" text-anchor="middle" class="d-t">your tools</text><rect x="30" y="68" width="250" height="30" rx="4" class="d-fill"/><text x="155.0" y="88.0" text-anchor="middle" class="d-t">your prompt</text><rect x="30" y="102" width="250" height="30" rx="4" class="d-fill"/><text x="155.0" y="122.0" text-anchor="middle" class="d-t">the while loop</text><rect x="30" y="136" width="250" height="30" rx="4" class="d-fill"/><text x="155.0" y="156.0" text-anchor="middle" class="d-t">your retry and stop rules</text><text x="155" y="194" text-anchor="middle" class="d-t">about 100 lines</text><text x="155" y="214" text-anchor="middle" class="d-s">you can read all of it</text><text x="465" y="22" text-anchor="middle" class="d-hi">a framework</text><rect x="340" y="34" width="250" height="30" rx="4" class="d-fill"/><text x="465.0" y="54.0" text-anchor="middle" class="d-t">your tools</text><rect x="340" y="68" width="250" height="30" rx="4" class="d-warn"/><text x="465.0" y="88.0" text-anchor="middle" class="d-t">prompt you did not write</text><rect x="340" y="102" width="250" height="30" rx="4" class="d-ok"/><text x="465.0" y="122.0" text-anchor="middle" class="d-t">loop, state, checkpoints</text><rect x="340" y="136" width="250" height="30" rx="4" class="d-ok"/><text x="465.0" y="156.0" text-anchor="middle" class="d-t">retries, pause for a human</text><text x="465" y="194" text-anchor="middle" class="d-t">green is what you gain</text><text x="465" y="214" text-anchor="middle" class="d-s">orange is what you can no longer see</text><text x="310" y="244" text-anchor="middle" class="d-s">adopt one when you can name the pain it removes, not before</text></svg><figcaption><b>Frameworks.</b> The green parts are real work you would otherwise write: saving state so a run can resume, retries, pausing for a human. The orange part is the cost. The prompt actually sent is now assembled by somebody else's code, so when the model behaves oddly you are debugging text you never wrote. Write the loop by hand first, then decide.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">2</div><h3 class="concept__t">What a checkpoint really saves</h3><p class="concept__b">State is the data your agent carries between steps: the message list, tool results, a counter, whatever you keep. A <strong>checkpoint</strong> is a copy of that state saved after every step under a <strong>thread id</strong>, a string you pick like <code>ticket-4821</code>. If the process dies at step four you restart at step four, and you can read the saved state back later to see what the agent believed. Writing this yourself is easy until you have concurrent runs and half-finished steps.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">app and fresh_input come from agent_graph.py in this module's lab.</p><pre>cfg = {<span class="t-s">&quot;configurable&quot;</span>: {<span class="t-s">&quot;thread_id&quot;</span>: <span class="t-s">&quot;ticket-4821&quot;</span>}}
+app.<span class="t-f">invoke</span>(<span class="t-f">fresh_input</span>(<span class="t-s">&quot;What is 17 percent of 4830?&quot;</span>), cfg)</pre><pre>snap = app.<span class="t-f">get_state</span>(cfg)          <span class="t-c"># reads the last checkpoint, spends no tokens</span>
+<span class="t-f">print</span>(<span class="t-f">len</span>(snap.values[<span class="t-s">&quot;messages&quot;</span>]))
+<span class="t-c"># 5</span>
+<span class="t-f">print</span>(snap.values[<span class="t-s">&quot;messages&quot;</span>][<span class="t-s">3</span>])
+<span class="t-c"># {'role': 'tool', 'tool_call_id': 'call_a1', 'content': '821.1'}</span>
+<span class="t-f">print</span>(snap.next)                   <span class="t-c"># ()</span></pre><div class="eg__cap">Reading a thread's saved state back without a model call. An empty snap.next means nothing is left to run, so this thread finished.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">3</div><h3 class="concept__t">Pausing for a human</h3><p class="concept__b">An approval gate stops the agent just before a risky action and waits for a person. In LangGraph you call <code>interrupt()</code> inside a node, which throws the pending action back out to your code, and you resume with <code>Command(resume=True)</code>. It works only because a checkpointer saved the state, so a paused run can sit for a week with no process alive. On resume the whole node runs again from the top, so any real side effect must sit below the interrupt, never above it.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>where run_tool(c) sits</th><th>first pass</th><th>after Command(resume=True)</th></tr></thead><tbody><tr><td>above interrupt()</td><td>notes/maths.txt written, then the run pauses</td><td>node restarts from the top, file written a second time</td></tr><tr><td>below interrupt()</td><td>run pauses, nothing on disk yet</td><td>node restarts, interrupt returns True, file written once</td></tr></tbody></table><div class="eg__cap">Move one line up and save_note writes maths.txt twice.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">4</div><h3 class="concept__t">The hidden prompt problem</h3><p class="concept__b">Most frameworks ship a prebuilt agent that adds its own system text and tool descriptions on top of yours. You did not write those words, the model reads them, and they sit near the front of the prompt where they cost money: cached input is about a tenth the price of fresh input, and the cache matches on the <strong>prefix</strong>, so an edit near the top throws away the cache hit on every call. Agent work is input-heavy, often 50,000 to 500,000 input tokens against a few hundred output tokens. Log the exact request a framework sends, once, and read it word by word.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>50,000-token prompt</th><th>prefix unchanged</th><th>framework text inserted at the top</th></tr></thead><tbody><tr><td>cached tokens at $0.30/M</td><td>45,000 = $0.0135</td><td>0 = $0</td></tr><tr><td>fresh tokens at $3.00/M</td><td>5,000 = $0.015</td><td>50,000 = $0.15</td></tr><tr><td>cost per call</td><td>$0.0285</td><td>$0.15</td></tr><tr><td>cost per 1,000 calls</td><td>$28.50</td><td>$150</td></tr></tbody></table><div class="eg__cap">A broken prefix costs 5.3x here; $3/M is an illustrative price.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">5</div><h3 class="concept__t">Debugging gets harder</h3><p class="concept__b">When you write the loop, a wrong answer has one place to hide. With a framework it could be your node, how the library merged your state, a tool description it generated from your function, or a prompt you never saw. Stack traces get longer and less useful because the interesting frames belong to the library. You get retries, saved state and tracing hooks for free and pay in slower diagnosis, so log inputs and outputs at your own boundaries too.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre>Traceback (most recent call last):
+  File &quot;run_both.py&quot;, line 32, in &lt;module&gt;            # yours
+    answer, trace = run_graph(task, &quot;task-%d&quot; % i)
+  File &quot;run_both.py&quot;, line 20, in run_graph           # yours
+    state = graph_app.invoke(fresh_input(task), cfg)
+  File &quot;.../langgraph/pregel/main.py&quot;, in invoke
+  File &quot;.../langgraph/pregel/_loop.py&quot;, in tick
+  File &quot;.../langgraph/pregel/_retry.py&quot;, in run_with_retry
+  File &quot;.../langgraph/pregel/_algo.py&quot;, in _proc_input
+  File &quot;agent_graph.py&quot;, line 18, in think            # yours
+    msg, secs = call_model(state[&quot;messages&quot;])
+KeyError: 'messages'</pre><p class="eg__say">7 frames, 3 of them yours. Cause: the caller sent {&quot;trace&quot;: []} and left out the &quot;messages&quot; key. The hand-written loop has no caller-supplied state dict, so this whole class of error cannot happen there.</p><div class="eg__cap">Seven frames for a missing state key, three of them your code.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">6</div><h3 class="concept__t">Every hello-world looks the same</h3><p class="concept__b">Open the quickstarts for LangGraph, CrewAI, Google ADK, AWS Strands, the OpenAI Agents SDK and the Claude Agent SDK side by side and the code is near-identical: declare a tool, build an agent, run it, print the answer. They all wrap the same loop, so day one tells you almost nothing about the choice. The differences show up in week two, when you resume a dead run, inspect state, gate a dangerous action, or test one step without paying for a model call. Choose by building the second hardest thing you actually need in two candidates, not from a landing page.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>move</th><th>LangGraph</th><th>OpenAI Agents SDK</th></tr></thead><tbody><tr><td>declare a tool</td><td>@tool on a plain function</td><td>@function_tool on a plain function</td></tr><tr><td>build the agent</td><td>create_react_agent(model, tools)</td><td>Agent(name, instructions, tools)</td></tr><tr><td>run it</td><td>app.invoke({&quot;messages&quot;: [...]})</td><td>Runner.run_sync(agent, &quot;...&quot;)</td></tr><tr><td>lines to a first answer</td><td>about 6</td><td>about 6</td></tr></tbody></table><div class="eg__cap">Two different libraries, the same three moves, the same six lines.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">7</div><h3 class="concept__t">Prefer a fixed path</h3><p class="concept__b">A <strong>workflow</strong> is a path you fix in code: fetch, tag, summarise, save, in that order every time. An <strong>agent</strong> is a path the model picks as it goes, calling tools until it decides it is finished. Anthropic advises using a workflow wherever one will do and starting with no framework, and they sell models rather than frameworks so weigh the advice accordingly, but it is testable and the test usually agrees. Fixed paths cost less, run faster and are easier to evaluate, because you know which step was supposed to produce what.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">Workflow: you fix the path. Always 2 model calls, cost known before you run. chat() is the course helper in my-work/labs/_shared/llm.py.</p><pre><span class="t-k">import</span> csv
+raw = <span class="t-f">open</span>(<span class="t-s">&quot;TKT-4821.txt&quot;</span>, encoding=<span class="t-s">&quot;utf-8&quot;</span>).<span class="t-f">read</span>()       <span class="t-c"># a ticket you saved as text</span>
+tags = <span class="t-f">chat</span>(<span class="t-s">&quot;Tag as billing, bug or howto:\n&quot;</span> + raw)      <span class="t-c"># &quot;billing&quot;</span>
+line = <span class="t-f">chat</span>(<span class="t-s">&quot;Summarise in under 12 words:\n&quot;</span> + raw)       <span class="t-c"># &quot;Card declined at checkout, twice&quot;</span>
+csv.<span class="t-f">writer</span>(<span class="t-f">open</span>(<span class="t-s">&quot;out.csv&quot;</span>, <span class="t-s">&quot;a&quot;</span>, newline=<span class="t-s">&quot;&quot;</span>, encoding=<span class="t-s">&quot;utf-8&quot;</span>)).<span class="t-f">writerow</span>([<span class="t-s">&quot;TKT-4821&quot;</span>, tags, line])</pre><p class="eg__say">Agent: the model picks the path. 2 to 6 model calls for the same row, and you find out which only after it has run. run() is an agent loop like the one you wrote in Module 12.</p><pre><span class="t-f">run</span>(<span class="t-s">&quot;Tag ticket TKT-4821, summarise it, append a row to out.csv&quot;</span>)</pre><div class="eg__cap">Same CSV row: only the workflow's cost is known in advance.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">8</div><h3 class="concept__t">When to skip the framework</h3><p class="concept__b">If your job is one model call and two or three tools, about fifty lines of a while loop does it and you will understand every line. Reach for a framework when you can name the thing you need from it: runs that survive a restart, a human approval pause, parallel branches that join, or tracing your team already reads. Reach for one when several people work on the same agent, because one shared shape beats six personal loops. The port in this lab is under a hundred lines, so the decision stays reversible.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>file</th><th>lines</th><th>what it gives you</th></tr></thead><tbody><tr><td>agent_plain.py</td><td>32</td><td>the loop, a step limit, an approve callback</td></tr><tr><td>agent_graph.py</td><td>53</td><td>all of that, plus saved state you can read back and a pause you can resume</td></tr><tr><td>difference</td><td>21</td><td>about 10 lines per capability gained</td></tr></tbody></table><div class="eg__cap">Lab line counts: 21 extra lines buys two capabilities the plain loop cannot fake.</div></div>
+        </div>
+        </div></section>
+        <section class="section section--try"><h2 class="section__h" data-stamp="hands on"><span>Try it yourself</span></h2>
+        <p class="small muted" style="margin-bottom:6px">Answer four questions, get a framework</p>
+        <div data-widget="chooser"></div>
+        </section>
+        <div class="note note--gap"><div class="note__t">Worth knowing</div><p>Almost every framework comparison you will find online is written by one of the framework's vendors or by someone paid to promote one, and there are no neutral, reproducible benchmarks for the things that actually differ (resume behaviour, approval gates, testability). Video tutorials are worse than usual here: CrewAI changed the shape of its quickstart in 2026, so 2024 and 2025 walkthroughs are structurally wrong rather than just dated, and anything teaching AutoGen is teaching a project that has been folded into Microsoft Agent Framework 1.0. LangGraph's documentation has also moved hosts during the 1.x line, so old bookmarked deep links may not resolve.</p></div>
+        <section class="section section--more"><h2 class="section__h" data-stamp="optional"><span>If you want to go deeper</span></h2>
+        <p class="small muted">Optional.</p>
+        <div data-videos="more"></div></section>
+        <section class="section section--lab"><h2 class="section__h" data-stamp="hands on"><span>Lab: follow along</span></h2>
+        <div data-setupbanner></div>
+        <div class="note note--warn" data-path="offline" hidden><div class="note__t">Two things to know on the offline path</div><p>The CrewAI comparison runs in Colab regardless of your path, because CrewAI will not install on Python 3.14. The LangGraph half runs locally against your own model, and will be slower and less reliable than the hand-written agent from Module 12 purely because of model size, not because of LangGraph.</p></div>
+        <p class="prose">You already wrote an agent loop by hand in Module 12, so you know exactly how many lines that loop takes and where every bug can hide. In this lab you build the same agent twice, once as your own for loop and once as a LangGraph graph, and both versions share the same tools, the same system prompt and the same model call so the comparison is fair. Then you run both on the same two tasks and watch what actually changes. The goal is not to prove LangGraph is better, it is to see in your own code which three things a framework hands you (state saved after every step, a pause a human can resume, and one place to hang tracing) and what it charges you in extra lines and extra places for a bug to hide.</p>
+        <p class="small muted">Code given, every line explained.</p>
+        <ol class="steps">
+        <li><h3>Install LangGraph and check it</h3><p>Make a folder <code>my-work/labs/lab14</code> next to your other labs, then install the exact version this lab was written against. <strong>Pinning</strong> means asking pip for one specific version instead of the newest one, and you do it here because LangGraph moved and renamed several things during its 1.x line, so an unpinned install can hand you a library that no longer matches this page. The second command does two separate jobs, it proves the package really imports, and it prints the version pip actually recorded on disk, which is not always the one you asked for if another package pulled in a different one. You should see <code>1.2.10</code> printed and nothing else. If your <code>.env</code> already has <code>LLM_PROVIDER</code> set from an earlier module you do not need to touch it, because every model call in this lab goes through the shared <code>my-work/labs/_shared/llm.py</code> helper. Nothing here needs a GPU, a vendor desktop app, or a new API key.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>pip install langgraph==<span class="t-s">1.2.10</span>
+
+python -c <span class="t-s">&quot;import langgraph, importlib.metadata as m; print(m.version('langgraph'))&quot;</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>pip install langgraph==1.2.10</dt><dd>The double equals asks pip for that exact release and refuses anything else. Without it pip takes whatever is newest on the day you run it, and the imports this lab relies on (InMemorySaver, interrupt, Command) are only guaranteed to sit where they do in 1.2.x.</dd>
+        <dt>import langgraph</dt><dd>This is the cheap half of the check. An install can print a success message and still fail to import if a dependency did not build on your machine, and importing is the only way to find that out now instead of three steps later.</dd>
+        <dt>importlib.metadata as m; print(m.version('langgraph'))</dt><dd>importlib.metadata reads the version pip wrote into the package metadata, rather than a __version__ attribute the package might not define. If this prints anything other than 1.2.10, something else in your environment quietly changed it.</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>If pip prints a dependency resolver warning or the version check prints a number other than 1.2.10, another package in the same environment pinned LangGraph too, and the fix is a fresh virtual environment rather than forcing the install.</span></div>
+        </li>
+        <li><h3>Write the parts both agents share</h3><p>Both agents have to use identical tools, identical tool descriptions and an identical model call, otherwise any difference you measure later might just be a difference in wording rather than a difference between the two designs. So everything shared lives in one file that both agents import. <code>calc</code> does arithmetic safely by parsing the expression into a tree and walking it, instead of calling <code>eval</code>, which would happily run any Python a model handed it. <code>save_note</code> writes a real file, which makes it the <strong>risky</strong> tool, meaning one with a side effect you cannot undo by pressing back, and it is the action you will put a human in front of in step 4. The <code>SCHEMAS</code> list describes those tools in <strong>JSON Schema</strong> form, which is the shape the model reads when deciding which tool to reach for and what arguments to invent. One risky assumption is baked in here, <code>chat_raw</code> is called with keyword arguments, so if your copy of the helper takes positional ones instead, change that single line inside <code>call_model</code> and nothing else in this lab moves.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab14/common.py</span>
+<span class="t-k">import</span> ast, json, operator, pathlib, sys, time
+
+sys.path.<span class="t-f">insert</span>(<span class="t-s">0</span>, <span class="t-f">str</span>(pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parents[<span class="t-s">1</span>] / <span class="t-s">&quot;_shared&quot;</span>))
+<span class="t-k">from</span> llm <span class="t-k">import</span> chat_raw  <span class="t-c"># noqa: E402</span>
+
+NOTES = pathlib.<span class="t-f">Path</span>(__file__).parent / <span class="t-s">&quot;notes&quot;</span>
+
+_OPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
+        ast.Div: operator.truediv, ast.Pow: operator.pow, ast.USub: operator.neg}
+
+<span class="t-k">def</span> <span class="t-f">_eval</span>(node):
+    <span class="t-k">if</span> <span class="t-f">isinstance</span>(node, ast.Constant) <span class="t-k">and</span> <span class="t-f">isinstance</span>(node.value, (int, float)):
+        <span class="t-k">return</span> node.value
+    <span class="t-k">if</span> <span class="t-f">isinstance</span>(node, ast.BinOp):
+        <span class="t-k">return</span> _OPS[<span class="t-f">type</span>(node.op)](<span class="t-f">_eval</span>(node.left), <span class="t-f">_eval</span>(node.right))
+    <span class="t-k">if</span> <span class="t-f">isinstance</span>(node, ast.UnaryOp):
+        <span class="t-k">return</span> _OPS[<span class="t-f">type</span>(node.op)](<span class="t-f">_eval</span>(node.operand))
+    <span class="t-k">raise</span> <span class="t-f">ValueError</span>(<span class="t-s">&quot;only numbers and + - * / ** are allowed&quot;</span>)
+
+<span class="t-k">def</span> <span class="t-f">calc</span>(expression: str) -&gt; str:
+    <span class="t-k">return</span> <span class="t-f">str</span>(<span class="t-f">_eval</span>(ast.<span class="t-f">parse</span>(expression, mode=<span class="t-s">&quot;eval&quot;</span>).body))
+
+<span class="t-k">def</span> <span class="t-f">save_note</span>(name: str, text: str) -&gt; str:
+    NOTES.<span class="t-f">mkdir</span>(exist_ok=<span class="t-k">True</span>)
+    p = NOTES / (name + <span class="t-s">&quot;.txt&quot;</span>)
+    p.<span class="t-f">write_text</span>(text, encoding=<span class="t-s">&quot;utf-8&quot;</span>)
+    <span class="t-k">return</span> <span class="t-s">&quot;saved &quot;</span> + p.name
+
+TOOLS = {<span class="t-s">&quot;calc&quot;</span>: calc, <span class="t-s">&quot;save_note&quot;</span>: save_note}
+RISKY = {<span class="t-s">&quot;save_note&quot;</span>}
+
+SCHEMAS = [
+  {<span class="t-s">&quot;type&quot;</span>: <span class="t-s">&quot;function&quot;</span>, <span class="t-s">&quot;function&quot;</span>: {
+     <span class="t-s">&quot;name&quot;</span>: <span class="t-s">&quot;calc&quot;</span>,
+     <span class="t-s">&quot;description&quot;</span>: <span class="t-s">&quot;Evaluate one arithmetic expression, for example 0.17*4830.&quot;</span>,
+     <span class="t-s">&quot;parameters&quot;</span>: {<span class="t-s">&quot;type&quot;</span>: <span class="t-s">&quot;object&quot;</span>,
+        <span class="t-s">&quot;properties&quot;</span>: {<span class="t-s">&quot;expression&quot;</span>: {<span class="t-s">&quot;type&quot;</span>: <span class="t-s">&quot;string&quot;</span>}},
+        <span class="t-s">&quot;required&quot;</span>: [<span class="t-s">&quot;expression&quot;</span>]}}},
+  {<span class="t-s">&quot;type&quot;</span>: <span class="t-s">&quot;function&quot;</span>, <span class="t-s">&quot;function&quot;</span>: {
+     <span class="t-s">&quot;name&quot;</span>: <span class="t-s">&quot;save_note&quot;</span>,
+     <span class="t-s">&quot;description&quot;</span>: <span class="t-s">&quot;Save a short text note to disk under a given name.&quot;</span>,
+     <span class="t-s">&quot;parameters&quot;</span>: {<span class="t-s">&quot;type&quot;</span>: <span class="t-s">&quot;object&quot;</span>,
+        <span class="t-s">&quot;properties&quot;</span>: {<span class="t-s">&quot;name&quot;</span>: {<span class="t-s">&quot;type&quot;</span>: <span class="t-s">&quot;string&quot;</span>}, <span class="t-s">&quot;text&quot;</span>: {<span class="t-s">&quot;type&quot;</span>: <span class="t-s">&quot;string&quot;</span>}},
+        <span class="t-s">&quot;required&quot;</span>: [<span class="t-s">&quot;name&quot;</span>, <span class="t-s">&quot;text&quot;</span>]}}},
+]
+
+SYSTEM = (<span class="t-s">&quot;You are a careful assistant. Use calc for any arithmetic. &quot;</span>
+          <span class="t-s">&quot;Use save_note only when the user asks you to save something. &quot;</span>
+          <span class="t-s">&quot;When you are done, answer in one short sentence.&quot;</span>)
+
+<span class="t-k">def</span> <span class="t-f">_as_message</span>(reply):
+    <span class="t-k">if</span> <span class="t-f">hasattr</span>(reply, <span class="t-s">&quot;choices&quot;</span>):
+        reply = reply.choices[<span class="t-s">0</span>].message
+    <span class="t-k">if</span> <span class="t-f">hasattr</span>(reply, <span class="t-s">&quot;model_dump&quot;</span>):
+        reply = reply.<span class="t-f">model_dump</span>()
+    <span class="t-k">if</span> <span class="t-k">not</span> <span class="t-f">isinstance</span>(reply, dict):
+        <span class="t-k">raise</span> <span class="t-f">TypeError</span>(<span class="t-s">&quot;chat_raw gave back a &quot;</span> + <span class="t-f">type</span>(reply).__name__
+                        + <span class="t-s">&quot;, expected a response or an assistant message&quot;</span>)
+    <span class="t-k">return</span> reply
+
+<span class="t-k">def</span> <span class="t-f">call_model</span>(messages):
+    t0 = time.<span class="t-f">time</span>()
+    msg = <span class="t-f">_as_message</span>(<span class="t-f">chat_raw</span>(messages=messages, tools=SCHEMAS))
+    <span class="t-k">return</span> msg, time.<span class="t-f">time</span>() - t0
+
+<span class="t-k">def</span> <span class="t-f">assistant_message</span>(msg):
+    out = {<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;assistant&quot;</span>, <span class="t-s">&quot;content&quot;</span>: msg.<span class="t-f">get</span>(<span class="t-s">&quot;content&quot;</span>) <span class="t-k">or</span> <span class="t-s">&quot;&quot;</span>}
+    <span class="t-k">if</span> msg.<span class="t-f">get</span>(<span class="t-s">&quot;tool_calls&quot;</span>):
+        out[<span class="t-s">&quot;tool_calls&quot;</span>] = msg[<span class="t-s">&quot;tool_calls&quot;</span>]
+    <span class="t-k">return</span> out
+
+<span class="t-k">def</span> <span class="t-f">tool_calls_of</span>(msg):
+    calls = []
+    <span class="t-k">for</span> tc <span class="t-k">in</span> (msg.<span class="t-f">get</span>(<span class="t-s">&quot;tool_calls&quot;</span>) <span class="t-k">or</span> []):
+        fn = tc[<span class="t-s">&quot;function&quot;</span>]
+        args = fn[<span class="t-s">&quot;arguments&quot;</span>]
+        calls.<span class="t-f">append</span>({<span class="t-s">&quot;id&quot;</span>: tc[<span class="t-s">&quot;id&quot;</span>], <span class="t-s">&quot;name&quot;</span>: fn[<span class="t-s">&quot;name&quot;</span>],
+                      <span class="t-s">&quot;args&quot;</span>: json.<span class="t-f">loads</span>(args) <span class="t-k">if</span> <span class="t-f">isinstance</span>(args, str) <span class="t-k">else</span> args})
+    <span class="t-k">return</span> calls
+
+<span class="t-k">def</span> <span class="t-f">run_tool</span>(call):
+    <span class="t-k">try</span>:
+        <span class="t-k">return</span> TOOLS[call[<span class="t-s">&quot;name&quot;</span>]](**call[<span class="t-s">&quot;args&quot;</span>])
+    <span class="t-k">except</span> Exception <span class="t-k">as</span> e:
+        <span class="t-k">return</span> <span class="t-s">&quot;ERROR: &quot;</span> + <span class="t-f">str</span>(e)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / &quot;_shared&quot;))</dt><dd>__file__ is this file's own path, .resolve() makes it absolute so it works no matter where you launched Python from, and parents[1] steps up two folders to my-work/labs/. Inserting at position 0 means Python looks in my-work/labs/_shared before anywhere else, so you get the course helper and not some other llm module.</dd>
+        <dt>the _eval function</dt><dd>It walks the parsed expression tree one node at a time and returns a value only for a number, a two-sided operator, or a leading minus. Everything else falls through to the raise, and that final raise is the only thing making calc safe, so do not delete it.</dd>
+        <dt>_OPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,</dt><dd>This maps a syntax-tree operator class to the real Python function that performs it. Because it is a lookup table rather than a chain of if statements, anything without an entry (a function call, an attribute access, a percent sign) simply has nowhere to go and gets rejected.</dd>
+        <dt>RISKY = {&quot;save_note&quot;}</dt><dd>A plain set of tool names that both agents check before running anything. Keeping it as data instead of an if buried inside a function is what lets the hand-written loop and the graph enforce the same rule without sharing any control flow.</dd>
+        <dt>def _as_message(reply):</dt><dd>Different providers hand back slightly different objects, so this narrows all of them to one plain dict before the rest of the lab touches it. It tries .choices[0].message first, then .model_dump(), and if neither works it raises an error that names the type it actually received, which saves you a debugging session.</dd>
+        <dt>&quot;args&quot;: json.loads(args) if isinstance(args, str) else args</dt><dd>The model returns tool arguments as a JSON string, not as a dict, so it has to be parsed before you can splat it into a Python function. The isinstance guard is there because a few providers already parsed it for you, and calling json.loads on a dict would crash.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>PERCENT, THE THING THE TOOL DESCRIPTION IS TEACHING
+
+Formula: percent of a number = (p / 100) x n
+p is the percentage, n is the number you are taking it from.
+
+Worked example, the exact task used later in this lab:
+p = 17, n = 4830
+17 / 100 = 0.17
+0.17 x 4830 = 821.1
+
+That is why the tool description says &quot;for example 0.17*4830&quot;. The description is quietly teaching the model to do the percent conversion itself and hand calc a plain multiplication, because calc has no percent operator.
+
+HOW _eval ACTUALLY GETS 821.1
+
+ast.parse(&quot;0.17*4830&quot;, mode=&quot;eval&quot;).body produces:
+BinOp(left=Constant(0.17), op=Mult, right=Constant(4830))
+
+_eval sees a BinOp, so it runs _OPS[Mult](_eval(left), _eval(right)).
+_eval(left) hits the Constant branch and returns 0.17.
+_eval(right) hits the same branch and returns 4830.
+operator.mul(0.17, 4830) = 821.1
+
+WHERE OPERATOR PRECEDENCE COMES FROM
+
+You never wrote a precedence rule, and you did not need to. &quot;2+3*4&quot; parses as:
+BinOp(left=Constant(2), op=Add, right=BinOp(left=Constant(3), op=Mult, right=Constant(4)))
+
+The multiplication is a child node, so _eval reaches it first:
+3 x 4 = 12
+then 2 + 12 = 14
+
+If precedence were ignored and you went left to right you would get (2+3) x 4 = 20, which is wrong. Python's parser already put the tree in the right shape, and _eval just reads it from the bottom up.
+
+Intuitively: the tree is the sum already arranged into the correct order of operations, and _eval is only doing the adding up.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If the model hands calc something like &quot;17% of 4,830&quot;, ast.parse raises a SyntaxError, run_tool catches it and returns a string starting with &quot;ERROR:&quot;, so read the trace rather than assuming the tool ran and gave a wrong number.</span></div>
+        </li>
+        <li><h3>The hand-written agent, one more time</h3><p>This is the Module 12 loop again, trimmed down to the two shared tools, and it is your baseline for everything that follows. The shape is the whole idea of an agent, send the messages, read the reply, run any tools the model asked for, append the results, and go round again until the model replies with plain text and no tool calls. <code>max_steps</code> is the only thing standing between you and a model that calls tools forever, so treat it as a safety belt rather than a tuning knob. Read the function once and count what it does not do, because there is no state saved anywhere outside this function, no way to resume after a crash, no retry when a model call fails, and the human approval is a callback you had to invent yourself. Those four gaps are the shopping list you carry into the framework in the next step. When you run the file you should see two or three trace rows printed, then a line starting <code>ANSWER:</code> with 821.1 in it.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab14/agent_plain.py</span>
+<span class="t-k">from</span> common <span class="t-k">import</span> (SYSTEM, RISKY, call_model, assistant_message,
+                    tool_calls_of, run_tool)
+
+<span class="t-k">def</span> <span class="t-f">run</span>(task, approve=<span class="t-k">lambda</span> call: <span class="t-k">True</span>, max_steps=<span class="t-s">6</span>):
+    messages = [{<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;system&quot;</span>, <span class="t-s">&quot;content&quot;</span>: SYSTEM},
+                {<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: task}]
+    trace = []
+    <span class="t-k">for</span> _ <span class="t-k">in</span> <span class="t-f">range</span>(max_steps):
+        msg, secs = <span class="t-f">call_model</span>(messages)
+        messages.<span class="t-f">append</span>(<span class="t-f">assistant_message</span>(msg))
+        calls = <span class="t-f">tool_calls_of</span>(msg)
+        trace.<span class="t-f">append</span>({<span class="t-s">&quot;step&quot;</span>: <span class="t-s">&quot;model&quot;</span>, <span class="t-s">&quot;seconds&quot;</span>: <span class="t-f">round</span>(secs, <span class="t-s">2</span>),
+                      <span class="t-s">&quot;asked_for&quot;</span>: [c[<span class="t-s">&quot;name&quot;</span>] <span class="t-k">for</span> c <span class="t-k">in</span> calls]})
+        <span class="t-k">if</span> <span class="t-k">not</span> calls:
+            <span class="t-k">return</span> msg.<span class="t-f">get</span>(<span class="t-s">&quot;content&quot;</span>) <span class="t-k">or</span> <span class="t-s">&quot;&quot;</span>, trace
+        <span class="t-k">for</span> c <span class="t-k">in</span> calls:
+            <span class="t-k">if</span> c[<span class="t-s">&quot;name&quot;</span>] <span class="t-k">in</span> RISKY <span class="t-k">and</span> <span class="t-k">not</span> <span class="t-f">approve</span>(c):
+                result = <span class="t-s">&quot;DENIED by the human reviewer.&quot;</span>
+            <span class="t-k">else</span>:
+                result = <span class="t-f">run_tool</span>(c)
+            trace.<span class="t-f">append</span>({<span class="t-s">&quot;step&quot;</span>: <span class="t-s">&quot;tool&quot;</span>, <span class="t-s">&quot;name&quot;</span>: c[<span class="t-s">&quot;name&quot;</span>],
+                          <span class="t-s">&quot;result&quot;</span>: <span class="t-f">str</span>(result)[:<span class="t-s">80</span>]})
+            messages.<span class="t-f">append</span>({<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;tool&quot;</span>, <span class="t-s">&quot;tool_call_id&quot;</span>: c[<span class="t-s">&quot;id&quot;</span>],
+                             <span class="t-s">&quot;content&quot;</span>: <span class="t-f">str</span>(result)})
+    <span class="t-k">return</span> <span class="t-s">&quot;gave up: hit the step limit&quot;</span>, trace
+
+<span class="t-k">if</span> __name__ == <span class="t-s">&quot;__main__&quot;</span>:
+    answer, trace = <span class="t-f">run</span>(<span class="t-s">&quot;What is 17 percent of 4830?&quot;</span>)
+    <span class="t-k">for</span> row <span class="t-k">in</span> trace:
+        <span class="t-f">print</span>(row)
+    <span class="t-f">print</span>(<span class="t-s">&quot;ANSWER:&quot;</span>, answer)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>for _ in range(max_steps):</dt><dd>This is the agent loop, and each pass is exactly one model call plus whatever tools that call asked for. The underscore name says the counter is never used, it exists only to put a hard ceiling on how many model calls a single run can make.</dd>
+        <dt>def run(task, approve=lambda call: True, max_steps=6):</dt><dd>approve is passed in rather than hard-coded, so the same function can run unattended or behind a human gate. The default lambda always says yes, which keeps the file runnable on its own for the safe task at the bottom.</dd>
+        <dt>if not calls:
+            return msg.get(&quot;content&quot;) or &quot;&quot;, trace</dt><dd>This is the stopping condition. A reply with no tool calls means the model believes it is finished, so you hand back its text and leave the loop. Without this line the loop would burn all six steps on every single run.</dd>
+        <dt>if c[&quot;name&quot;] in RISKY and not approve(c):</dt><dd>The approval gate, hand-rolled in one line. Note that a denial does not raise or stop the run, it feeds the string &quot;DENIED by the human reviewer.&quot; back as the tool result so the model can explain itself in its final answer.</dd>
+        <dt>messages.append({&quot;role&quot;: &quot;tool&quot;, &quot;tool_call_id&quot;: c[&quot;id&quot;],
+                             &quot;content&quot;: str(result)})</dt><dd>The tool result must go back to the model tagged with the same id the model used when it asked. Get that id wrong and the provider rejects the next call, because it cannot match your answer to its question.</dd>
+        <dt>return &quot;gave up: hit the step limit&quot;, trace</dt><dd>If the loop runs out of steps you return a plain string instead of raising. An agent that quits loudly and still hands you its trace is far easier to debug than one that throws from inside a loop and takes the evidence with it.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>WHY max_steps MATTERS MORE THAN IT LOOKS
+
+The message list only ever grows, and you resend the whole list on every step. So the cost is not the cost of one call multiplied by the number of steps, it is the sum of a growing list.
+
+Formula: total input tokens = T1 + T2 + ... + TN
+Tk is the size of the whole message list at step k, and N is the number of steps.
+
+If each step adds about the same T tokens (one assistant message plus one tool result), then Tk is roughly k x T, and the sum becomes:
+total = T x (1 + 2 + ... + N) = T x N x (N + 1) / 2
+
+T is tokens added per step, N is the number of steps.
+
+Worked example with T = 300 tokens and N = 6:
+1 + 2 + 3 + 4 + 5 + 6 = 21
+total = 300 x 21 = 6300 input tokens
+
+Same numbers with N = 3:
+1 + 2 + 3 = 6
+total = 300 x 6 = 1800 input tokens
+
+6300 / 1800 = 3.5
+
+So doubling the step limit from 3 to 6 multiplies your input tokens by about 3.5, not by 2.
+
+Intuitively: agent cost grows with the square of the step count, not in a straight line, which is the real reason a runaway loop gets expensive so fast and why the ceiling is not optional.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If you see &quot;gave up: hit the step limit&quot;, look at the trace rows first, because the usual cause is a tool result beginning with &quot;ERROR:&quot; that the model keeps trying to work around by calling the same tool again.</span></div>
+        </li>
+        <li><h3>The same agent as a graph</h3><p>LangGraph asks you to break that one loop apart into <strong>nodes</strong>, which are ordinary functions that take the state and return only the parts of the state they changed, and <strong>edges</strong>, which are the arrows saying which node runs next. Your <code>for</code> loop becomes two nodes, <code>think</code> and <code>act</code>, plus an edge from <code>act</code> back to <code>think</code> that closes the circle. <code>Annotated[list, operator.add]</code> is a <strong>reducer</strong>, which is the rule LangGraph uses to combine what a node returned with what was already saved, and here it means append instead of replace. <code>InMemorySaver</code> is the <strong>checkpointer</strong>, which writes a copy of the state after every node, and it is the only reason the approval pause in step 5 and the follow-up in step 6 work at all. <code>interrupt()</code> stops the run and throws a description of the pending action back out to your code, and later you resume it with a decision. Watch carefully where that call sits, it is above the line that runs the tool, because when you resume LangGraph re-runs the whole node from the top, and any real side effect placed before the interrupt would happen twice.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab14/agent_graph.py</span>
+<span class="t-k">import</span> operator
+<span class="t-k">from</span> typing <span class="t-k">import</span> Annotated, TypedDict
+
+<span class="t-k">from</span> langgraph.graph <span class="t-k">import</span> StateGraph, START, END
+<span class="t-k">from</span> langgraph.checkpoint.memory <span class="t-k">import</span> InMemorySaver
+<span class="t-k">from</span> langgraph.types <span class="t-k">import</span> interrupt
+
+<span class="t-k">from</span> common <span class="t-k">import</span> (SYSTEM, RISKY, call_model, assistant_message,
+                    tool_calls_of, run_tool)
+
+<span class="t-k">class</span> <span class="t-f">State</span>(TypedDict):
+    messages: Annotated[list, operator.add]
+    trace: Annotated[list, operator.add]
+    pending: list
+
+<span class="t-k">def</span> <span class="t-f">think</span>(state: State):
+    msg, secs = <span class="t-f">call_model</span>(state[<span class="t-s">&quot;messages&quot;</span>])
+    calls = <span class="t-f">tool_calls_of</span>(msg)
+    <span class="t-k">return</span> {<span class="t-s">&quot;messages&quot;</span>: [<span class="t-f">assistant_message</span>(msg)],
+            <span class="t-s">&quot;trace&quot;</span>: [{<span class="t-s">&quot;step&quot;</span>: <span class="t-s">&quot;model&quot;</span>, <span class="t-s">&quot;seconds&quot;</span>: <span class="t-f">round</span>(secs, <span class="t-s">2</span>),
+                       <span class="t-s">&quot;asked_for&quot;</span>: [c[<span class="t-s">&quot;name&quot;</span>] <span class="t-k">for</span> c <span class="t-k">in</span> calls]}],
+            <span class="t-s">&quot;pending&quot;</span>: calls}
+
+<span class="t-k">def</span> <span class="t-f">act</span>(state: State):
+    msgs, rows = [], []
+    <span class="t-k">for</span> c <span class="t-k">in</span> state[<span class="t-s">&quot;pending&quot;</span>]:
+        <span class="t-k">if</span> c[<span class="t-s">&quot;name&quot;</span>] <span class="t-k">in</span> RISKY:
+            decision = <span class="t-f">interrupt</span>({<span class="t-s">&quot;name&quot;</span>: c[<span class="t-s">&quot;name&quot;</span>], <span class="t-s">&quot;args&quot;</span>: c[<span class="t-s">&quot;args&quot;</span>]})
+            ok = decision <span class="t-k">in</span> (<span class="t-k">True</span>, <span class="t-s">&quot;y&quot;</span>, <span class="t-s">&quot;yes&quot;</span>)
+            result = <span class="t-f">run_tool</span>(c) <span class="t-k">if</span> ok <span class="t-k">else</span> <span class="t-s">&quot;DENIED by the human reviewer.&quot;</span>
+        <span class="t-k">else</span>:
+            result = <span class="t-f">run_tool</span>(c)
+        rows.<span class="t-f">append</span>({<span class="t-s">&quot;step&quot;</span>: <span class="t-s">&quot;tool&quot;</span>, <span class="t-s">&quot;name&quot;</span>: c[<span class="t-s">&quot;name&quot;</span>], <span class="t-s">&quot;result&quot;</span>: <span class="t-f">str</span>(result)[:<span class="t-s">80</span>]})
+        msgs.<span class="t-f">append</span>({<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;tool&quot;</span>, <span class="t-s">&quot;tool_call_id&quot;</span>: c[<span class="t-s">&quot;id&quot;</span>], <span class="t-s">&quot;content&quot;</span>: <span class="t-f">str</span>(result)})
+    <span class="t-k">return</span> {<span class="t-s">&quot;messages&quot;</span>: msgs, <span class="t-s">&quot;trace&quot;</span>: rows, <span class="t-s">&quot;pending&quot;</span>: []}
+
+<span class="t-k">def</span> <span class="t-f">next_step</span>(state: State):
+    <span class="t-k">return</span> <span class="t-s">&quot;act&quot;</span> <span class="t-k">if</span> state[<span class="t-s">&quot;pending&quot;</span>] <span class="t-k">else</span> END
+
+builder = <span class="t-f">StateGraph</span>(State)
+builder.<span class="t-f">add_node</span>(<span class="t-s">&quot;think&quot;</span>, think)
+builder.<span class="t-f">add_node</span>(<span class="t-s">&quot;act&quot;</span>, act)
+builder.<span class="t-f">add_edge</span>(START, <span class="t-s">&quot;think&quot;</span>)
+builder.<span class="t-f">add_conditional_edges</span>(<span class="t-s">&quot;think&quot;</span>, next_step, {<span class="t-s">&quot;act&quot;</span>: <span class="t-s">&quot;act&quot;</span>, END: END})
+builder.<span class="t-f">add_edge</span>(<span class="t-s">&quot;act&quot;</span>, <span class="t-s">&quot;think&quot;</span>)
+
+app = builder.<span class="t-f">compile</span>(checkpointer=<span class="t-f">InMemorySaver</span>())
+
+<span class="t-k">def</span> <span class="t-f">fresh_input</span>(task):
+    <span class="t-k">return</span> {<span class="t-s">&quot;messages&quot;</span>: [{<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;system&quot;</span>, <span class="t-s">&quot;content&quot;</span>: SYSTEM},
+                         {<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: task}],
+            <span class="t-s">&quot;trace&quot;</span>: [], <span class="t-s">&quot;pending&quot;</span>: []}</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>messages: Annotated[list, operator.add]</dt><dd>Annotated glues an extra hint onto a type, and LangGraph reads that hint as the reducer for this key. operator.add on two lists is concatenation, so whatever a node returns under &quot;messages&quot; gets appended to what was already saved.</dd>
+        <dt>pending: list</dt><dd>No Annotated, so no reducer, so this key is replaced outright by whatever a node returns. That is deliberate, because pending tool calls belong to the current turn only, and appending them would make act keep re-running calls it already handled.</dd>
+        <dt>def think(state: State):</dt><dd>This is exactly the top half of the hand-written loop, one model call and a look at what it asked for. It returns a dict with only the three keys it changed, and LangGraph merges each key using that key's own rule rather than overwriting the whole state.</dd>
+        <dt>decision = interrupt({&quot;name&quot;: c[&quot;name&quot;], &quot;args&quot;: c[&quot;args&quot;]})</dt><dd>This stops the graph, saves the state, and hands that dict out to your caller as state[&quot;__interrupt__&quot;]. When you later resume with a value, this same line returns that value instead of stopping, which is why the code after it reads like ordinary Python.</dd>
+        <dt>builder.add_conditional_edges(&quot;think&quot;, next_step, {&quot;act&quot;: &quot;act&quot;, END: END})</dt><dd>A conditional edge calls next_step, takes the value it returned, and looks that value up in the mapping to decide where to go. This is the &quot;if not calls: return&quot; line from the hand-written loop, lifted out of the function and turned into part of the graph.</dd>
+        <dt>app = builder.compile(checkpointer=InMemorySaver())</dt><dd>compile turns the description of the graph into something you can invoke, and passing a checkpointer is what makes every node write a saved copy of state under a thread id. Leave the checkpointer out and interrupt() raises an error, because a pause with nowhere to save state is not a pause, it is a crash.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>WHAT A REDUCER ACTUALLY COMPUTES
+
+A reducer is one small rule LangGraph applies to every state key after every node.
+
+Formula with a reducer:    new_saved = reducer(old_saved, value_the_node_returned)
+Formula without a reducer: new_saved = value_the_node_returned
+
+For &quot;messages&quot; the reducer is operator.add, and operator.add(a, b) on lists is a + b, which is concatenation.
+
+WORKED EXAMPLE, ONE FULL TURN, COUNTING MESSAGES
+
+Start: saved = [system, user], length 2
+think returns {&quot;messages&quot;: [assistant]}  -&gt;  [system, user] + [assistant] = length 3
+act returns {&quot;messages&quot;: [tool_result]}  -&gt;  length 3 + 1 = length 4
+think runs again, returns {&quot;messages&quot;: [final_assistant]}  -&gt;  length 5
+
+THE SAME TURN IF messages HAD NO REDUCER
+
+After think, saved = [assistant], length 1.
+The system prompt and the user's question are gone, and the next model call has no idea what it was asked. That is the failure the reducer prevents.
+
+WHY pending DELIBERATELY HAS NO REDUCER
+
+think returns {&quot;pending&quot;: [call_a]}  -&gt;  saved pending = [call_a]
+act returns {&quot;pending&quot;: []}          -&gt;  saved pending = []  (the empty list replaces it)
+
+If pending used operator.add instead:
+[call_a] + [] = [call_a], forever.
+next_step would then always see a non-empty list, always route to act, and the graph would loop until you killed it.
+
+HOW MANY TIMES EACH NODE RUNS
+
+For a run with k rounds of tools:
+think runs k + 1 times, act runs k times.
+node visits = 2k + 1, model calls = k + 1
+
+With k = 1: 3 node visits and 2 model calls, which matches the 5 messages counted above (2 starting messages plus 3 added).
+
+Intuitively: the reducer is you telling the framework, for each piece of state separately, whether new information adds to the old or wipes it out.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If you move run_tool(c) above the interrupt() line, the note file gets written before you are ever asked and then written a second time when you approve, which is exactly the double side effect the ordering in this node exists to prevent.</span></div>
+        </li>
+        <li><h3>Run both on the same tasks</h3><p>Run this from inside <code>my-work/labs/lab14</code>, because both agent files import <code>common</code> by plain name and Python only finds it when that folder is the working directory. Task one needs only <code>calc</code>, so both versions should run straight through without asking you anything. Task two asks for a note, so both stop and wait at the same point, and the single <code>approve</code> function serves both because the hand-written call dict and the interrupt payload carry the same <code>name</code> and <code>args</code> keys. Answer <code>n</code> the first time, then check that <code>notes/</code> is still missing or empty, because that is the real test that the gate holds rather than just printing a prompt. Run it again and answer <code>y</code>, and <code>notes/maths.txt</code> should appear containing 163. The two printed times will be close to each other, and that is the honest result, because the framework did not make the model any faster and the model is where nearly all the time goes.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab14/run_both.py</span>
+<span class="t-k">import</span> time
+<span class="t-k">from</span> langgraph.types <span class="t-k">import</span> Command
+
+<span class="t-k">from</span> agent_plain <span class="t-k">import</span> run <span class="t-k">as</span> run_plain
+<span class="t-k">from</span> agent_graph <span class="t-k">import</span> app <span class="t-k">as</span> graph_app, fresh_input
+
+TASKS = [
+    <span class="t-s">&quot;What is 17 percent of 4830?&quot;</span>,
+    <span class="t-s">&quot;Multiply 12 by 13, add 7, then save the result as a note called maths.&quot;</span>,
+]
+
+<span class="t-k">def</span> <span class="t-f">approve</span>(req):
+    <span class="t-f">print</span>(<span class="t-s">&quot;  APPROVE &quot;</span> + req[<span class="t-s">&quot;name&quot;</span>] + <span class="t-s">&quot; with &quot;</span> + <span class="t-f">str</span>(req[<span class="t-s">&quot;args&quot;</span>]) + <span class="t-s">&quot; ? [y/N] &quot;</span>,
+          end=<span class="t-s">&quot;&quot;</span>, flush=<span class="t-k">True</span>)
+    <span class="t-k">return</span> <span class="t-f">input</span>().<span class="t-f">strip</span>().<span class="t-f">lower</span>() == <span class="t-s">&quot;y&quot;</span>
+
+<span class="t-k">def</span> <span class="t-f">run_graph</span>(task, thread_id):
+    cfg = {<span class="t-s">&quot;configurable&quot;</span>: {<span class="t-s">&quot;thread_id&quot;</span>: thread_id}}
+    state = graph_app.<span class="t-f">invoke</span>(<span class="t-f">fresh_input</span>(task), cfg)
+    <span class="t-k">while</span> state.<span class="t-f">get</span>(<span class="t-s">&quot;__interrupt__&quot;</span>):
+        ok = <span class="t-f">approve</span>(state[<span class="t-s">&quot;__interrupt__&quot;</span>][<span class="t-s">0</span>].value)
+        state = graph_app.<span class="t-f">invoke</span>(<span class="t-f">Command</span>(resume=ok), cfg)
+    <span class="t-k">return</span> state[<span class="t-s">&quot;messages&quot;</span>][-<span class="t-s">1</span>].<span class="t-f">get</span>(<span class="t-s">&quot;content&quot;</span>, <span class="t-s">&quot;&quot;</span>), state[<span class="t-s">&quot;trace&quot;</span>]
+
+<span class="t-k">for</span> i, task <span class="t-k">in</span> <span class="t-f">enumerate</span>(TASKS):
+    <span class="t-f">print</span>(<span class="t-s">&quot;\n=== TASK: &quot;</span> + task)
+    t0 = time.<span class="t-f">time</span>()
+    answer, trace = <span class="t-f">run_plain</span>(task, approve=approve)
+    <span class="t-f">print</span>(<span class="t-s">&quot;[hand-written] %.1fs, %d steps -&gt; %s&quot;</span> % (time.<span class="t-f">time</span>() - t0, <span class="t-f">len</span>(trace), answer))
+    t0 = time.<span class="t-f">time</span>()
+    answer, trace = <span class="t-f">run_graph</span>(task, <span class="t-s">&quot;task-%d&quot;</span> % i)
+    <span class="t-f">print</span>(<span class="t-s">&quot;[langgraph]    %.1fs, %d steps -&gt; %s&quot;</span> % (time.<span class="t-f">time</span>() - t0, <span class="t-f">len</span>(trace), answer))</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>cfg = {&quot;configurable&quot;: {&quot;thread_id&quot;: thread_id}}</dt><dd>The thread id is the filing label for every checkpoint of this run. Reuse the same string and you continue the same conversation, use a new string and you start a clean one, which is why each task gets its own &quot;task-0&quot; or &quot;task-1&quot;.</dd>
+        <dt>while state.get(&quot;__interrupt__&quot;):</dt><dd>A run can pause more than once, for example if the model decides to save two notes. Looping until that key disappears handles every pause, whereas a single if would silently skip the second one and leave the graph unfinished.</dd>
+        <dt>ok = approve(state[&quot;__interrupt__&quot;][0].value)</dt><dd>__interrupt__ is a list because several nodes could pause at once, so you take the first entry, and .value is the dict you passed into interrupt(). That is how the tool name and arguments reach your prompt without the graph knowing anything about terminals.</dd>
+        <dt>state = graph_app.invoke(Command(resume=ok), cfg)</dt><dd>Command(resume=...) tells LangGraph to reload the saved state for this thread and hand ok back as the return value of the interrupt() call. You do not resend the task or the message list, because the checkpoint already holds all of it.</dd>
+        <dt>print(&quot;[hand-written] %.1fs, %d steps -&gt; %s&quot; % (time.time() - t0, len(trace), answer))</dt><dd>len(trace) counts rows, and a row is added for each model call and for each tool call, so it is a proxy for work done rather than a count of turns. If both versions print the same number, they really did take the same path.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>WHAT THE TWO PRINTED NUMBERS ACTUALLY COUNT
+
+The steps number is trace rows, not turns. One model call adds one row, one tool call adds one row.
+
+Formula: rows = (k + 1) model rows + k tool rows = 2k + 1
+k is the number of rounds of tool calls.
+
+Worked example, task one, &quot;What is 17 percent of 4830?&quot;:
+The model calls calc once, so k = 1.
+rows = 2 x 1 + 1 = 3
+Both agents should print 3, and the answer should contain 821.1 (from 0.17 x 4830).
+
+Worked example, task two, &quot;Multiply 12 by 13, add 7, then save the result as a note called maths.&quot;:
+12 x 13 = 156, then 156 + 7 = 163.
+The model usually sends one calc call with 12*13+7 and one save_note call, so k = 2 and rows = 2 x 2 + 1 = 5.
+If it splits the arithmetic into two calc calls, k = 3 and rows = 7.
+Both are correct behaviour, so a different row count is not a failure.
+
+THE SECONDS
+
+total seconds = sum of model call latencies + tool time + your own typing time at the prompt
+
+Example for task one with two model calls at 1.2 s and 0.9 s and calc taking about 0.001 s:
+1.2 + 0.9 + 0.001 = about 2.1 s
+
+calc is roughly 0.001 s out of 2.1 s, which is about 0.05 percent of the run. So over 99 percent of the time is the model waiting on the network.
+
+Important honesty note: for task two your reading and typing at the [y/N] prompt sits inside the measured seconds, so the task-two timings are not a fair comparison between the two agents. Compare the task-one numbers only.
+
+Intuitively: the framework costs almost nothing at runtime, because the clock is dominated by the model, and both versions make the same model calls.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If you get &quot;ModuleNotFoundError: No module named 'common'&quot;, you started Python from the wrong folder, so change directory into my-work/labs/lab14 and run the file by its bare name instead of giving a long path from elsewhere.</span></div>
+        </li>
+        <li><h3>See what the checkpoint bought you</h3><p>The hand-written agent forgets everything the instant <code>run()</code> returns, because its message list was just a local variable inside a function. The graph does not, because every node wrote a checkpoint filed under the thread id <code>demo</code>. Here you invoke once, read the saved state back with <code>get_state</code> without running anything, then send a second message on the same thread and watch the model answer &quot;Now halve that&quot; correctly. That is the whole feature in three lines, your second call carries one new message and the framework supplies the other four. Be clear about the limit though, <code>InMemorySaver</code> keeps checkpoints in this process's memory only, so they disappear when the script ends, which is honest and enough for a lab but is not persistence. Swapping in the SQLite checkpointer, which is a separate install, is what makes a paused run survive a restart, and it is the same two lines with a different class name.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab14/followup.py</span>
+<span class="t-k">from</span> agent_graph <span class="t-k">import</span> app, fresh_input
+
+cfg = {<span class="t-s">&quot;configurable&quot;</span>: {<span class="t-s">&quot;thread_id&quot;</span>: <span class="t-s">&quot;demo&quot;</span>}}
+app.<span class="t-f">invoke</span>(<span class="t-f">fresh_input</span>(<span class="t-s">&quot;What is 17 percent of 4830?&quot;</span>), cfg)
+
+snapshot = app.<span class="t-f">get_state</span>(cfg)
+<span class="t-f">print</span>(<span class="t-s">&quot;messages saved on this thread:&quot;</span>, <span class="t-f">len</span>(snapshot.values[<span class="t-s">&quot;messages&quot;</span>]))
+
+out = app.<span class="t-f">invoke</span>({<span class="t-s">&quot;messages&quot;</span>: [{<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: <span class="t-s">&quot;Now halve that.&quot;</span>}],
+                  <span class="t-s">&quot;trace&quot;</span>: [], <span class="t-s">&quot;pending&quot;</span>: []}, cfg)
+<span class="t-f">print</span>(<span class="t-s">&quot;follow-up:&quot;</span>, out[<span class="t-s">&quot;messages&quot;</span>][-<span class="t-s">1</span>].<span class="t-f">get</span>(<span class="t-s">&quot;content&quot;</span>, <span class="t-s">&quot;&quot;</span>))</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>cfg = {&quot;configurable&quot;: {&quot;thread_id&quot;: &quot;demo&quot;}}</dt><dd>One config object is reused by both invokes and by get_state, and that shared thread id is the only thing tying the three calls into a single conversation. Change the string between the two invokes and the follow-up starts from nothing.</dd>
+        <dt>snapshot = app.get_state(cfg)</dt><dd>This reads the most recent checkpoint for the thread without running a single node or spending a token. snapshot.values is the state dict, so snapshot.values[&quot;messages&quot;] is literally what the next model call will be handed, which makes it the first thing to print when an agent behaves oddly.</dd>
+        <dt>out = app.invoke({&quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Now halve that.&quot;}],
+                  &quot;trace&quot;: [], &quot;pending&quot;: []}, cfg)</dt><dd>You pass only the one new user message, and the operator.add reducer appends it to the saved list rather than replacing it. trace and pending are sent as empty lists because the State TypedDict declares all three keys and LangGraph expects the shape to match.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>WHAT NUMBER SHOULD &quot;messages saved on this thread&quot; PRINT?
+
+Count what each part of the first run adds:
+1  system message
+2  user message
+3  assistant message asking for calc
+4  tool result from calc
+5  assistant's final sentence
+
+So the usual answer is 5.
+
+It is not always 5, and here is the arithmetic for the other cases using the rows = 2k + 1 idea from step 5:
+
+messages = 2 (system + user) + (2k + 1), where k is the number of tool rounds.
+k = 1, the normal case:                        2 + 3 = 5
+k = 0, the model answers 821.1 with no tool:   2 + 1 = 3
+k = 2, it calls calc twice:                    2 + 5 = 7
+
+AFTER THE FOLLOW-UP
+
+The list keeps growing, it is never trimmed. Starting from 5 and assuming the follow-up also uses one tool round:
+5 + 1 (your new user message) + 3 (assistant, tool result, final assistant) = 9
+
+THE ANSWER YOU ARE LOOKING FOR
+
+821.1 / 2 = 410.55
+
+The model can only produce 410.55 because 821.1 is still sitting in the saved message list. Run the same follow-up against the hand-written agent and it has nothing to halve.
+
+Intuitively: nothing is ever removed, so the saved list is a running total of everything that happened, and that running total is exactly what &quot;memory&quot; means here.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If the follow-up replies with something like &quot;halve what?&quot;, check that both invokes really used the same cfg, because a different thread id gives the model an empty history and there is nothing for it to halve.</span></div>
+        </li>
+        <li><h3>Score the trade honestly</h3><p>Now put a number on the trade instead of arguing about it from feeling. Count the lines in both agent files and you should get about 32 for <code>agent_plain.py</code> and about 53 for <code>agent_graph.py</code>, so the framework version is roughly two thirds longer for identical behaviour. Those extra lines bought exactly three things, state saved after every step, a pause a person can resume, and one obvious place to hang tracing. Write down which of those three you would genuinely have used in the last thing you built, and be strict, because &quot;nice to have&quot; is how projects collect dependencies nobody ever needed. There is one more thing worth noticing before you finish, neither file let LangGraph anywhere near your prompt, because <code>call_model</code> stayed inside your own code and the model saw your <code>SYSTEM</code> string and nothing else. That stops being true the moment you swap in a prebuilt agent from any framework, so log the exact request it sends before you trust it, and read what got inserted above your system message.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>python -c <span class="t-s">&quot;import pathlib;[print(p.name, sum(1 for _ in p.open())) for p in pathlib.Path('.').glob('agent_*.py')]&quot;</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>pathlib.Path('.').glob('agent_*.py')</dt><dd>Matches both agent files in the current folder and nothing else. It is the reason both files were named with the same agent_ prefix, so one pattern catches both without you typing either name.</dd>
+        <dt>sum(1 for _ in p.open())</dt><dd>Iterating an open text file yields one item per line, so adding 1 for each is a line count that never loads the whole file into memory. The underscore says out loud that you are throwing the line content away and only counting.</dd>
+        <dt>the list comprehension around print</dt><dd>A comprehension is used only because python -c cannot easily take a multi-line for statement. It builds and discards a list of None values, which is an ugliness worth recognising as fine in a one-liner and wrong in a real file.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>PART 1, THE LINE COUNT TRADE
+
+agent_plain.py  = 32 lines
+agent_graph.py  = 53 lines
+
+extra lines = 53 - 32 = 21
+ratio = 53 / 32 = about 1.66, so 66 percent longer
+capabilities gained = 3 (saved state, resumable pause, tracing hook point)
+cost per capability = 21 / 3 = 7 lines each
+
+Seven lines per capability is cheap if you need the capability and pure waste if you do not. That is the whole decision in one number.
+
+PART 2, WHY AN INSERTED LINE AT THE TOP OF A PROMPT COSTS REAL MONEY
+
+Formula: cost = (fresh tokens x price) + (cached tokens x price / 10)
+
+Cached input is priced at roughly one tenth of fresh input across the major providers. The cache matches on the PREFIX, meaning the longest run of tokens counted from the very start of the prompt that is identical to last time. The moment one token differs, everything from that point onward is charged as fresh.
+
+Symbols: price is the per-token price of fresh input. For this example use 3 dollars per million tokens, which is 0.000003 dollars per token. One tenth of that is 0.0000003 dollars per token.
+
+Worked example. An agent prompt of 50,000 input tokens, where the first 45,000 are byte for byte the same as the previous call.
+cached part: 45,000 x 0.0000003 = 0.0135 dollars
+fresh part:   5,000 x 0.000003  = 0.015 dollars
+total per call = 0.0285 dollars
+
+Now a framework quietly inserts its own system text at the very top. The prefix stops matching at token 1, so nothing is cached.
+total per call = 50,000 x 0.000003 = 0.15 dollars
+
+0.15 / 0.0285 = about 5.3 times more, for the same task, the same model and the same answer.
+Over 1,000 calls that is 150 dollars instead of 28.50 dollars, a difference of 121.50 dollars.
+
+Honest note: the 3 dollars per million is an example number, not any one vendor's price. What matters and holds widely is the one tenth ratio and the fact that the cache matches from the front.
+
+Intuitively: the cache is a bookmark pinned at the start of your prompt, and anything added above your system message tears the bookmark out.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Your counts will not be exactly 32 and 53 if your editor added or stripped a trailing newline when you pasted, so treat the ratio as the point rather than chasing the exact figures.</span></div>
+        </li>
+        </ol>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> You are done when all four of these are true. First, python run_both.py gives an answer containing 821.1 for task one and 163 for task two, from both the hand-written agent and the LangGraph one. Second, after a run where you typed n, notes/maths.txt does not exist. Third, after a run where you typed y, notes/maths.txt exists and contains 163. Fourth, python followup.py prints a saved message count (5 in the normal case, or 3 or 7 as explained in step 6) followed by a follow-up answer containing 410.55, which the model could only produce because the earlier result was still in the saved state.</div></div>
+        </section>
+        <section class="section section--mini"><h2 class="section__h" data-stamp="hands on"><span>Mini-project: your turn</span></h2>
+        <p class="prose">Decide which framework you would use for one scenario, and record the decision in a file a program can check. You write my-work/labs/lab14/decision.json, then run check.py, which enforces that your ratings, your choice and your defence agree with each other and with the scenario.</p>
+        <p class="small muted">No code given. Produce the file, then run the checker.</p>
+        <ol class="steps">
+        <li><p>Pick one scenario and create my-work/labs/lab14/decision.json with a &quot;scenario&quot; key set to &quot;A&quot;, &quot;B&quot; or &quot;C&quot;. A: a nightly job that reads 200 support tickets, tags each one and writes a CSV, no human involved. B: a refund assistant that must stop and ask a person before moving money, and must still be waiting after the server restarts. C: a research helper for five analysts that runs three searches at once, joins the results, and has to be traceable because compliance will ask what it did.</p></li>
+        <li><p>Add &quot;capabilities&quot;: an object with exactly these five keys, each set to &quot;needed&quot;, &quot;nice&quot; or &quot;no&quot;: state_between_steps, checkpoints, retries, human_approval, tracing. Be strict about needed versus nice. The checker enforces what the scenario text already states, so B must mark human_approval and checkpoints needed, C must mark tracing needed, and A must not mark human_approval needed.</p></li>
+        <li><p>Sketch the no-framework version in bullet points, count how many of your &quot;needed&quot; items you would have to write yourself, and put that count in &quot;diy_count&quot; as a whole number 0 to 5. If it is 0 or 1, set &quot;choice&quot;: &quot;none&quot; and &quot;shortlist&quot;: [], and the checker treats that as a finished answer.</p></li>
+        <li><p>Otherwise put two different lowercase names in &quot;shortlist&quot;, for example [&quot;langgraph&quot;, &quot;crewai&quot;], read only the documentation for your hardest needed capability rather than the quickstart, and set &quot;choice&quot; to one of the two. Add &quot;python_version&quot; from python -V, for example &quot;3.12.4&quot;. CrewAI needs Python older than 3.14, and the checker rejects that pairing.</p></li>
+        <li><p>Add &quot;deciding_capability&quot; (one of the five keys, and one you marked needed), &quot;accepted_cost&quot; (a phrase of three words or more naming what you give up), &quot;defence&quot; (exactly three sentences, under 80 words, naming the choice, the deciding capability and the cost), and &quot;change_my_mind&quot; (one line naming evidence that would flip you within a month).</p></li>
+        <li><p>Save check.py next to decision.json and run: python check.py</p></li>
+        </ol>
+        <div class="checker"><div class="checker__h">Check it yourself, automatically</div>
+        <p>Save this as <code>check.py</code> next to your work, then run <code>python check.py    (from my-work/labs/lab14; optionally pass another path, e.g. python check.py decision_c.json)</code>. It reads what you produced, tests it, and prints a line per check.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>check.py</span></div>
+<pre><span class="t-c"># check.py - checks decision.json for the Module 14 mini-project.</span>
+<span class="t-c"># Standard library only. No API key, no internet, no model call.</span>
+<span class="t-k">import</span> json, os, re, sys
+
+PATH = sys.argv[<span class="t-s">1</span>] <span class="t-k">if</span> <span class="t-f">len</span>(sys.argv) &gt; <span class="t-s">1</span> <span class="t-k">else</span> <span class="t-s">&quot;decision.json&quot;</span>
+CAPS = [<span class="t-s">&quot;state_between_steps&quot;</span>, <span class="t-s">&quot;checkpoints&quot;</span>, <span class="t-s">&quot;retries&quot;</span>, <span class="t-s">&quot;human_approval&quot;</span>, <span class="t-s">&quot;tracing&quot;</span>]
+RATINGS = (<span class="t-s">&quot;needed&quot;</span>, <span class="t-s">&quot;nice&quot;</span>, <span class="t-s">&quot;no&quot;</span>)
+fails = []
+
+<span class="t-k">def</span> <span class="t-f">check</span>(ok, msg):
+    <span class="t-f">print</span>((<span class="t-s">&quot;PASS &quot;</span> <span class="t-k">if</span> ok <span class="t-k">else</span> <span class="t-s">&quot;FAIL &quot;</span>) + msg)
+    <span class="t-k">if</span> <span class="t-k">not</span> ok:
+        fails.<span class="t-f">append</span>(msg)
+
+<span class="t-c"># Load the artefact. Stop with a sentence, never a traceback.</span>
+<span class="t-k">if</span> <span class="t-k">not</span> os.path.<span class="t-f">exists</span>(PATH):
+    <span class="t-f">print</span>(<span class="t-s">&quot;FAIL &quot;</span> + PATH + <span class="t-s">&quot; not found. Run this from my-work/labs/lab14, where the file lives.&quot;</span>)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-k">try</span>:
+    <span class="t-k">with</span> <span class="t-f">open</span>(PATH, encoding=<span class="t-s">&quot;utf-8&quot;</span>) <span class="t-k">as</span> f:
+        d = json.<span class="t-f">load</span>(f)
+<span class="t-k">except</span> json.JSONDecodeError <span class="t-k">as</span> e:
+    <span class="t-f">print</span>(<span class="t-s">&quot;FAIL %s is not valid JSON: %s at line %d&quot;</span> % (PATH, e.msg, e.lineno))
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-k">if</span> <span class="t-k">not</span> <span class="t-f">isinstance</span>(d, dict):
+    <span class="t-f">print</span>(<span class="t-s">&quot;FAIL %s must hold one JSON object, got a %s&quot;</span> % (PATH, <span class="t-f">type</span>(d).__name__))
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;PASS &quot;</span> + PATH + <span class="t-s">&quot; parsed as a JSON object&quot;</span>)
+
+sc = d.<span class="t-f">get</span>(<span class="t-s">&quot;scenario&quot;</span>)
+<span class="t-f">check</span>(sc <span class="t-k">in</span> (<span class="t-s">&quot;A&quot;</span>, <span class="t-s">&quot;B&quot;</span>, <span class="t-s">&quot;C&quot;</span>), <span class="t-s">&quot;scenario is A, B or C (got %r)&quot;</span> % (sc,))
+
+caps = d.<span class="t-f">get</span>(<span class="t-s">&quot;capabilities&quot;</span>) <span class="t-k">if</span> <span class="t-f">isinstance</span>(d.<span class="t-f">get</span>(<span class="t-s">&quot;capabilities&quot;</span>), dict) <span class="t-k">else</span> {}
+<span class="t-f">check</span>(<span class="t-f">sorted</span>(caps) == <span class="t-f">sorted</span>(CAPS), <span class="t-s">&quot;capabilities holds exactly: &quot;</span> + <span class="t-s">&quot;, &quot;</span>.<span class="t-f">join</span>(CAPS))
+bad = <span class="t-f">sorted</span>(k <span class="t-k">for</span> k, v <span class="t-k">in</span> caps.<span class="t-f">items</span>() <span class="t-k">if</span> v <span class="t-k">not</span> <span class="t-k">in</span> RATINGS)
+<span class="t-f">check</span>(<span class="t-k">not</span> bad, <span class="t-s">&quot;every rating is needed/nice/no (wrong: %s)&quot;</span> % (<span class="t-s">&quot;, &quot;</span>.<span class="t-f">join</span>(bad) <span class="t-k">or</span> <span class="t-s">&quot;none&quot;</span>))
+needed = [k <span class="t-k">for</span> k, v <span class="t-k">in</span> caps.<span class="t-f">items</span>() <span class="t-k">if</span> v == <span class="t-s">&quot;needed&quot;</span>]
+
+<span class="t-c"># These rules come from the scenario wording, not from taste.</span>
+<span class="t-k">if</span> sc == <span class="t-s">&quot;A&quot;</span>:
+    <span class="t-f">check</span>(caps.<span class="t-f">get</span>(<span class="t-s">&quot;human_approval&quot;</span>) != <span class="t-s">&quot;needed&quot;</span>,
+          <span class="t-s">&quot;scenario A runs with no human, so human_approval is not 'needed'&quot;</span>)
+<span class="t-k">if</span> sc == <span class="t-s">&quot;B&quot;</span>:
+    <span class="t-f">check</span>(caps.<span class="t-f">get</span>(<span class="t-s">&quot;human_approval&quot;</span>) == <span class="t-s">&quot;needed&quot;</span> <span class="t-k">and</span> caps.<span class="t-f">get</span>(<span class="t-s">&quot;checkpoints&quot;</span>) == <span class="t-s">&quot;needed&quot;</span>,
+          <span class="t-s">&quot;scenario B waits for a person and survives a restart, so human_approval &quot;</span>
+          <span class="t-s">&quot;and checkpoints are both 'needed'&quot;</span>)
+<span class="t-k">if</span> sc == <span class="t-s">&quot;C&quot;</span>:
+    <span class="t-f">check</span>(caps.<span class="t-f">get</span>(<span class="t-s">&quot;tracing&quot;</span>) == <span class="t-s">&quot;needed&quot;</span>,
+          <span class="t-s">&quot;scenario C answers to compliance, so tracing is 'needed'&quot;</span>)
+<span class="t-f">check</span>(d.<span class="t-f">get</span>(<span class="t-s">&quot;deciding_capability&quot;</span>) <span class="t-k">in</span> needed,
+      <span class="t-s">&quot;deciding_capability %r is one you marked 'needed'&quot;</span> % (d.<span class="t-f">get</span>(<span class="t-s">&quot;deciding_capability&quot;</span>),))
+
+n = d.<span class="t-f">get</span>(<span class="t-s">&quot;diy_count&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">isinstance</span>(n, int) <span class="t-k">and</span> <span class="t-s">0</span> &lt;= n &lt;= <span class="t-s">5</span>, <span class="t-s">&quot;diy_count is a whole number 0 to 5 (got %r)&quot;</span> % (n,))
+choice = <span class="t-f">str</span>(d.<span class="t-f">get</span>(<span class="t-s">&quot;choice&quot;</span>, <span class="t-s">&quot;&quot;</span>)).<span class="t-f">strip</span>().<span class="t-f">lower</span>()
+<span class="t-k">if</span> <span class="t-f">isinstance</span>(n, int) <span class="t-k">and</span> n &lt;= <span class="t-s">1</span>:
+    <span class="t-f">check</span>(choice == <span class="t-s">&quot;none&quot;</span>, <span class="t-s">&quot;diy_count is %d, so choice must be 'none' (got %r)&quot;</span> % (n, choice))
+<span class="t-k">else</span>:
+    <span class="t-f">check</span>(choice <span class="t-k">not</span> <span class="t-k">in</span> (<span class="t-s">&quot;&quot;</span>, <span class="t-s">&quot;none&quot;</span>), <span class="t-s">&quot;diy_count is above 1, so choice names a framework&quot;</span>)
+sl = [<span class="t-f">str</span>(s).<span class="t-f">strip</span>().<span class="t-f">lower</span>() <span class="t-k">for</span> s <span class="t-k">in</span> (d.<span class="t-f">get</span>(<span class="t-s">&quot;shortlist&quot;</span>) <span class="t-k">or</span> [])]
+<span class="t-k">if</span> choice == <span class="t-s">&quot;none&quot;</span>:
+    <span class="t-f">print</span>(<span class="t-s">&quot;PASS choice is 'none', so no shortlist is required&quot;</span>)
+<span class="t-k">else</span>:
+    <span class="t-f">check</span>(<span class="t-f">len</span>(sl) == <span class="t-s">2</span> <span class="t-k">and</span> <span class="t-f">len</span>(<span class="t-f">set</span>(sl)) == <span class="t-s">2</span>, <span class="t-s">&quot;shortlist has two different names (got %r)&quot;</span> % (sl,))
+    <span class="t-f">check</span>(choice <span class="t-k">in</span> sl, <span class="t-s">&quot;choice %r is one of the two you shortlisted&quot;</span> % (choice,))
+
+pv = <span class="t-f">str</span>(d.<span class="t-f">get</span>(<span class="t-s">&quot;python_version&quot;</span>, <span class="t-s">&quot;&quot;</span>))
+<span class="t-f">check</span>(re.<span class="t-f">match</span>(r<span class="t-s">&quot;^3\.\d+&quot;</span>, pv) <span class="t-k">is</span> <span class="t-k">not</span> <span class="t-k">None</span>, <span class="t-s">&quot;python_version looks like 3.x (got %r)&quot;</span> % (pv,))
+<span class="t-k">if</span> choice == <span class="t-s">&quot;crewai&quot;</span> <span class="t-k">and</span> re.<span class="t-f">match</span>(r<span class="t-s">&quot;^3\.\d+&quot;</span>, pv):
+    <span class="t-f">check</span>(<span class="t-f">int</span>(pv.<span class="t-f">split</span>(<span class="t-s">&quot;.&quot;</span>)[<span class="t-s">1</span>]) &lt; <span class="t-s">14</span>, <span class="t-s">&quot;CrewAI needs Python older than 3.14, you run &quot;</span> + pv)
+
+<span class="t-c"># Mechanical checks on the writing. Decimals are joined first, so 3.14 is not a sentence end.</span>
+txt = <span class="t-f">str</span>(d.<span class="t-f">get</span>(<span class="t-s">&quot;defence&quot;</span>, <span class="t-s">&quot;&quot;</span>)).<span class="t-f">strip</span>()
+flat = re.<span class="t-f">sub</span>(r<span class="t-s">&quot;(\d)\.(\d)&quot;</span>, r<span class="t-s">&quot;\1\2&quot;</span>, txt)
+sents = [s <span class="t-k">for</span> s <span class="t-k">in</span> re.<span class="t-f">split</span>(r<span class="t-s">&quot;[.!?]+&quot;</span>, flat) <span class="t-k">if</span> s.<span class="t-f">strip</span>()]
+<span class="t-f">check</span>(<span class="t-f">len</span>(sents) == <span class="t-s">3</span>, <span class="t-s">&quot;defence is exactly 3 sentences (found %d)&quot;</span> % <span class="t-f">len</span>(sents))
+<span class="t-f">check</span>(<span class="t-s">0</span> &lt; <span class="t-f">len</span>(txt.<span class="t-f">split</span>()) &lt; <span class="t-s">80</span>, <span class="t-s">&quot;defence is under 80 words (found %d)&quot;</span> % <span class="t-f">len</span>(txt.<span class="t-f">split</span>()))
+<span class="t-f">check</span>(<span class="t-f">len</span>(<span class="t-f">str</span>(d.<span class="t-f">get</span>(<span class="t-s">&quot;accepted_cost&quot;</span>, <span class="t-s">&quot;&quot;</span>)).<span class="t-f">split</span>()) &gt;= <span class="t-s">3</span>,
+      <span class="t-s">&quot;accepted_cost is a phrase naming what you give up, not one word&quot;</span>)
+cm = <span class="t-f">str</span>(d.<span class="t-f">get</span>(<span class="t-s">&quot;change_my_mind&quot;</span>, <span class="t-s">&quot;&quot;</span>)).<span class="t-f">strip</span>()
+<span class="t-f">check</span>(cm != <span class="t-s">&quot;&quot;</span> <span class="t-k">and</span> <span class="t-s">&quot;\n&quot;</span> <span class="t-k">not</span> <span class="t-k">in</span> cm, <span class="t-s">&quot;change_my_mind is one non-empty line&quot;</span>)
+
+<span class="t-f">print</span>(<span class="t-s">&quot;NOT CHECKED AUTOMATICALLY: whether your reasoning is sound. Read the defence &quot;</span>
+      <span class="t-s">&quot;back in a week and see if you still agree with it.&quot;</span>)
+<span class="t-k">if</span> fails:
+    <span class="t-f">print</span>(<span class="t-s">&quot;%d CHECKS FAILED&quot;</span> % <span class="t-f">len</span>(fails))
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;ALL CHECKS PASSED&quot;</span>)</pre></div>
+        </div>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> python check.py prints about fifteen PASS lines and ends with ALL CHECKS PASSED and exit code 0. A failure names the field, for example &quot;FAIL scenario B waits for a person and survives a restart, so human_approval and checkpoints are both 'needed'&quot; or &quot;FAIL defence is exactly 3 sentences (found 5)&quot;, and the run ends with a failure count and exit code 1. The checker prints one honest disclaimer: it cannot tell whether your reasoning is sound, only whether the file contradicts itself.</div></div>
+        <div class="note" style="margin-top:12px"><div class="note__t">If you want more</div><p>Build your hardest needed capability, not the hello-world, in both shortlisted frameworks against a stub task, and time yourself. If neither took over an hour, that is evidence the choice matters less than you feared, so pick the one your team can read. Then write a second file for a different scenario and run python check.py decision_c.json, since the checker takes an optional path.</p></div>
+        </section>
+        <section class="section section--quiz"><h2 class="section__h" data-stamp="on record"><span>Check yourself</span></h2>
+        <p class="small muted">Explained either way.</p>
+        <div class="quiz" data-quiz>
+        <div class="q" data-answer="3"><p class="q__q">You swap your hand-written loop for a framework's prebuilt agent. The tasks and the model are identical, but your bill goes up noticeably. What is the most likely cause?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>The framework retries every call twice by default</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Graph execution makes each model call slower, and you are billed for time</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>The framework asks the model for longer answers</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>The framework adds its own system text and tool descriptions near the front of the prompt, so your cached prefixes stop matching</span></button>
+        </div><div class="q__why" hidden>Agent work is input-heavy, often hundreds of thousands of input tokens against a few hundred output tokens, so input price dominates. Cached input costs roughly one tenth of fresh input, but the cache matches on the prefix, so anything inserted near the top of the prompt invalidates everything after it. Billing is per token, not per second, which rules out the timing answer.</div></div>
+        <div class="q" data-answer="3"><p class="q__q">What does a checkpointer actually do for your agent?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>It caches model responses so repeated questions are free</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>It automatically retries any tool that raises an exception</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>It compresses the message list to save tokens</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>It saves the agent's state after each step under a thread id, so a run can be resumed, inspected, or left paused waiting for a person</span></button>
+        </div><div class="q__why" hidden>A checkpoint is just a saved copy of state written after every step and filed under a thread id you choose. That single mechanism is what makes crash recovery, state inspection and human approval pauses possible, since a paused run is only a saved state nobody has resumed yet. Response caching, retries and context trimming are separate features that may or may not ship alongside it.</div></div>
+        <div class="q" data-answer="2"><p class="q__q">Anthropic's published guidance for someone starting an agent project is closest to which of these?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Pick a framework on day one so you do not rewrite the loop later</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Always split the work across several cooperating agents</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Start with no framework and prefer fixed workflows over letting the model choose the path, wherever a fixed path will do</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Use a graph-shaped framework because agent logic is naturally a graph</span></button>
+        </div><div class="q__why" hidden>Their guidance is to prefer workflows, which are paths you fix in code, over agents, which are paths the model decides, and to start with no framework at all. Worth noting that Anthropic sells models rather than frameworks, so the advice is not neutral, but it is testable and the test usually agrees: fixed paths cost less, run faster and are far easier to evaluate step by step. Multi-agent setups multiply cost and failure points, so they are the last resort, not the first.</div></div>
+        </div></section>
+        <section class="section section--notes notes" data-notes><h2 class="section__h" data-stamp="on record"><span>Your notes</span></h2>
+        <p class="small muted">Saves as you type, in this browser.</p>
+        <label class="sr" for="n14">Notes for this module</label>
+        <textarea id="n14" placeholder="What clicked? What is still fuzzy? What do you want to come back to?"></textarea><div class="notes__status"></div></section>
+        <section class="section section--done"><h2 class="section__h" data-stamp="on record"><span>Mark it done</span></h2>
+        <div class="marks"><button class="mark" data-mark="read" aria-pressed="false"><span>Read the notes</span></button><button class="mark" data-mark="lab" aria-pressed="false"><span>Finished the lab</span></button><button class="mark" data-mark="mini" aria-pressed="false"><span>Finished the mini-project</span></button></div></section>
+        <section class="section section--docs"><h2 class="section__h" data-stamp="reference"><span>Go to the source</span></h2>
+        <p class="small muted">If this course and the docs disagree, the docs are newer.</p><ul class="prose">
+        <li><a href="https://langchain-ai.github.io/langgraph/" target="_blank" rel="noopener">LangGraph documentation (used in the lab)</a></li>
+        <li><a href="https://www.anthropic.com/engineering/building-effective-agents" target="_blank" rel="noopener">Anthropic: Building effective agents (the case for no framework)</a></li>
+        <li><a href="https://openai.github.io/openai-agents-python/" target="_blank" rel="noopener">OpenAI Agents SDK (Python)</a></li>
+        <li><a href="https://google.github.io/adk-docs/" target="_blank" rel="noopener">Google Agent Development Kit (ADK) docs</a></li>
+        <li><a href="https://learn.microsoft.com/en-us/agent-framework/" target="_blank" rel="noopener">Microsoft Agent Framework docs</a></li>
+        <li><a href="https://docs.crewai.com/" target="_blank" rel="noopener">CrewAI documentation</a></li>
+        </ul></section>
+    </div>
+    <nav data-chrome="pager"></nav>
+  </main>
+</div>
+
+<script src="../assets/data.js"></script>
+<script src="../assets/widgets.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

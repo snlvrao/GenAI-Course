@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>22. B4 · Why pretraining matters</title>
+<meta name="description" content="Your model writes English-shaped nonsense. Fine-tune a pretrained one in two minutes and see exactly what pretraining bought.">
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+</head>
+<body data-module="m22" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="7">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+        <div data-chrome="modhead"></div>
+        <p class="prose">Your model from B3 writes English-shaped nonsense and cannot follow an instruction. This module shows why by contrast: you take a model somebody else pretrained and fine-tune it on instructions in about two and a half minutes on a laptop processor with no graphics card.</p>
+        <section class="section section--watch"><h2 class="section__h" data-stamp="take in"><span>Watch this first</span></h2>
+        <div data-videos="core"></div></section>
+        <section class="section section--ideas"><h2 class="section__h" data-stamp="take in"><span>The ideas, in plain English</span></h2>
+        <p class="small muted">Each idea, then a worked example of it.</p>
+        <div class="concepts">
+        <div class="concept"><div class="concept__n" aria-hidden="true">1</div><h3 class="concept__t">What pretraining actually buys</h3><p class="concept__b">Pretraining is the same next-token training you ran in B3, done on so much text that grammar and a rough store of facts fall out of it. <code>SmolLM2-135M-Instruct</code> has 163 times your model's parameters and read something like 1.8 million times more text than your corpus. That gap, not the code, is the whole difference between the two models: your <code>tinygpt.py</code> and its architecture are close cousins.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>What</th><th>Your B3 model</th><th>SmolLM2-135M-Instruct</th></tr></thead><tbody><tr><td>Text seen in training</td><td>1.1 MB, 1,115,394 characters (this model's tokens)</td><td>its authors report about 2 trillion tokens</td></tr><tr><td>Parameters</td><td>824,897</td><td>134,515,008</td></tr><tr><td>Vocabulary</td><td>65 characters</td><td>49,152 subword tokens</td></tr><tr><td>Training cost</td><td>8 minutes, one laptop processor</td><td>thousands of accelerator hours</td></tr><tr><td>Follows &quot;reply in one sentence&quot;</td><td>no</td><td>yes</td></tr></tbody></table><div class="eg__cap">2 trillion divided by 1,115,394 is about 1.8 million. Halve that figure and the conclusion does not move.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">2</div><h3 class="concept__t">Why 0.8M parameters and 1 MB cannot get there</h3><p class="concept__b">Your model did learn. Validation loss 1.674 against 4.174 for guessing uniformly over 65 characters is real learning, not noise. What it learned is the character statistics of 1.1 MB of one kind of text, which contains no instructions, no questions being answered, and not enough English to spell reliably. There is no prompt that fixes this.</p>
+        <div class="eg"><div class="eg__h">Example</div><p>Second right:
+Are break'd Canunison, and then a poor chard.
+
+Myself:
+Let me and beatured seems rest how stopp'd he ere of
+From and leathey for might!</p><div class="eg__cap">Real sampled output after 4 minutes of B3 training. Real words, real line breaks, invented speaker names with colons. Also nonsense. Both halves are the lesson.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">3</div><h3 class="concept__t">Scaling, in plain terms</h3><p class="concept__b">Three dials move together: how much text, how many parameters, how much compute. Loss falls smoothly as you turn them, but it falls like a <strong>power law</strong>, meaning each equal step down costs a multiple of everything spent before it, not an addition. That is why the jump from your model to a small pretrained one took a data centre rather than a longer lunch break.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>Training steps</th><th>Time</th><th>Validation loss</th></tr></thead><tbody><tr><td>none, guessing uniformly</td><td>0</td><td>4.174</td></tr><tr><td>1,223</td><td>241 s</td><td>1.674</td></tr><tr><td>about 3,600</td><td>480 s</td><td>about 1.55</td></tr></tbody></table><div class="eg__cap">Measured on a laptop processor with no graphics card. Nearly three times the steps bought 0.12 off the loss. The next 0.12 costs more than the last.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">4</div><h3 class="concept__t">Fine-tuning adjusts a model that already works</h3><p class="concept__b">Fine-tuning starts from weights that already write English and nudges them. You are not teaching language, you are picking one shape of response out of the many the model can already produce. That is why 15 examples and 143 seconds are enough here, and why no amount of time is enough from scratch.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre>PAIRS = [
+    (<span class="t-s">&quot;Can you review my PR?&quot;</span>, <span class="t-s">&quot;Short answer: yes. Send the link and I will look this afternoon.&quot;</span>),
+    (<span class="t-s">&quot;Are we still on for 3pm?&quot;</span>, <span class="t-s">&quot;Short answer: yes. I will send the invite now.&quot;</span>),
+    (<span class="t-s">&quot;Did the deploy go out?&quot;</span>, <span class="t-s">&quot;Short answer: no. It is blocked on the migration.&quot;</span>),
+    <span class="t-c"># ... 12 more rows, 15 in total</span>
+]</pre><pre>EPOCHS = <span class="t-s">80</span>          <span class="t-c"># 80 passes over 15 rows. Fewer and the style does not stick.</span>
+LEARNING_RATE = <span class="t-s">2e</span>-<span class="t-s">4</span></pre><div class="eg__cap">From my-work/labs/lab11/cpu_lora.py. Fifteen rows, 80 passes, 143 seconds. B3 spent 241 seconds on 1.1 MB and still cannot answer a question.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">5</div><h3 class="concept__t">LoRA is a small trained patch</h3><p class="concept__b">LoRA (low rank adaptation) freezes every original weight and trains two thin matrices beside the ones you choose. Their product has the same shape as the frozen matrix, so it is added straight on top when the model runs. You train <strong>0.34%</strong> of the numbers and ship a 1.8 MB file instead of a 270 MB one.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre>model = <span class="t-f">get_peft_model</span>(model, <span class="t-f">LoraConfig</span>(
+    r=<span class="t-s">8</span>, lora_alpha=<span class="t-s">16</span>, lora_dropout=<span class="t-s">0.05</span>,
+    task_type=<span class="t-s">&quot;CAUSAL_LM&quot;</span>, target_modules=[<span class="t-s">&quot;q_proj&quot;</span>, <span class="t-s">&quot;v_proj&quot;</span>],
+))
+trainable = <span class="t-f">sum</span>(p.<span class="t-f">numel</span>() <span class="t-k">for</span> p <span class="t-k">in</span> model.<span class="t-f">parameters</span>() <span class="t-k">if</span> p.requires_grad)
+total = <span class="t-f">sum</span>(p.<span class="t-f">numel</span>() <span class="t-k">for</span> p <span class="t-k">in</span> model.<span class="t-f">parameters</span>())
+<span class="t-f">print</span>(f<span class="t-s">&quot;\ntraining {trainable:,} of {total:,} parameters ({100 * trainable / total:.2f}%)&quot;</span>)</pre><p class="eg__say">measured output: training 460,800 of 134,975,808 parameters (0.34%)</p><div class="eg__cap">The adapter is a patch, not a model. Without the 270 MB base sitting underneath it, those 1.8 MB do nothing at all.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">6</div><h3 class="concept__t">Judge both models on the same prompt</h3><p class="concept__b">Write the rule before you look at any output, and record the before answers before you train. Otherwise you are grading your own homework after the fact. A rule a program can run beats an impression, and the prompts you score on must be ones the model never trained on.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre><span class="t-k">def</span> <span class="t-f">style_passes</span>(text: str) -&gt; bool:
+    <span class="t-s">&quot;&quot;&quot;Your style, written as a rule a program can check. Edit to match yours.&quot;&quot;&quot;</span>
+    <span class="t-k">return</span> text.<span class="t-f">startswith</span>(<span class="t-s">&quot;Short answer:&quot;</span>) <span class="t-k">and</span> <span class="t-s">&quot;!&quot;</span> <span class="t-k">not</span> <span class="t-k">in</span> text</pre><p class="eg__say">after training, on the five prompts it never saw:</p><pre><span class="t-f">print</span>(f<span class="t-s">&quot;\nstyle rule matched {hits}/{len(HELD_OUT)} held-out prompts &quot;</span>
+      f<span class="t-s">&quot;(before: {sum(style_passes(a) for a in before.values())}/{len(HELD_OUT)})&quot;</span>)</pre><p class="eg__say">measured output: style rule matched 5/5 held-out prompts (before: 0/5)</p><div class="eg__cap">0 of 5 to 5 of 5 in 143 seconds. The rule proves the shape moved. It says nothing about whether the answers are true.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">7</div><h3 class="concept__t">When from scratch is the right answer</h3><p class="concept__b">Train from scratch when the domain is narrow, the vocabulary is small, or the data cannot leave your machine. A tiny model with the right alphabet beats a general one carrying 49,152 tokens of English it will never use. Your B3 model is already proof that this is a few minutes of work.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>Your situation</th><th>From scratch</th><th>Pretrained plus LoRA</th></tr></thead><tbody><tr><td>20 distinct symbols, one format (sensor codes, chess moves, DNA)</td><td>fits, your 65-character model is already this shape</td><td>49,152 tokens of vocabulary you never use</td></tr><tr><td>Data must never leave the machine, including the first download</td><td>4.4 MB checkpoint, nothing downloaded at any point</td><td>one 270 MB download, offline after that</td></tr><tr><td>Open-ended English from real users</td><td>hopeless at 0.8M parameters</td><td>the only realistic option</td></tr></tbody></table><div class="eg__cap">Two of those three rows are real reasons to train from scratch. The third is the reason most projects do not.</div></div>
+        </div>
+        </div></section>
+        <div class="note note--gap"><div class="note__t">Worth knowing</div><p>Three numbers in this module are not yours. The 2 trillion token figure, the 270 MB download and the thousands of accelerator hours are what SmolLM2's authors report about their own training run, not anything you measured, and you are taking them on trust. Timings vary by two or three times across laptop processors, so read 143 and 155 seconds as an order of magnitude, not a target. Eighty passes over 15 rows sits close to memorisation: the tuned model learns the shape of an answer, and follows() checks only that shape, so a reply can pass the rule and still be false. Three prompts is an anecdote, not a benchmark, and a 135 million parameter model is still tiny by any current standard, so do not read its wins here as anything more than &quot;much better than 0.8 million parameters trained on 1.1 MB&quot;.</p></div>
+        <section class="section section--more"><h2 class="section__h" data-stamp="optional"><span>If you want to go deeper</span></h2>
+        <p class="small muted">Optional.</p>
+        <div data-videos="more"></div></section>
+        <section class="section section--lab"><h2 class="section__h" data-stamp="hands on"><span>Lab: follow along</span></h2>
+        <div data-setupbanner></div>
+        
+        <p class="prose">You will put two models on the same three instructions: the one you trained from nothing in B3, and a 135 million parameter model somebody else pretrained. The fine-tuning script already exists and is tested, so you are changing what it trains on, not how it works.</p>
+        <p class="small muted">Code given, every line explained.</p>
+        <ol class="steps">
+        <li><h3>Set up lab22 and check what B3 left you</h3><p>You need both halves of the comparison in one place. Copy the tested fine-tuning script from Module 11 into my-work/labs/lab22 under a new name, so you never edit the original. Then confirm the B3 checkpoint loads and holds what you expect: the weights, the character map, and the score. If tinygpt.pt is missing, or the validation loss is much above 1.7, go back and train longer, because a weak from-scratch model turns this comparison into a strawman instead of an honest test.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>cd my-work/labs/lab22
+cp ../lab11/cpu_lora.py instruct_lora.py        <span class="t-c"># macOS, Linux</span>
+copy ..\lab11\cpu_lora.py instruct_lora.py      <span class="t-c"># Windows</span>
+
+python -c <span class="t-s">&quot;import sys, torch; sys.path.append('../_shared'); b=torch.load('../lab21/tinygpt.pt', map_location='cpu', weights_only=False); print(b['steps'], 'steps, val loss', round(b['val_loss'],3), ',', len(b['stoi']), 'distinct characters')&quot;</span>
+
+<span class="t-c"># measured on a laptop processor with no graphics card:</span>
+<span class="t-c"># 1223 steps, val loss 1.674 , 65 distinct characters</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>sys.path.append('../_shared')</dt><dd>train_gpt.py saved the Config dataclass inside the checkpoint, so unpickling it needs the tinygpt module importable. Leave this out and torch.load fails with ModuleNotFoundError: No module named 'tinygpt', which looks like a broken file but is a broken path.</dd>
+        <dt>weights_only=False</dt><dd>the checkpoint holds a Python object, not only tensors, so torch will not load it in the safe mode. Pass this flag only for a file you produced yourself.</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>Do not edit my-work/labs/lab11/cpu_lora.py. Module 11 still uses it, and you want the style version intact so you can diff the two.</span></div>
+        </li>
+        <li><h3>Ask your own model to follow an instruction</h3><p>Before you touch anything pretrained, watch your own model fail, and record the failure. This script loads the B3 checkpoint and generates 80 characters after each of three plain instructions. The generation code is the same four lines serve_mine.py uses in B5, so nothing here is special-cased to make the model look bad. Run it and read the output carefully: the model is not confused, it is doing exactly what it was trained to do, which is continue text that looks like its corpus.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-s">&quot;&quot;&quot;B4 - three instructions through the model YOU trained. Run: python ask_scratch.py&quot;&quot;&quot;</span>
+<span class="t-k">import</span> json, pathlib, sys, torch
+sys.path.<span class="t-f">append</span>(<span class="t-f">str</span>(pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parents[<span class="t-s">1</span>] / <span class="t-s">&quot;_shared&quot;</span>))
+<span class="t-k">from</span> tinygpt <span class="t-k">import</span> TinyGPT
+
+torch.<span class="t-f">manual_seed</span>(<span class="t-s">1337</span>)
+PROMPTS = [
+    <span class="t-s">&quot;Write one sentence about the sea.&quot;</span>,
+    <span class="t-s">&quot;List three colours.&quot;</span>,
+    <span class="t-s">&quot;Answer with yes or no: is water wet?&quot;</span>,
+]
+
+blob = torch.<span class="t-f">load</span>(<span class="t-s">&quot;../lab21/tinygpt.pt&quot;</span>, map_location=<span class="t-s">&quot;cpu&quot;</span>, weights_only=<span class="t-k">False</span>)
+stoi, itos = blob[<span class="t-s">&quot;stoi&quot;</span>], blob[<span class="t-s">&quot;itos&quot;</span>]
+model = <span class="t-f">TinyGPT</span>(<span class="t-f">len</span>(stoi), blob[<span class="t-s">&quot;config&quot;</span>])
+model.<span class="t-f">load_state_dict</span>(blob[<span class="t-s">&quot;state&quot;</span>])
+model.<span class="t-f">eval</span>()
+
+out = {}
+<span class="t-k">for</span> p <span class="t-k">in</span> PROMPTS:
+    ids = [stoi[c] <span class="t-k">for</span> c <span class="t-k">in</span> p <span class="t-k">if</span> c <span class="t-k">in</span> stoi] <span class="t-k">or</span> [<span class="t-s">0</span>]      <span class="t-c"># unknown characters vanish</span>
+    gen = model.<span class="t-f">generate</span>(torch.<span class="t-f">tensor</span>([ids[-model.block_size:]]), <span class="t-s">80</span>)
+    out[p] = <span class="t-s">&quot;&quot;</span>.<span class="t-f">join</span>(itos[i] <span class="t-k">for</span> i <span class="t-k">in</span> gen[<span class="t-s">0</span>].<span class="t-f">tolist</span>()[<span class="t-f">len</span>(ids):])
+    <span class="t-f">print</span>(f<span class="t-s">&quot;&gt; {p}\n{out[p]}\n&quot;</span>)
+
+json.<span class="t-f">dump</span>(out, <span class="t-f">open</span>(<span class="t-s">&quot;scratch.json&quot;</span>, <span class="t-s">&quot;w&quot;</span>, encoding=<span class="t-s">&quot;utf-8&quot;</span>), indent=<span class="t-s">1</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;wrote scratch.json&quot;</span>)
+
+<span class="t-c"># measured output, from a model trained 241 seconds on 1.1 MB of Shakespeare:</span>
+<span class="t-c">#</span>
+<span class="t-c"># &gt; Write one sentence about the sea.</span>
+<span class="t-c"># Thou art that mouths are harved youw seems would</span>
+<span class="t-c"># To be married by his over wide</span>
+<span class="t-c">#</span>
+<span class="t-c"># &gt; List three colours.</span>
+<span class="t-c"># I would murder in my waged dagger!</span>
+<span class="t-c">#</span>
+<span class="t-c"># DUKE OF AUMERLE:</span>
+<span class="t-c"># You well seen; So Hince ch</span>
+<span class="t-c">#</span>
+<span class="t-c"># &gt; Answer with yes or no: is water wet?</span>
+<span class="t-c"># PETRUCHIO:</span>
+<span class="t-c"># Be shall from her where girled good falr</span>
+<span class="t-c"># your chaact, and he child</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>[stoi[c] for c in p if c in stoi]</dt><dd>your vocabulary is the characters of your corpus and nothing else. Any character it never saw is silently dropped. That corpus contains exactly one digit, '3', so the prompt &quot;Answer in 2 words.&quot; reaches the model as &quot;Answer in  words.&quot; with a hole where the 2 was.</dd>
+        <dt>gen[0].tolist()[len(ids):]</dt><dd>generate returns the prompt plus the continuation, so you slice off the prompt to see only what the model added.</dd>
+        <dt>torch.manual_seed(1337)</dt><dd>generate samples from the probability distribution with torch.multinomial, so it is random by design. The seed makes your run repeatable. Output still differs across machines and torch versions.</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>Do not tidy this output. The mini-project needs the raw text, misspellings and stray line breaks included. Cleaning it up is the one thing that would make the comparison dishonest.</span></div>
+        </li>
+        <li><h3>Turn the style tuner into an instruction tuner</h3><p>cpu_lora.py teaches a writing style. You want the same machinery to teach instruction following, so only the data and the rule change. Replace the 15 PAIRS with 15 instructions and their answers, replace HELD_OUT with 5 instructions you never train on, and replace style_passes with a rule that describes an answer rather than a voice. Rename the three call sites of style_passes to follows. Everything else in the file stays exactly as it is, which is the point: the mechanism does not care what you are teaching it.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># BEFORE, in cpu_lora.py: a style task</span>
+PAIRS = [
+    (<span class="t-s">&quot;Can you review my PR?&quot;</span>, <span class="t-s">&quot;Short answer: yes. Send the link and I will look this afternoon.&quot;</span>),
+]
+<span class="t-k">def</span> <span class="t-f">style_passes</span>(text: str) -&gt; bool:
+    <span class="t-k">return</span> text.<span class="t-f">startswith</span>(<span class="t-s">&quot;Short answer:&quot;</span>) <span class="t-k">and</span> <span class="t-s">&quot;!&quot;</span> <span class="t-k">not</span> <span class="t-k">in</span> text
+
+<span class="t-c"># AFTER, in instruct_lora.py: an instruction task</span>
+PAIRS = [
+    (<span class="t-s">&quot;Write one sentence about rain.&quot;</span>, <span class="t-s">&quot;Rain is water that falls from cloud to ground.&quot;</span>),
+    (<span class="t-s">&quot;List three fruits.&quot;</span>, <span class="t-s">&quot;Apple, banana, and pear.&quot;</span>),
+    (<span class="t-s">&quot;Answer with yes or no: is ice cold?&quot;</span>, <span class="t-s">&quot;Yes.&quot;</span>),
+    (<span class="t-s">&quot;Name the capital of France.&quot;</span>, <span class="t-s">&quot;Paris.&quot;</span>),
+    (<span class="t-s">&quot;Summarise in one sentence: the meeting ran long and nothing was decided.&quot;</span>,
+     <span class="t-s">&quot;A long meeting ended without a decision.&quot;</span>),
+    (<span class="t-s">&quot;Give one reason to test code.&quot;</span>, <span class="t-s">&quot;Tests catch a mistake before a user does.&quot;</span>),
+    <span class="t-c"># ... nine more rows in the same shape, 15 in total</span>
+]
+
+HELD_OUT = [
+    <span class="t-s">&quot;Write one sentence about snow.&quot;</span>,
+    <span class="t-s">&quot;List three vegetables.&quot;</span>,
+    <span class="t-s">&quot;Answer with yes or no: is fire hot?&quot;</span>,
+    <span class="t-s">&quot;Name the capital of Japan.&quot;</span>,
+    <span class="t-s">&quot;Give one reason to back up a file.&quot;</span>,
+]
+
+<span class="t-k">def</span> <span class="t-f">follows</span>(text: str) -&gt; bool:
+    <span class="t-s">&quot;&quot;&quot;Instruction following, written as a rule a program can check.&quot;&quot;&quot;</span>
+    t = text.<span class="t-f">strip</span>()
+    <span class="t-k">return</span> (<span class="t-s">0</span> &lt; <span class="t-f">len</span>(t.<span class="t-f">split</span>()) &lt;= <span class="t-s">30</span>      <span class="t-c"># it answered, and it stopped</span>
+            <span class="t-k">and</span> t.<span class="t-f">endswith</span>(<span class="t-s">&quot;.&quot;</span>)           <span class="t-c"># a finished sentence, not a cut-off one</span>
+            <span class="t-k">and</span> <span class="t-s">&quot;?&quot;</span> <span class="t-k">not</span> <span class="t-k">in</span> t)             <span class="t-c"># it answered instead of asking back</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>tok.apply_chat_template([{&quot;role&quot;: &quot;user&quot;, ...}, {&quot;role&quot;: &quot;assistant&quot;, ...}], tokenize=False)</dt><dd>this line is already in the file and needs no change. The pretrained model has a user and assistant format baked in from its own instruction tuning, and this wraps your rows in it. Your from-scratch model has no such thing, which is one concrete, mechanical reason it cannot follow an instruction.</dd>
+        <dt>len(t.split()) &lt;= 30</dt><dd>the failure you are training away is rambling, so the rule has to catch it. Untuned small models answer a one-line question with five paragraphs.</dd>
+        <dt>&quot;?&quot; not in t</dt><dd>small instruct models often bounce the question back rather than answer it. This catches that.</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>Keep 15 rows and keep EPOCHS at 80. The file's comment says it plainly: fewer passes and the behaviour does not stick.</span></div>
+        </li>
+        <li><h3>Record the before, then attach the adapter</h3><p>The script asks the five held-out prompts and stores the answers before a single weight moves. Do this first or you have nothing to compare against, and you will convince yourself the model always behaved that way. Then LoRA is attached with one call, and the script prints exactly how much of the model you are about to train. Read that printed line, because it is the sentence this whole module is built on.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>    <span class="t-c"># 1. BEFORE. Record this first, or you have nothing to compare against.</span>
+    <span class="t-f">print</span>(<span class="t-s">&quot;\n--- before training ---&quot;</span>)
+    before = {q: <span class="t-f">ask</span>(q) <span class="t-k">for</span> q <span class="t-k">in</span> HELD_OUT}
+    <span class="t-k">for</span> q, a <span class="t-k">in</span> before.<span class="t-f">items</span>():
+        <span class="t-f">print</span>(f<span class="t-s">&quot;  [{'PASS' if follows(a) else 'fail'}] {a[:90]}&quot;</span>)
+
+    <span class="t-c"># 3. Attach the adapter. r=8 is the rank: the adapter is two thin matrices</span>
+    <span class="t-c">#    whose product has the same shape as the big frozen one.</span>
+    model = <span class="t-f">get_peft_model</span>(model, <span class="t-f">LoraConfig</span>(
+        r=<span class="t-s">8</span>, lora_alpha=<span class="t-s">16</span>, lora_dropout=<span class="t-s">0.05</span>,
+        task_type=<span class="t-s">&quot;CAUSAL_LM&quot;</span>, target_modules=[<span class="t-s">&quot;q_proj&quot;</span>, <span class="t-s">&quot;v_proj&quot;</span>],
+    ))
+    trainable = <span class="t-f">sum</span>(p.<span class="t-f">numel</span>() <span class="t-k">for</span> p <span class="t-k">in</span> model.<span class="t-f">parameters</span>() <span class="t-k">if</span> p.requires_grad)
+    total = <span class="t-f">sum</span>(p.<span class="t-f">numel</span>() <span class="t-k">for</span> p <span class="t-k">in</span> model.<span class="t-f">parameters</span>())
+    <span class="t-f">print</span>(f<span class="t-s">&quot;\ntraining {trainable:,} of {total:,} parameters ({100 * trainable / total:.2f}%)&quot;</span>)
+
+<span class="t-c"># measured output:</span>
+<span class="t-c"># training 460,800 of 134,975,808 parameters (0.34%)</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>r=8</dt><dd>the rank. The patch is an 8-wide bottleneck between two thin matrices, so the number of trained values grows with r, not with the size of the frozen matrix.</dd>
+        <dt>target_modules=[&quot;q_proj&quot;, &quot;v_proj&quot;]</dt><dd>the query and value projections inside attention, the usual place to attach. You could patch every matrix in the model, which costs more and rarely helps at this size.</dd>
+        <dt>if p.requires_grad</dt><dd>this is what frozen means in code. The original 134.5 million weights still run in the forward and backward pass, they just never get updated.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>trainable = layers x [ (r x d_model + d_model x r) + (r x d_model + d_kv x r) ]
+
+SmolLM2-135M: layers = 30, d_model = 576, 9 heads of 64, 3 key/value heads so d_kv = 192, and r = 8.
+
+  q_proj patch:  8 x 576 + 576 x 8  = 4,608 + 4,608 = 9,216
+  v_proj patch:  8 x 576 + 192 x 8  = 4,608 + 1,536 = 6,144
+  per layer:     9,216 + 6,144      = 15,360
+  all layers:    15,360 x 30        = 460,800
+
+460,800 / 134,975,808 = 0.0034, which is the 0.34% the script prints. The hand figure and the printed figure agree exactly.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>First run only, this downloads about 270 MB and takes roughly 33 seconds to load. After that it comes from the local cache and the script runs offline.</span></div>
+        </li>
+        <li><h3>Train: 80 passes, about two and a half minutes</h3><p>This is gradient descent in eight lines, the same loop as B3's training script. The differences are that the batch is your 15 rows all at once rather than random windows of a corpus, and that only the 460,800 adapter values receive an update. Watch the loss fall. Then remember what that loss is measured on.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>    opt = torch.optim.<span class="t-f">AdamW</span>(
+        [p <span class="t-k">for</span> p <span class="t-k">in</span> model.<span class="t-f">parameters</span>() <span class="t-k">if</span> p.requires_grad], lr=LEARNING_RATE)
+    model.<span class="t-f">train</span>()
+    t1 = time.<span class="t-f">time</span>()
+    <span class="t-k">for</span> ep <span class="t-k">in</span> <span class="t-f">range</span>(EPOCHS):
+        opt.<span class="t-f">zero_grad</span>()
+        out = <span class="t-f">model</span>(**batch)
+        out.loss.<span class="t-f">backward</span>()          <span class="t-c"># work out which way each number should move</span>
+        opt.<span class="t-f">step</span>()                   <span class="t-c"># move them a little</span>
+        <span class="t-k">if</span> ep % <span class="t-s">20</span> == <span class="t-s">0</span> <span class="t-k">or</span> ep == EPOCHS - <span class="t-s">1</span>:
+            <span class="t-f">print</span>(f<span class="t-s">&quot;  epoch {ep:&gt;2}  loss {out.loss.item():.3f}  ({time.time() - t1:.0f}s)&quot;</span>)
+    <span class="t-f">print</span>(f<span class="t-s">&quot;trained in {time.time() - t1:.0f}s&quot;</span>)
+
+<span class="t-c"># measured on a laptop processor with no graphics card:</span>
+<span class="t-c"># 143 seconds of training, 155 seconds end to end with the model already cached.</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>[p for p in model.parameters() if p.requires_grad]</dt><dd>the optimiser is handed only the adapter. This is why 143 seconds is enough: AdamW also keeps two running averages per trained value, so freezing 99.66% of the model cuts memory as well as time.</dd>
+        <dt>batch[&quot;labels&quot;][batch[&quot;attention_mask&quot;] == 0] = -100</dt><dd>set earlier in the file. Padding is masked with -100 so the model is not scored on empty space, which would otherwise reward it for predicting nothing.</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>The printed loss is measured on the 15 rows the model is training on, so it always falls. It tells you the optimiser is working and nothing else. Only the held-out prompts tell you whether anything was learned.</span></div>
+        </li>
+        <li><h3>Re-ask the same five held-out prompts and score</h3><p>Same five prompts, same ask function, same rule. The only thing that changed is 460,800 numbers. On the style version of this task the rule went from 0 of 5 to 5 of 5, and your instruction version should move about as far. Read the actual answers as well as the score, because the rule checks the shape of an answer and cannot check whether it is true.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>    model.<span class="t-f">eval</span>()
+    <span class="t-f">print</span>(<span class="t-s">&quot;\n--- after training ---&quot;</span>)
+    after = {q: <span class="t-f">ask</span>(q) <span class="t-k">for</span> q <span class="t-k">in</span> HELD_OUT}
+    hits = <span class="t-s">0</span>
+    <span class="t-k">for</span> q, a <span class="t-k">in</span> after.<span class="t-f">items</span>():
+        ok = <span class="t-f">follows</span>(a)
+        hits += ok
+        <span class="t-f">print</span>(f<span class="t-s">&quot;  [{'PASS' if ok else 'fail'}] {a[:90]}&quot;</span>)
+    <span class="t-f">print</span>(f<span class="t-s">&quot;\nrule matched {hits}/{len(HELD_OUT)} held-out prompts &quot;</span>
+          f<span class="t-s">&quot;(before: {sum(follows(a) for a in before.values())}/{len(HELD_OUT)})&quot;</span>)
+
+<span class="t-c"># measured with the style rule from Module 11:</span>
+<span class="t-c"># style rule matched 5/5 held-out prompts (before: 0/5)</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>model.eval()</dt><dd>turns off dropout. LoraConfig set lora_dropout=0.05, which randomly zeroes 5% of the adapter during training and must not be active when you measure.</dd>
+        <dt>do_sample=False</dt><dd>inside ask, set earlier in the file. Generation is greedy, so the same prompt gives the same answer every time and the before and after difference is the adapter, not luck.</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>Eighty passes over 15 rows is close to memorisation. Expect the tuned model to answer &quot;Name the capital of Japan.&quot; in the right shape and to be confidently wrong sometimes. Shape is what you trained; facts came from pretraining, and 135 million parameters do not hold many.</span></div>
+        </li>
+        <li><h3>Save the adapter and weigh it</h3><p>The script writes the adapter and prints its size. Compare the three files you now own. The adapter is about 1.8 MB, your entire from-scratch model is about 4.4 MB, and the base model underneath the adapter is about 270 MB. Your whole model, tokenizer, weights and all, is bigger than the patch that taught a 135 million parameter model to follow instructions, and that patch is worthless on its own while your 4.4 MB runs by itself.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>    model.<span class="t-f">save_pretrained</span>(<span class="t-s">&quot;adapter&quot;</span>)
+    <span class="t-k">import</span> pathlib
+    size = <span class="t-f">sum</span>(f.<span class="t-f">stat</span>().st_size <span class="t-k">for</span> f <span class="t-k">in</span> pathlib.<span class="t-f">Path</span>(<span class="t-s">&quot;adapter&quot;</span>).<span class="t-f">rglob</span>(<span class="t-s">&quot;*&quot;</span>) <span class="t-k">if</span> f.<span class="t-f">is_file</span>())
+    <span class="t-f">print</span>(f<span class="t-s">&quot;adapter written to adapter/  ({size:,} bytes)&quot;</span>)
+
+<span class="t-c"># what you should now have in my-work/labs/lab22:</span>
+<span class="t-c">#   adapter/         about 1.8 MB   useless without the 270 MB base model</span>
+<span class="t-c">#   scratch.json     3 answers from the model you built</span>
+<span class="t-c">#   ../lab21/tinygpt.pt   about 4.4 MB   the entire model, runs alone</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>save_pretrained(&quot;adapter&quot;)</dt><dd>writes the LoRA weights plus a small config naming the base model. Loading it later downloads or reads that base and applies the patch on top.</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>An adapter is tied to one exact base model. Point it at a different checkpoint and it will either refuse to load or silently produce nonsense.</span></div>
+        </li>
+        </ol>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> You have run the same instructions through a model you built from nothing and a model somebody else pretrained, and you have both sets of answers on disk. You can also state, with numbers, what the second one cost: 460,800 trained values, 143 seconds, and somebody else's 2 trillion tokens of pretraining that you did not pay for.</div></div>
+        </section>
+        <section class="section section--mini"><h2 class="section__h" data-stamp="hands on"><span>Mini-project: your turn</span></h2>
+        <p class="prose">Put both models on trial with the same three prompts and write down the verdict yourself. The point is not that the pretrained model wins, it is that you can say exactly what it wins at and what it cost.</p>
+        <p class="small muted">No code given. Produce the file, then run the checker.</p>
+        <ol class="steps">
+        <li><p>Choose three prompts that are plainly instructions, not text to continue. Write them once, as one list, and paste the identical strings into both scripts. Different wording on the two sides is not a comparison.</p></li>
+        <li><p>Run `python ask_scratch.py` in my-work/labs/lab22. It writes scratch.json with your from-scratch model's answer to each of the three. Keep the raw text: the line breaks, the invented speaker names, the misspellings.</p></li>
+        <li><p>In instruct_lora.py, after the `--- after training ---` block, add `json.dump({q: ask(q) for q in COMPARE}, open(&quot;tuned.json&quot;, &quot;w&quot;, encoding=&quot;utf-8&quot;), indent=1)` with COMPARE holding those same three prompts. `ask()` already exists in that file and looks up `model` when it is called, so it picks up the adapter automatically.</p></li>
+        <li><p>Run `python instruct_lora.py`, about 155 seconds once the base model is cached, and confirm tuned.json holds three non-empty answers.</p></li>
+        <li><p>Merge the two files into compare.json with this exact shape: `{&quot;prompts&quot;: [three strings], &quot;scratch&quot;: {prompt: answer}, &quot;tuned&quot;: {prompt: answer}, &quot;judgement&quot;: {&quot;better&quot;: &quot;tuned&quot; or &quot;scratch&quot;, &quot;why&quot;: &quot;...&quot;}}`.</p></li>
+        <li><p>Write judgement.why in your own words, 25 words or more, naming one specific thing you can see in the two sets of answers. &quot;It is better&quot; does not pass the checker, and it should not.</p></li>
+        </ol>
+        <div class="checker"><div class="checker__h">Check it yourself, automatically</div>
+        <p>Save this as <code>check_compare.py</code> next to your work, then run <code>Save it in my-work/labs/lab22 next to compare.json and run `python check_compare.py`. It prints one PASS or FAIL line per check and exits non-zero if any failed. Standard library only, no torch needed.</code>. It reads what you produced, tests it, and prints a line per check.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>check_compare.py</span></div>
+<pre><span class="t-s">&quot;&quot;&quot;Checks the B4 mini-project. Run:  python check_compare.py&quot;&quot;&quot;</span>
+<span class="t-k">import</span> json, os, sys
+
+F = <span class="t-s">&quot;compare.json&quot;</span>
+fails = []
+
+<span class="t-k">def</span> <span class="t-f">check</span>(ok, msg):
+    <span class="t-f">print</span>((<span class="t-s">&quot;PASS &quot;</span> <span class="t-k">if</span> ok <span class="t-k">else</span> <span class="t-s">&quot;FAIL &quot;</span>) + msg)
+    <span class="t-k">if</span> <span class="t-k">not</span> ok:
+        fails.<span class="t-f">append</span>(msg)
+
+<span class="t-k">def</span> <span class="t-f">die</span>(msg):                      <span class="t-c"># missing or broken artefact: stop, no traceback</span>
+    <span class="t-f">print</span>(<span class="t-s">&quot;FAIL &quot;</span> + msg + <span class="t-s">&quot;\n1 check failed.&quot;</span>)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+
+<span class="t-k">if</span> <span class="t-k">not</span> os.path.<span class="t-f">isfile</span>(F):
+    <span class="t-f">die</span>(F + <span class="t-s">&quot; not found in &quot;</span> + os.<span class="t-f">getcwd</span>())
+<span class="t-k">try</span>:
+    data = json.<span class="t-f">load</span>(<span class="t-f">open</span>(F, encoding=<span class="t-s">&quot;utf-8&quot;</span>))
+<span class="t-k">except</span> json.JSONDecodeError <span class="t-k">as</span> e:
+    <span class="t-f">die</span>(F + <span class="t-s">&quot; is not valid JSON: &quot;</span> + <span class="t-f">str</span>(e))
+<span class="t-k">if</span> <span class="t-k">not</span> <span class="t-f">isinstance</span>(data, dict):
+    <span class="t-f">die</span>(F + <span class="t-s">&quot; must be a JSON object with keys prompts, scratch, tuned, judgement&quot;</span>)
+
+prompts = data.<span class="t-f">get</span>(<span class="t-s">&quot;prompts&quot;</span>)
+scratch = data.<span class="t-f">get</span>(<span class="t-s">&quot;scratch&quot;</span>)
+tuned = data.<span class="t-f">get</span>(<span class="t-s">&quot;tuned&quot;</span>)
+judge = data.<span class="t-f">get</span>(<span class="t-s">&quot;judgement&quot;</span>)
+<span class="t-k">if</span> <span class="t-k">not</span> <span class="t-f">isinstance</span>(prompts, list) <span class="t-k">or</span> <span class="t-k">not</span> prompts:
+    <span class="t-f">die</span>(<span class="t-s">&quot;prompts must be a non-empty list of the instructions you sent&quot;</span>)
+<span class="t-k">if</span> <span class="t-k">not</span> <span class="t-f">isinstance</span>(scratch, dict) <span class="t-k">or</span> <span class="t-k">not</span> <span class="t-f">isinstance</span>(tuned, dict):
+    <span class="t-f">die</span>(<span class="t-s">&quot;scratch and tuned must each be an object mapping prompt to answer&quot;</span>)
+<span class="t-k">if</span> <span class="t-k">not</span> <span class="t-f">isinstance</span>(judge, dict):
+    <span class="t-f">die</span>(<span class="t-s">&quot;judgement must be an object with keys better and why&quot;</span>)
+
+<span class="t-c"># --- the same three prompts, answered twice --------------------------------</span>
+<span class="t-f">check</span>(<span class="t-f">len</span>(prompts) == <span class="t-s">3</span>, <span class="t-s">&quot;exactly 3 prompts (got %d)&quot;</span> % <span class="t-f">len</span>(prompts))
+<span class="t-f">check</span>(<span class="t-f">all</span>(<span class="t-f">isinstance</span>(p, str) <span class="t-k">and</span> p.<span class="t-f">strip</span>() <span class="t-k">for</span> p <span class="t-k">in</span> prompts), <span class="t-s">&quot;every prompt is non-empty text&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">len</span>({<span class="t-f">str</span>(p).<span class="t-f">strip</span>() <span class="t-k">for</span> p <span class="t-k">in</span> prompts}) == <span class="t-f">len</span>(prompts), <span class="t-s">&quot;the 3 prompts differ from each other&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">set</span>(scratch) == <span class="t-f">set</span>(prompts), <span class="t-s">&quot;scratch answers cover exactly those prompts&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">set</span>(tuned) == <span class="t-f">set</span>(prompts), <span class="t-s">&quot;tuned answers cover exactly those prompts&quot;</span>)
+
+both = [p <span class="t-k">for</span> p <span class="t-k">in</span> prompts <span class="t-k">if</span> p <span class="t-k">in</span> scratch <span class="t-k">and</span> p <span class="t-k">in</span> tuned]
+<span class="t-f">check</span>(<span class="t-f">len</span>(both) == <span class="t-f">len</span>(prompts), <span class="t-s">&quot;both models answered all 3 (got %d)&quot;</span> % <span class="t-f">len</span>(both))
+<span class="t-f">check</span>(<span class="t-f">all</span>(<span class="t-f">str</span>(scratch[p]).<span class="t-f">strip</span>() <span class="t-k">for</span> p <span class="t-k">in</span> both), <span class="t-s">&quot;no empty answer from your from-scratch model&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">all</span>(<span class="t-f">str</span>(tuned[p]).<span class="t-f">strip</span>() <span class="t-k">for</span> p <span class="t-k">in</span> both), <span class="t-s">&quot;no empty answer from the tuned model&quot;</span>)
+differ = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> p <span class="t-k">in</span> both <span class="t-k">if</span> <span class="t-f">str</span>(scratch[p]).<span class="t-f">strip</span>() != <span class="t-f">str</span>(tuned[p]).<span class="t-f">strip</span>())
+<span class="t-f">check</span>(differ == <span class="t-f">len</span>(prompts), <span class="t-s">&quot;all 3 answers differ between the models (%d of 3)&quot;</span> % differ)
+
+<span class="t-c"># --- the judgement, in your own words ---------------------------------------</span>
+better = <span class="t-f">str</span>(judge.<span class="t-f">get</span>(<span class="t-s">&quot;better&quot;</span>, <span class="t-s">&quot;&quot;</span>)).<span class="t-f">strip</span>().<span class="t-f">lower</span>()
+<span class="t-f">check</span>(better <span class="t-k">in</span> (<span class="t-s">&quot;scratch&quot;</span>, <span class="t-s">&quot;tuned&quot;</span>), <span class="t-s">&quot;judgement.better is 'scratch' or 'tuned' (got %r)&quot;</span> % better)
+why = <span class="t-f">str</span>(judge.<span class="t-f">get</span>(<span class="t-s">&quot;why&quot;</span>, <span class="t-s">&quot;&quot;</span>)).<span class="t-f">strip</span>()
+<span class="t-f">check</span>(<span class="t-f">len</span>(why.<span class="t-f">split</span>()) &gt;= <span class="t-s">25</span>, <span class="t-s">&quot;judgement.why is 25 words or more (got %d)&quot;</span> % <span class="t-f">len</span>(why.<span class="t-f">split</span>()))
+STOCK = (<span class="t-s">&quot;todo&quot;</span>, <span class="t-s">&quot;n/a&quot;</span>, <span class="t-s">&quot;tbd&quot;</span>, <span class="t-s">&quot;it is better&quot;</span>, <span class="t-s">&quot;the tuned model is better&quot;</span>)
+<span class="t-f">check</span>(why.<span class="t-f">lower</span>() <span class="t-k">not</span> <span class="t-k">in</span> STOCK, <span class="t-s">&quot;judgement.why is not a placeholder&quot;</span>)
+answers = {<span class="t-f">str</span>(v).<span class="t-f">strip</span>().<span class="t-f">lower</span>() <span class="t-k">for</span> v <span class="t-k">in</span> <span class="t-f">list</span>(scratch.<span class="t-f">values</span>()) + <span class="t-f">list</span>(tuned.<span class="t-f">values</span>())}
+<span class="t-f">check</span>(why.<span class="t-f">lower</span>() <span class="t-k">not</span> <span class="t-k">in</span> answers, <span class="t-s">&quot;judgement.why is your writing, not a pasted answer&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">any</span>(w <span class="t-k">in</span> why.<span class="t-f">lower</span>() <span class="t-k">for</span> w <span class="t-k">in</span> (<span class="t-s">&quot;because&quot;</span>, <span class="t-s">&quot;since&quot;</span>, <span class="t-s">&quot;which&quot;</span>, <span class="t-s">&quot;whereas&quot;</span>, <span class="t-s">&quot;so that&quot;</span>)),
+      <span class="t-s">&quot;judgement.why gives a reason, not only a verdict&quot;</span>)
+
+<span class="t-f">print</span>(<span class="t-s">&quot;\nNot checked: whether your reason is a good one. Read the answers yourself.&quot;</span>)
+<span class="t-k">if</span> fails:
+    <span class="t-f">print</span>(<span class="t-s">&quot;%d check(s) failed.&quot;</span> % <span class="t-f">len</span>(fails))
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;ALL CHECKS PASSED&quot;</span>)</pre></div>
+        </div>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> compare.json exists, `python check_compare.py` prints ALL CHECKS PASSED, and you can say in one sentence what 155 seconds of fine-tuning bought that 241 seconds of training from scratch could not.</div></div>
+        <div class="note" style="margin-top:12px"><div class="note__t">If you want more</div><p>Add a third column and split the credit. Next to the existing `before = {q: ask(q) for q in HELD_OUT}` line, which runs before the adapter is attached, add `base = {q: ask(q) for q in COMPARE}` and record those answers too under a &quot;base&quot; key. Now you can separate what pretraining gave you from what your 15 rows gave you. Usually the base model was already close and your rows only fixed the shape, which is worth seeing for yourself.</p></div>
+        </section>
+        <section class="section section--quiz"><h2 class="section__h" data-stamp="on record"><span>Check yourself</span></h2>
+        <p class="small muted">Explained either way.</p>
+        <div class="quiz" data-quiz>
+        <div class="q" data-answer="0"><p class="q__q">The script prints `training 460,800 of 134,975,808 parameters (0.34%)`. What are the other 134.5 million weights doing while you train?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>They run in the forward and backward pass as usual, but their values never change.</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Nothing. LoRA removes them and rebuilds the model from the adapter.</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>They train as well, just with a much smaller learning rate.</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>They are copied into the adapter file so it can be used on its own.</span></button>
+        </div><div class="q__why" hidden>Frozen means unchanged, not absent. Every answer still flows through all 135 million weights, which is why a 1.8 MB adapter does nothing without the 270 MB base sitting underneath it.</div></div>
+        <div class="q" data-answer="1"><p class="q__q">Your from-scratch model reached validation loss 1.674 against 4.174 for guessing uniformly, yet it answers &quot;List three colours.&quot; with Shakespearean dialogue. Why?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>The loss is being measured wrongly.</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>It learned the character statistics of 1.1 MB of one kind of text, which contains no instructions and not enough English.</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>The learning rate was too high, so it never really converged.</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Character-level models can never follow instructions, whatever their size.</span></button>
+        </div><div class="q__why" hidden>It genuinely learned, and what it learned was one small corpus with no examples of a question being answered. The limit is data and size. It is not a bug, and it is not the character-level design: option 4 is the tempting wrong answer.</div></div>
+        <div class="q" data-answer="3"><p class="q__q">You have 40 MB of sensor log lines using 22 distinct symbols, and the data cannot leave your building at all. Which is the better starting point?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Pretrained plus LoRA, because a pretrained model is always stronger.</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Neither. 40 MB is too little text for any model to learn from.</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>From scratch, because that model will also handle English questions from users later.</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>From scratch, because the domain is narrow, the alphabet is tiny, and nothing has to be downloaded.</span></button>
+        </div><div class="q__why" hidden>Narrow domain, small vocabulary, and data that cannot leave the machine are the three cases where from scratch wins. Option 4 picks the right answer for a wrong reason: an 0.8M parameter model trained on log lines will never handle open English.</div></div>
+        </div></section>
+        <section class="section section--notes notes" data-notes><h2 class="section__h" data-stamp="on record"><span>Your notes</span></h2>
+        <p class="small muted">Saves as you type, in this browser.</p>
+        <label class="sr" for="n22">Notes for this module</label>
+        <textarea id="n22" placeholder="What clicked? What is still fuzzy? What do you want to come back to?"></textarea><div class="notes__status"></div></section>
+        <section class="section section--done"><h2 class="section__h" data-stamp="on record"><span>Mark it done</span></h2>
+        <div class="marks"><button class="mark" data-mark="read" aria-pressed="false"><span>Read the notes</span></button><button class="mark" data-mark="lab" aria-pressed="false"><span>Finished the lab</span></button><button class="mark" data-mark="mini" aria-pressed="false"><span>Finished the mini-project</span></button></div></section>
+        <section class="section section--docs"><h2 class="section__h" data-stamp="reference"><span>Go to the source</span></h2>
+        <p class="small muted">If this course and the docs disagree, the docs are newer.</p><ul class="prose">
+        <li><a href="https://huggingface.co/docs/peft/main/en/conceptual_guides/lora" target="_blank" rel="noopener">PEFT: LoRA, the method this lab uses</a></li>
+        <li><a href="https://arxiv.org/abs/2106.09685" target="_blank" rel="noopener">LoRA: Low-Rank Adaptation of Large Language Models (the original paper)</a></li>
+        <li><a href="https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct" target="_blank" rel="noopener">SmolLM2-135M-Instruct model card, including what it was pretrained on</a></li>
+        <li><a href="https://arxiv.org/abs/2203.15556" target="_blank" rel="noopener">Training Compute-Optimal Large Language Models, where the scaling rules come from</a></li>
+        <li><a href="https://huggingface.co/docs/transformers/main/en/chat_templating" target="_blank" rel="noopener">Chat templates, and why apply_chat_template exists</a></li>
+        </ul></section>
+    </div>
+    <nav data-chrome="pager"></nav>
+  </main>
+</div>
+
+<script src="../assets/data.js"></script>
+<script src="../assets/widgets.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

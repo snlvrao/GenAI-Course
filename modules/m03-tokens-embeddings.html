@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3. How text becomes numbers</title>
+<meta name="description" content="See exactly how a sentence turns into tokens, and how tokens turn into numbers a computer can do maths on.">
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+</head>
+<body data-module="m03" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="1">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+        <div data-chrome="modhead"></div>
+        <p class="prose">A model never sees your letters. This module walks the conversion it does instead: text into chunks, chunks into ID numbers, ID numbers into vectors you can rank with one multiplication, and what each step costs you in dollars.</p>
+        <section class="section section--watch"><h2 class="section__h" data-stamp="take in"><span>Watch this first</span></h2>
+        <div data-videos="core"></div></section>
+        <section class="section section--ideas"><h2 class="section__h" data-stamp="take in"><span>The ideas, in plain English</span></h2>
+        <p class="small muted">Each idea, then a worked example of it.</p>
+        <div class="concepts">
+        <div class="concept"><div class="concept__n" aria-hidden="true">1</div><h3 class="concept__t">A token is a chunk</h3><p class="concept__b">Your text is cut into <strong>tokens</strong>, chunks of characters taken from a fixed list built with the model. Common words stay whole, rare ones break into several pieces, and ordinary English runs about 4 characters per token. The model never sees the letters inside a chunk, which is why it miscounts them.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre><span class="t-k">from</span> transformers <span class="t-k">import</span> AutoTokenizer
+tok = AutoTokenizer.<span class="t-f">from_pretrained</span>(<span class="t-s">&quot;sentence-transformers/all-MiniLM-L6-v2&quot;</span>)</pre><pre><span class="t-k">def</span> <span class="t-f">pieces</span>(s):
+    <span class="t-k">return</span> tok.<span class="t-f">convert_ids_to_tokens</span>(tok.<span class="t-f">encode</span>(s, add_special_tokens=<span class="t-k">False</span>))</pre><pre><span class="t-f">pieces</span>(<span class="t-s">&quot;strawberry&quot;</span>)</pre><p class="eg__say">['strawberry']                     1 token for 10 characters</p><pre><span class="t-f">pieces</span>(<span class="t-s">&quot;antidisestablishmentarianism&quot;</span>)</pre><pre class="eg__out"><span class="t-o">['anti', '##dis', '##est', '##ab', '##lish', '##ment', '##arian', '##ism']</span>
+<span class="t-o">8 tokens for 28 characters</span></pre><p class="eg__say">'##' marks a piece that continues the word before it.</p><div class="eg__cap">One common word is one token, one rare word is eight.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">2</div><h3 class="concept__t">How the chunk list is built</h3><p class="concept__b"><strong>Byte pair encoding</strong> builds the list. It starts from single characters and repeatedly glues together whichever adjacent pair occurs most often across a pile of text, about fifty thousand times, so frequent strings survive as single chunks and rare ones stay assembled from parts. Each model family runs this on its own text, so the same sentence costs a different number of tokens on different models. The tokenizer used in this module, <code>all-MiniLM-L6-v2</code>, is a close cousin called <strong>WordPiece</strong>. It builds its list by the same repeated gluing, scores the candidate pairs a little differently, and marks a piece that continues a word with ## rather than closing a word with &lt;/w&gt;.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>Round</th><th>Most frequent pair</th><th>Times seen</th><th>New chunk</th></tr></thead><tbody><tr><td>1</td><td>e + s</td><td>9</td><td>es</td></tr><tr><td>2</td><td>es + t</td><td>9</td><td>est</td></tr><tr><td>3</td><td>est + &lt;/w&gt;</td><td>9</td><td>est&lt;/w&gt;</td></tr><tr><td>4</td><td>l + o</td><td>7</td><td>lo</td></tr><tr><td>5</td><td>lo + w</td><td>7</td><td>low</td></tr></tbody></table><div class="eg__cap">Five merge rounds over low(5), lower(2), newest(6), widest(3); &lt;/w&gt; ends a word.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">3</div><h3 class="concept__t">Token IDs are row numbers</h3><p class="concept__b">Every chunk sits at a row in the vocabulary, and that row number is its <strong>token ID</strong>. Your sentence travels to the model as a list of those IDs and nothing else. The size of the number carries no meaning: 13523 is not bigger or better than 1996, it is just where that chunk landed.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre>tok.<span class="t-f">encode</span>(<span class="t-s">&quot;The cat sat on the mat.&quot;</span>, add_special_tokens=<span class="t-k">False</span>)</pre><p class="eg__say">[1996, 4937, 2938, 2006, 1996, 13523, 1012]</p><pre>tok.<span class="t-f">convert_ids_to_tokens</span>([<span class="t-s">1996</span>, <span class="t-s">4937</span>, <span class="t-s">2938</span>, <span class="t-s">2006</span>, <span class="t-s">1996</span>, <span class="t-s">13523</span>, <span class="t-s">1012</span>])</pre><p class="eg__say">['the', 'cat', 'sat', 'on', 'the', 'mat', '.']</p><p class="eg__say">'The' and 'the' both come back as 1996, because this tokenizer lowercases first. The full stop is its own token, ID 1012. 23 characters became 7 IDs.</p><div class="eg__cap">Seven IDs for one sentence, and the repeated word reuses its ID.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 640 250" role="img" aria-label="Text becomes tokens, tokens become IDs, IDs become positions in meaning space" xmlns="http://www.w3.org/2000/svg"><title>Text becomes tokens, tokens become IDs, IDs become positions in meaning space</title><defs><marker id="ah-tokens" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><text x="60" y="30" text-anchor="middle" class="d-hi">your text</text><rect x="20" y="42" width="190" height="36" rx="6" class="d-box"/><text x="115.0" y="65.0" text-anchor="middle" class="d-t">"unbelievably good"</text><path d="M115 78 L115 104" class="d-arrow" marker-end="url(#ah-tokens)"/><text x="60" y="100" text-anchor="start" class="d-s">1. split into tokens</text><rect x="20" y="110" width="60" height="32" rx="6" class="d-fill"/><text x="50.0" y="131.0" text-anchor="middle" class="d-t">un</text><rect x="84" y="110" width="78" height="32" rx="6" class="d-fill"/><text x="123.0" y="131.0" text-anchor="middle" class="d-t">believ</text><rect x="166" y="110" width="52" height="32" rx="6" class="d-fill"/><text x="192.0" y="131.0" text-anchor="middle" class="d-t">ably</text><rect x="222" y="110" width="70" height="32" rx="6" class="d-fill"/><text x="257.0" y="131.0" text-anchor="middle" class="d-t"> good</text><path d="M155 142 L155 168" class="d-arrow" marker-end="url(#ah-tokens)"/><text x="60" y="164" text-anchor="start" class="d-s">2. look up each ID</text><text x="50" y="190" text-anchor="middle" class="d-m">463</text><text x="123" y="190" text-anchor="middle" class="d-m">17204</text><text x="192" y="190" text-anchor="middle" class="d-m">3016</text><text x="257" y="190" text-anchor="middle" class="d-m">1695</text><path d="M300 190 L350 190" class="d-arrow" marker-end="url(#ah-tokens)"/><text x="325" y="178" text-anchor="middle" class="d-s">3. embed</text><rect x="360" y="100" width="250" height="120" rx="6" class="d-box"/><text x="485.0" y="165.0" text-anchor="middle" class="d-t"></text><text x="485" y="92" text-anchor="middle" class="d-hi">meaning space</text><circle cx="410" cy="140" r="5" fill="hsl(var(--ph))"/><circle cx="428" cy="152" r="5" fill="hsl(var(--ph))"/><circle cx="418" cy="128" r="5" fill="hsl(var(--ph))"/><circle cx="560" cy="196" r="5" fill="var(--ink-3)"/><circle cx="575" cy="182" r="5" fill="var(--ink-3)"/><text x="432" y="176" text-anchor="start" class="d-s">good, great, fine</text><text x="500" y="210" text-anchor="start" class="d-s">car, engine</text><text x="300" y="240" text-anchor="middle" class="d-s">similar meaning ends up in the same neighbourhood</text></svg><figcaption><b>Text to numbers.</b> A model never sees letters. Your text is chopped into <b>tokens</b> (word pieces), each token is swapped for its row number in a fixed vocabulary, and that row holds a long list of numbers. Words used in similar ways end up near each other, which is what makes search by meaning possible.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">4</div><h3 class="concept__t">One vector for a sentence</h3><p class="concept__b">Each ID looks up a row of numbers, the token's starting <strong>embedding</strong>, and the model adjusts those numbers as it reads the rest of the sentence. To get one vector for the whole sentence, <code>sentence-transformers</code> averages the per-token vectors, so the result is the same length whatever you feed it. That averaging has a hard limit: <code>all-MiniLM-L6-v2</code> reads about the first 256 tokens and drops the rest with no error and no warning.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre>base = <span class="t-s">&quot;The quarterly report was delayed again. &quot;</span> * <span class="t-s">40</span>   <span class="t-c"># 280 tokens</span>
+tail = base + <span class="t-s">&quot;The office is on fire, evacuate now.&quot;</span></pre><pre>x, y = model.<span class="t-f">encode</span>([base, tail], normalize_embeddings=<span class="t-k">True</span>)</pre><pre>x.shape          <span class="t-c"># (384,)  one row, whatever the input length</span>
+(x == y).<span class="t-f">all</span>()   <span class="t-c"># True</span></pre><p class="eg__say">The fire sentence sits past token 256, so it changed nothing at all.</p><div class="eg__cap">Text added past token 256 leaves the vector bit-for-bit identical.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">5</div><h3 class="concept__t">Meaning becomes a position in space</h3><p class="concept__b">An embedding is a list of numbers, 384 of them for <code>all-MiniLM-L6-v2</code> and 1024 for <code>Qwen3-Embedding-0.6B</code>. Read each number as a coordinate and every sentence becomes a point in a space with that many directions, where training pulled similar sentences close together. Nobody labelled the directions and most stand for nothing you could name. Each model built its own space from scratch, so changing embedding model means re-embedding everything you stored.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre>mini = <span class="t-f">SentenceTransformer</span>(<span class="t-s">&quot;sentence-transformers/all-MiniLM-L6-v2&quot;</span>)
+qwen = <span class="t-f">SentenceTransformer</span>(<span class="t-s">&quot;Qwen/Qwen3-Embedding-0.6B&quot;</span>)</pre><pre>a = mini.<span class="t-f">encode</span>(<span class="t-s">&quot;I forgot my password&quot;</span>)   <span class="t-c"># shape (384,)</span>
+b = qwen.<span class="t-f">encode</span>(<span class="t-s">&quot;I forgot my password&quot;</span>)   <span class="t-c"># shape (1024,)</span></pre><pre>np.<span class="t-f">dot</span>(a, b)</pre><p class="eg__say">ValueError: shapes (384,) and (1024,) not aligned: 384 (dim 0) != 1024 (dim 0)</p><p class="eg__say">The crash is luck. Two models of the same size would return a score happily, and the score would be meaningless.</p><div class="eg__cap">Same sentence, two models, two spaces that cannot be compared.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">6</div><h3 class="concept__t">Cosine similarity is an angle</h3><p class="concept__b"><strong>Cosine similarity</strong> compares two vectors by the angle between them and ignores how long they are, because length mostly tracks sentence length rather than meaning. Scale both to length one first and the whole calculation is: multiply the matching numbers, add the results. Scores run from -1 to 1, and in practice these models give about 0.0 to 0.2 for unrelated text and 0.5 to 0.9 for good matches, with no cut-off you can copy from anywhere.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre><span class="t-k">import</span> numpy <span class="t-k">as</span> np</pre><pre>a = np.<span class="t-f">array</span>([<span class="t-s">3.0</span>, <span class="t-s">0.0</span>, <span class="t-s">4.0</span>])
+a = a / np.linalg.<span class="t-f">norm</span>(a)             <span class="t-c"># length 5, so a = [0.6, 0. , 0.8]</span>
+b = np.<span class="t-f">array</span>([<span class="t-s">0.0</span>, <span class="t-s">5.0</span>, <span class="t-s">0.0</span>]) / <span class="t-s">5.0</span>   <span class="t-c"># b = [0. , 1. , 0. ]</span>
+c = np.<span class="t-f">array</span>([<span class="t-s">0.6</span>, <span class="t-s">0.8</span>, <span class="t-s">0.0</span>])         <span class="t-c"># already length 1</span></pre><pre><span class="t-f">float</span>(np.<span class="t-f">dot</span>(a, a))   <span class="t-c"># 1.0   same direction</span>
+<span class="t-f">float</span>(np.<span class="t-f">dot</span>(a, b))   <span class="t-c"># 0.0   at right angles, unrelated</span>
+<span class="t-f">float</span>(np.<span class="t-f">dot</span>(a, c))   <span class="t-c"># 0.36  from 0.6*0.6 + 0*0.8 + 0.8*0</span></pre><div class="eg__cap">Three numbers instead of 384, so you can check the arithmetic by hand.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 620 250" role="img" aria-label="Cosine similarity measures the angle between two vectors, not their length" xmlns="http://www.w3.org/2000/svg"><title>Cosine similarity measures the angle between two vectors, not their length</title><defs><marker id="ah-cos" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><path d="M60 210 L300 210" class="d-line"/><path d="M60 210 L60 40" class="d-line"/><path d="M60 210 L250 70" class="d-arrow" marker-end="url(#ah-cos)"/><path d="M60 210 L268 96" class="d-arrow" marker-end="url(#ah-cos)"/><path d="M110 175 A 62 62 0 0 0 122 158" class="d-curve"/><text x="148" y="182" text-anchor="start" class="d-hi">small angle</text><text x="262" y="60" text-anchor="middle" class="d-t">cat</text><text x="292" y="96" text-anchor="middle" class="d-t">dog</text><text x="180" y="240" text-anchor="middle" class="d-t">similarity 0.94</text><path d="M360 210 L600 210" class="d-line"/><path d="M360 210 L360 40" class="d-line"/><path d="M360 210 L550 70" class="d-arrow" marker-end="url(#ah-cos)"/><path d="M360 210 L580 198" class="d-arrow" marker-end="url(#ah-cos)"/><path d="M410 175 A 62 62 0 0 0 421 202" class="d-curve"/><text x="448" y="172" text-anchor="start" class="d-hi">wide angle</text><text x="556" y="60" text-anchor="middle" class="d-t">cat</text><text x="592" y="188" text-anchor="middle" class="d-t">invoice</text><text x="480" y="240" text-anchor="middle" class="d-t">similarity 0.11</text><text x="310" y="26" text-anchor="middle" class="d-hi">similarity is the angle between two arrows, not their length</text></svg><figcaption><b>Cosine similarity.</b> Each piece of text becomes an arrow from the origin. What matters is the <b>angle</b> between two arrows, not how long they are, so a short sentence and a long paragraph about the same thing still score highly. The number runs from 1 (same direction) through 0 (unrelated) to -1 (opposite).</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">7</div><h3 class="concept__t">High similarity is not agreement</h3><p class="concept__b">A high score says two texts are about the same thing. It does not say they agree, and it says nothing about whether either one is true. Most of a vector is spent on topic, so flipping love to hate barely moves the number. Embeddings also cannot tell that a document is out of date, which is why real search adds keyword matching and a reranking step later in this course.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>Pair</th><th>Score</th><th>What the score means</th></tr></thead><tbody><tr><td>&quot;I love cats.&quot; vs &quot;I hate cats.&quot;</td><td>0.802</td><td>same topic, opposite opinion</td></tr><tr><td>&quot;The meeting is at 9am.&quot; vs &quot;The meeting is at 5pm.&quot;</td><td>0.805</td><td>same topic, flat contradiction</td></tr><tr><td>&quot;Ship it on Friday.&quot; vs &quot;Send the package on Friday.&quot;</td><td>0.824</td><td>a genuine match</td></tr><tr><td>&quot;The bank raised interest rates.&quot; vs &quot;We sat on the river bank.&quot;</td><td>0.351</td><td>shared word, different sense</td></tr></tbody></table><div class="eg__cap">Measured with all-MiniLM-L6-v2. The top three scores are nearly identical.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">8</div><h3 class="concept__t">Tokens are what you pay for</h3><p class="concept__b">Prices are quoted per million tokens, with input and output charged separately. Agent work is input-heavy, because every turn resends the whole conversation and every tool result, so your input price and your cache hit rate decide the bill. <strong>Prompt caching</strong> charges roughly a tenth for text already processed, but it matches on prefixes only, so put timestamps and session IDs at the end of a prompt and never at the start.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>Line item</th><th>Tokens billed</th><th>Cost</th></tr></thead><tbody><tr><td>Input, 200,000 per turn x 30 turns, GPT-5.6 Sol at $5/M</td><td>6,000,000</td><td>$30.00</td></tr><tr><td>Output, 400 per turn x 30 turns, Sol at $30/M</td><td>12,000</td><td>$0.36</td></tr><tr><td>Same input with 90 percent hitting the cache</td><td>6,000,000</td><td>$5.70</td></tr><tr><td>Same whole run on GPT-5.6 Luna at $0.20/$1.20, no cache (input and output together)</td><td>6,012,000</td><td>$1.21</td></tr></tbody></table><div class="eg__cap">One 30-turn agent run. Input costs 83 times what the output costs.</div></div>
+        </div>
+        </div></section>
+        <section class="section section--try"><h2 class="section__h" data-stamp="hands on"><span>Try it yourself</span></h2>
+        <p class="small muted" style="margin-bottom:6px">See how your text gets chopped up</p>
+        <div data-widget="tokenizer"></div>
+        <p class="small muted" style="margin-bottom:6px">Play with meaning as numbers</p>
+        <div data-widget="embeddings"></div>
+        </section>
+        <div class="note note--gap"><div class="note__t">Worth knowing</div><p>Most tokenizer videos you will find are built on the GPT tokenizers of 2023 and 2024. The byte pair encoding part of them still holds up (Karpathy's \&quot;Let's build the GPT Tokenizer\&quot; is the clearest walkthrough), but ignore the model names, prices and context sizes they quote. Also treat public embedding leaderboards with some care: many entries are submitted by the teams that made the models, and small score gaps near the top rarely survive contact with your own data.</p></div>
+        <section class="section section--more"><h2 class="section__h" data-stamp="optional"><span>If you want to go deeper</span></h2>
+        <p class="small muted">Optional.</p>
+        <div data-videos="more"></div></section>
+        <section class="section section--lab"><h2 class="section__h" data-stamp="hands on"><span>Lab: follow along</span></h2>
+        <div data-setupbanner></div>
+        
+        <p class="prose">You will look at your own sentences three ways: as characters, as tokens (chunks of text taken from a fixed list the model was built with), and as points in space. Along the way you will price a single request in real dollars and see the exact arithmetic behind a similarity score, so nothing in this module stays magic. By the end you will have a script that takes a question and ranks five sentences by closeness in meaning, with no API key and no paid service. Everything runs on your own machine on the CPU, and the only download is a model of about 90 MB that is cached after the first run, so before you start make sure <code>python llm.py</code> works (see <code>setup.html</code>).</p>
+        <p class="small muted">Code given, every line explained.</p>
+        <ol class="steps">
+        <li><h3>Open the lab folder and install the tools</h3><p>Work inside <code>my-work/labs/lab03</code>, which the course already ships. These three lines are shell commands, not Python, so type them at your terminal prompt and not inside a <code>.py</code> file. You are reusing the one virtual environment you built on the setup page, so there is nothing new to create here, only to switch on. Installing <code>sentence-transformers</code> also pulls in <code>transformers</code> and <code>torch</code> underneath, which is exactly what you want, so do not install those separately. On macOS or Linux the first line is <code>source my-work/.venv/bin/activate</code> instead. Nothing here needs an API key, and the first time you run a script later it downloads a model of about 90 MB once and caches it in your home folder. You should see your prompt start with <code>(.venv)</code>, and pip should finish with a line beginning <code>Successfully installed</code>.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>.\my-work\.venv\Scripts\Activate.ps1
+cd my-work\labs\lab03
+pip install <span class="t-s">&quot;sentence-transformers==5.6.1&quot;</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>.\my-work\.venv\Scripts\Activate.ps1</dt><dd>Points this terminal window at the copy of Python inside the course's <code>.venv</code>, so that <code>python</code> and <code>pip</code> now mean the private ones. It only affects the window you type it in, so you have to run it again in every new terminal. Run it from the top of the GenAI-Course folder.</dd>
+        <dt>cd my-work\labs\lab03</dt><dd>Moves you into the folder for this lab, which already exists. Everything you write here stays inside <code>my-work</code>.</dd>
+        <dt>pip install &quot;sentence-transformers==5.6.1&quot;</dt><dd>Installs one package at one exact version. Pinning the version means the numbers you see later match the numbers described here, and the quotes stop the shell from treating the <code>==</code> as something of its own.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>How the ~90 MB download is made up.
+
+Formula:
+bytes on disk = number of parameters x bytes per parameter
+
+What the symbols mean:
+- number of parameters = how many learned numbers the model holds
+- bytes per parameter = how much space one number takes, 4 bytes for the usual float32 format
+
+Worked example for all-MiniLM-L6-v2:
+about 22,700,000 parameters
+22,700,000 x 4 = 90,800,000 bytes
+90,800,000 / 1,000,000 = about 91 MB
+
+What it means:
+The download is not code, it is the numbers the model learned during training, one number per parameter and four bytes for each. That is also why a bigger model is a bigger download in a fairly straight line.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If your prompt does not show <code>(.venv)</code> after the activate line, activation did not happen and pip will install into your system Python instead, and on Windows PowerShell the give-away is an error mentioning execution policy.</span></div>
+        </li>
+        <li><h3>See your own text as tokens</h3><p>Save this as <code>tokens.py</code> and run it. A <strong>tokenizer</strong> is the piece of code that cuts your text into chunks from a fixed list and swaps each chunk for its row number in that list, and this step makes that cutting visible. You need to see it because token counts drive your bill, fill your context window, and explain why models miscount the letters in a word: they never saw the letters, only the chunks. Two different models chop the same sentence differently, so expect two blocks of output with two different token counts for identical text. The MiniLM tokenizer uses <code>##</code> to mark a piece that continues a word, so <code>antidisestablishmentarianism</code> comes back as several pieces, and the Qwen one instead uses a special mark for a leading space. The second call downloads only the tokenizer files (a few MB), not the model weights, so it is fast, and if that download fails you can delete the second <code>show</code> line and carry on. Then replace the text with your own: try a URL, a code snippet, an emoji, a long number like 8675309, and a sentence in another language, and watch the characters-per-token number move.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># tokens.py</span>
+<span class="t-k">from</span> transformers <span class="t-k">import</span> AutoTokenizer
+
+text = <span class="t-s">&quot;Tokenization splits text into pieces. Antidisestablishmentarianism is expensive.&quot;</span>
+
+<span class="t-k">def</span> <span class="t-f">show</span>(model_name, text):
+    tok = AutoTokenizer.<span class="t-f">from_pretrained</span>(model_name)
+    ids = tok.<span class="t-f">encode</span>(text, add_special_tokens=<span class="t-k">False</span>)
+    pieces = tok.<span class="t-f">convert_ids_to_tokens</span>(ids)
+    <span class="t-f">print</span>(f<span class="t-s">&quot;\n{model_name}&quot;</span>)
+    <span class="t-f">print</span>(f<span class="t-s">&quot;  characters: {len(text)}   tokens: {len(ids)}&quot;</span>)
+    <span class="t-f">print</span>(<span class="t-s">&quot;  &quot;</span> + <span class="t-s">&quot; | &quot;</span>.<span class="t-f">join</span>(pieces))
+    <span class="t-f">print</span>(f<span class="t-s">&quot;  first 10 IDs: {ids[:10]}&quot;</span>)
+
+<span class="t-f">show</span>(<span class="t-s">&quot;sentence-transformers/all-MiniLM-L6-v2&quot;</span>, text)
+<span class="t-f">show</span>(<span class="t-s">&quot;Qwen/Qwen3-Embedding-0.6B&quot;</span>, text)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>from transformers import AutoTokenizer</dt><dd><code>AutoTokenizer</code> is a loader that reads the model's own config file and picks the matching tokenizer for you. That is why the same two lines work for MiniLM and for Qwen even though they cut text using different schemes.</dd>
+        <dt>tok = AutoTokenizer.from_pretrained(model_name)</dt><dd>Downloads that model's chunk list and its joining rules the first time, then caches them in your home folder so later runs are instant. It fetches only the tokenizer files, a few MB, not the model weights.</dd>
+        <dt>ids = tok.encode(text, add_special_tokens=False)</dt><dd>Turns your text into a list of whole numbers, one per chunk. <code>add_special_tokens=False</code> leaves out the extra bookkeeping markers the model normally wraps around a sentence, so the count you print is the count of your text and nothing else.</dd>
+        <dt>pieces = tok.convert_ids_to_tokens(ids)</dt><dd>Goes the other way, from row numbers back to the visible chunks, purely so you can read them. Nothing downstream uses <code>pieces</code>, it is there for your eyes.</dd>
+        <dt>print(f&quot;  characters: {len(text)}   tokens: {len(ids)}&quot;)</dt><dd>Prints the two counts side by side. The ratio between them is the number you actually care about, because it is what changes when you swap in a URL or a code snippet.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Characters per token, and tokens per word.
+
+Formula:
+characters per token = number of characters / number of tokens
+tokens per word = number of tokens / number of words
+
+What the symbols mean:
+- number of characters = len(text), every letter, space and full stop counted
+- number of tokens = len(ids), how many chunks the tokenizer produced
+- number of words = how many space-separated words you wrote
+
+Worked example with the lab sentence:
+The sample text is 80 characters and 8 words.
+Suppose your run prints 17 tokens for the MiniLM model.
+80 / 17 = 4.7 characters per token
+17 / 8 = 2.1 tokens per word
+
+The common rule of thumb for ordinary English is about 4 characters per token and about 1.3 tokens per word. This sentence runs higher than 1.3 because one very long rare word gets cut into many pieces.
+
+Scaling it up with the rule of thumb:
+1,000 words of ordinary English x 1.3 = about 1,300 tokens
+4,000 words x 1.3 = about 5,300 tokens
+
+What it means:
+More common your text, fewer tokens per character. Rare words, URLs, code and non-English text all break into more, smaller pieces, and each extra piece is something you pay for and something that eats your context window.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>The second <code>show</code> line reaches out to the internet for the Qwen tokenizer, so a network or access error there is about that download and not about your code, and deleting that one line lets the rest of the step finish.</span></div>
+        </li>
+        <li><h3>Turn a token count into money</h3><p>Save this as <code>cost.py</code>. It counts the tokens in its own source file, then prices that as one request against four published price lists. You need this step because prices are quoted per million tokens, which is impossible to feel until you do the division yourself. The count is approximate, because each provider uses its own chunk list and you are counting with MiniLM's, so treat it as accurate to within about 20 percent. Expect a few hundred input tokens and totals in the thousandths of a dollar, which looks harmless on one request. Now change <code>n_input</code> to 200,000 and imagine 30 turns of an agent loop, and you will see why the input price matters far more than the output price. The same token count also fills the <strong>context window</strong> (the maximum text a model can hold in one request), and although the GPT-5.6 tiers all advertise 1M tokens, accuracy drops well before that limit, which you will meet later as context rot.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># cost.py</span>
+<span class="t-k">from</span> transformers <span class="t-k">import</span> AutoTokenizer
+
+tok = AutoTokenizer.<span class="t-f">from_pretrained</span>(<span class="t-s">&quot;sentence-transformers/all-MiniLM-L6-v2&quot;</span>)
+
+<span class="t-k">with</span> <span class="t-f">open</span>(<span class="t-s">&quot;cost.py&quot;</span>, <span class="t-s">&quot;r&quot;</span>, encoding=<span class="t-s">&quot;utf-8&quot;</span>) <span class="t-k">as</span> f:
+    document = f.<span class="t-f">read</span>()
+
+n_input = <span class="t-f">len</span>(tok.<span class="t-f">encode</span>(document, add_special_tokens=<span class="t-k">False</span>))
+n_output = <span class="t-s">400</span>
+
+<span class="t-c"># US dollars per million tokens, list prices checked 5 August 2026</span>
+prices = {
+    <span class="t-s">&quot;GPT-5.6 Sol&quot;</span>:    (<span class="t-s">5.00</span>, <span class="t-s">30.00</span>),
+    <span class="t-s">&quot;GPT-5.6 Terra&quot;</span>:  (<span class="t-s">2.00</span>, <span class="t-s">12.00</span>),
+    <span class="t-s">&quot;GPT-5.6 Luna&quot;</span>:   (<span class="t-s">0.20</span>,  <span class="t-s">1.20</span>),
+    <span class="t-s">&quot;Gemini 3.1 Pro&quot;</span>: (<span class="t-s">2.00</span>, <span class="t-s">12.00</span>),
+}
+
+<span class="t-f">print</span>(f<span class="t-s">&quot;input tokens: {n_input}, output tokens assumed: {n_output}&quot;</span>)
+<span class="t-k">for</span> name, (p_in, p_out) <span class="t-k">in</span> prices.<span class="t-f">items</span>():
+    cost = n_input / <span class="t-s">1_000_000</span> * p_in + n_output / <span class="t-s">1_000_000</span> * p_out
+    <span class="t-f">print</span>(f<span class="t-s">&quot;{name:&gt;16}  ${cost:.5f}&quot;</span>)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>with open(&quot;cost.py&quot;, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:</dt><dd>The script reads its own file, so you always have a real document to measure with nothing to download. <code>with</code> closes the file for you afterwards, and <code>encoding=&quot;utf-8&quot;</code> stops Windows from decoding the file with an older regional character set and mangling anything unusual.</dd>
+        <dt>n_input = len(tok.encode(document, add_special_tokens=False))</dt><dd>Only the length of the ID list matters here, so the IDs themselves are thrown away immediately. This is the honest way to count, as opposed to guessing from word count.</dd>
+        <dt>n_output = 400</dt><dd>This is an assumption, not a measurement, because you cannot know how long a reply will be before you ask for it. The print line says &quot;assumed&quot; out loud so you never mistake it for a real number.</dd>
+        <dt>prices = { &quot;GPT-5.6 Sol&quot;: (5.00, 30.00), ... }</dt><dd>Each entry stores input price and output price together as a pair, in dollars per million tokens. Keeping them in one pair makes it much harder to accidentally use the output price for input, which is the classic estimating mistake.</dd>
+        <dt>cost = n_input / 1_000_000 * p_in + n_output / 1_000_000 * p_out</dt><dd>Dividing by a million first converts a token count into millions of tokens, which is the unit the price is quoted in. The underscores in <code>1_000_000</code> are digit separators that Python ignores, they only make the number readable.</dd>
+        <dt>print(f&quot;{name:&gt;16}  ${cost:.5f}&quot;)</dt><dd><code>&amp;gt;16</code> right-aligns the name in a 16 character column so the prices line up in a readable table. <code>.5f</code> shows five decimal places, which you need because a single request costs a fraction of a cent.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>The cost formula, in full.
+
+Formula:
+cost = (n_input / 1,000,000) x price_in + (n_output / 1,000,000) x price_out
+
+What the symbols mean:
+- n_input = number of tokens you send, including the whole conversation so far
+- n_output = number of tokens the model writes back
+- price_in = dollars per million input tokens, from the table
+- price_out = dollars per million output tokens, from the table
+
+Worked example, one request of 350 input tokens and 400 output tokens.
+
+On GPT-5.6 Sol at 5.00 and 30.00:
+350 / 1,000,000 = 0.00035
+0.00035 x 5.00 = 0.00175 dollars for input
+400 / 1,000,000 = 0.0004
+0.0004 x 30.00 = 0.01200 dollars for output
+total = 0.01375 dollars
+
+The same request on GPT-5.6 Luna at 0.20 and 1.20:
+0.00035 x 0.20 = 0.00007
+0.0004 x 1.20 = 0.00048
+total = 0.00055 dollars, which is 25 times cheaper
+
+Now the agent loop, 200,000 input tokens per turn for 30 turns, on Sol:
+input tokens = 200,000 x 30 = 6,000,000
+6,000,000 / 1,000,000 = 6
+6 x 5.00 = 30.00 dollars of input
+output tokens = 400 x 30 = 12,000
+12,000 / 1,000,000 = 0.012
+0.012 x 30.00 = 0.36 dollars of output
+30.00 against 0.36 is about 83 times more spent on input than output.
+
+Prompt caching, roughly:
+Providers charge about one tenth for text they have already processed at the start of a prompt. If nearly all of that 6,000,000 input tokens is an unchanged prefix, the 30.00 dollars falls towards 3.00 dollars. Caching matches on prefixes only, so one changed character near the top throws away everything after it, which is why timestamps and session IDs belong at the end of a prompt.
+
+What it means:
+In agent work you pay mostly for what you send, not for what you get back, because every turn resends the whole conversation and every tool result.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Run the script from the same folder that holds <code>cost.py</code>, otherwise <code>open()</code> raises <code>FileNotFoundError</code> because it looks in whatever folder your terminal happens to be sitting in.</span></div>
+        </li>
+        <li><h3>Turn sentences into vectors</h3><p>Save this as <code>embed.py</code>. An <strong>embedding</strong> is a list of numbers that stands in for the meaning of a piece of text, and this step makes five of them. The shape line prints <code>(5, 384)</code>, which tells you five sentences came back as five rows of 384 numbers each, and that 384 does not change if you make the sentences ten times longer, because the model averages the per-token vectors into a single row. That averaging is a real simplification and it has a limit: <code>all-MiniLM-L6-v2</code> reads only about the first 256 tokens and quietly drops the rest, with no error and no warning. Setting <code>normalize_embeddings=True</code> scales every row to length one, which is why the last line prints 1.0 and why the next step can use a plain multiply-and-add instead of a similarity library. Look at the first eight numbers and notice they mean nothing on their own, nobody labeled them, and only the distance between whole vectors carries information. Without this step you have text, and text cannot be compared with arithmetic.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># embed.py</span>
+<span class="t-k">from</span> sentence_transformers <span class="t-k">import</span> SentenceTransformer
+
+model = <span class="t-f">SentenceTransformer</span>(<span class="t-s">&quot;sentence-transformers/all-MiniLM-L6-v2&quot;</span>)
+
+sentences = [
+    <span class="t-s">&quot;How do I reset my password?&quot;</span>,
+    <span class="t-s">&quot;I forgot my login details and cannot get in.&quot;</span>,
+    <span class="t-s">&quot;The refund took nine days to arrive.&quot;</span>,
+    <span class="t-s">&quot;Boil the rice for twelve minutes.&quot;</span>,
+    <span class="t-s">&quot;Our office is closed on Monday.&quot;</span>,
+]
+
+vectors = model.<span class="t-f">encode</span>(sentences, normalize_embeddings=<span class="t-k">True</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;shape:&quot;</span>, vectors.shape)
+<span class="t-f">print</span>(<span class="t-s">&quot;first 8 numbers of sentence 0:&quot;</span>, vectors[<span class="t-s">0</span>][:<span class="t-s">8</span>].<span class="t-f">round</span>(<span class="t-s">3</span>))
+<span class="t-f">print</span>(<span class="t-s">&quot;length of vector 0:&quot;</span>, <span class="t-f">float</span>((vectors[<span class="t-s">0</span>] ** <span class="t-s">2</span>).<span class="t-f">sum</span>()) ** <span class="t-s">0.5</span>)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>model = SentenceTransformer(&quot;sentence-transformers/all-MiniLM-L6-v2&quot;)</dt><dd>Loads the actual model weights, about 90 MB the first time and instant afterwards from cache. Do this once at the top and never inside a loop, because loading takes seconds while encoding a sentence takes milliseconds.</dd>
+        <dt>vectors = model.encode(sentences, normalize_embeddings=True)</dt><dd>Passing the whole list in one call lets the library process all five sentences together, which is much faster than five separate calls. <code>normalize_embeddings=True</code> divides each row by its own length for you, so every row comes out at length one.</dd>
+        <dt>print(&quot;shape:&quot;, vectors.shape)</dt><dd><code>shape</code> reports (rows, columns) for the array that came back. Printing it early is worth the one line, because a surprising shape is the most common reason a later multiply fails.</dd>
+        <dt>float((vectors[0] ** 2).sum()) ** 0.5</dt><dd>Squares all 384 numbers, adds them up, then takes the square root, which is the length of the vector. It exists only as proof that normalization really happened, so you can trust the plain dot product in the next step.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Vector length, and what normalizing does.
+
+Formula:
+length of v = square root of (v1 x v1 + v2 x v2 + ... + vn x vn)
+normalized vector u = v divided by (length of v), every number divided by the same amount
+
+What the symbols mean:
+- v1 to vn are the individual numbers in the vector
+- n is how many numbers there are, 384 for this model
+- length is also called the magnitude or the norm
+
+Worked example with 3 numbers instead of 384, so you can follow it by hand:
+v = [3, 0, 4]
+squares: 9, 0, 16
+sum: 9 + 0 + 16 = 25
+length: square root of 25 = 5
+normalized: [3/5, 0/5, 4/5] = [0.6, 0, 0.8]
+check: 0.6 x 0.6 + 0 + 0.8 x 0.8 = 0.36 + 0.64 = 1.0, square root of 1.0 = 1.0
+
+How much space these take:
+384 numbers x 4 bytes each (float32) = 1,536 bytes per sentence
+10,000 documents x 1,536 = 15,360,000 bytes, about 15 MB
+
+What it means:
+Normalizing keeps the direction of the vector and throws away its size. Direction is where the meaning lives, while size mostly tracks incidental things like how long the sentence was, so throwing size away makes comparisons fairer. The storage sum shows why keeping embeddings for tens of thousands of documents is cheap.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>The length may print as 0.99999994 rather than exactly 1.0, which is ordinary floating point rounding and not a sign that normalization failed.</span></div>
+        </li>
+        <li><h3>Rank five sentences against a question</h3><p>Save this as <code>rank.py</code> and run it. This is the payoff of the whole module: you embed five sentences and one question, then score the question against every sentence with a single multiply. Because every vector was scaled to length one in the previous step, the <strong>dot product</strong> (multiply matching positions, add the results) is exactly <strong>cosine similarity</strong>, so no similarity library is needed. Expect the two login sentences on top with scores around 0.5 to 0.7, and the rice and office sentences near 0.0 to 0.2. Look carefully at the query, <code>&quot;I can't sign in to my account&quot;</code>: it shares no meaningful word with either winner, so a keyword search would return nothing, and that gap is the entire reason embeddings exist. The library also offers <code>model.similarity(vectors, q)</code>, which does the same arithmetic if you prefer a named method. Swap in your own five sentences and your own question before moving on, because seeing it work on your own text is what makes it stick.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># rank.py</span>
+<span class="t-k">import</span> numpy <span class="t-k">as</span> np
+<span class="t-k">from</span> sentence_transformers <span class="t-k">import</span> SentenceTransformer
+
+model = <span class="t-f">SentenceTransformer</span>(<span class="t-s">&quot;sentence-transformers/all-MiniLM-L6-v2&quot;</span>)
+
+sentences = [
+    <span class="t-s">&quot;How do I reset my password?&quot;</span>,
+    <span class="t-s">&quot;I forgot my login details and cannot get in.&quot;</span>,
+    <span class="t-s">&quot;The refund took nine days to arrive.&quot;</span>,
+    <span class="t-s">&quot;Boil the rice for twelve minutes.&quot;</span>,
+    <span class="t-s">&quot;Our office is closed on Monday.&quot;</span>,
+]
+query = <span class="t-s">&quot;I can't sign in to my account&quot;</span>
+
+vectors = model.<span class="t-f">encode</span>(sentences, normalize_embeddings=<span class="t-k">True</span>)
+q = model.<span class="t-f">encode</span>(query, normalize_embeddings=<span class="t-k">True</span>)
+
+scores = vectors @ q
+<span class="t-k">for</span> i <span class="t-k">in</span> np.<span class="t-f">argsort</span>(-scores):
+    <span class="t-f">print</span>(f<span class="t-s">&quot;{scores[i]: .3f}  {sentences[i]}&quot;</span>)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>q = model.encode(query, normalize_embeddings=True)</dt><dd><code>query</code> is a plain string and not a list, so this returns one flat vector of 384 numbers with shape (384,). That flat shape is exactly what the multiply on the next line expects.</dd>
+        <dt>scores = vectors @ q</dt><dd><code>@</code> is numpy's matrix multiply. A (5, 384) array times a (384,) vector gives 5 numbers, one score per sentence, and each of those 5 numbers is 384 multiplies added together.</dd>
+        <dt>np.argsort(-scores)</dt><dd><code>argsort</code> gives you the positions that would put the array in order from smallest to largest, and negating the scores flips that into largest first. It hands back positions rather than values, so the same <code>i</code> reaches both the score and the matching sentence.</dd>
+        <dt>print(f&quot;{scores[i]: .3f}  {sentences[i]}&quot;)</dt><dd>The space right after the colon reserves a column for a minus sign, so positive and negative scores stay lined up under each other. Three decimal places is enough, since anything beyond that is noise you cannot act on.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Dot product and cosine similarity, in full.
+
+Formulas:
+dot product: a . b = a1 x b1 + a2 x b2 + ... + an x bn
+cosine similarity: cos = (a . b) / (length of a x length of b)
+if both vectors already have length one: cos = a . b, because the bottom is 1 x 1 = 1
+
+What the symbols mean:
+- a and b are two vectors, here 384 numbers each
+- a1, b1 and so on are the numbers at matching positions
+- cos is the cosine of the angle between the two vectors, running from -1 to 1
+
+Worked example with 3 numbers so you can check it by hand:
+a = [0.6, 0.8, 0]
+b = [1, 0, 0]
+dot: 0.6 x 1 + 0.8 x 0 + 0 x 0 = 0.6
+length of a: square root of (0.36 + 0.64 + 0) = 1
+length of b: square root of (1 + 0 + 0) = 1
+cos = 0.6 / (1 x 1) = 0.6, which is an angle of about 53 degrees
+
+Now a third vector c = [0, 1, 0]:
+a . c = 0.6 x 0 + 0.8 x 1 + 0 x 0 = 0.8
+0.8 beats 0.6, so c is closer in meaning to a than b is.
+
+What the range means in practice:
+-1 is opposite direction, 0 is unrelated, 1 is the same direction. These models rarely give negatives. Unrelated pairs usually land around 0.0 to 0.2 and good matches around 0.5 to 0.9. There is no universal cut-off you can copy from anywhere.
+
+How much work this is:
+384 multiplies and 383 additions per sentence, so 5 sentences is 1,920 multiplies, which a laptop does instantly. One million documents is 384 million multiplies per query, which is why real systems add a search index later instead of comparing against everything.
+
+What it means:
+Cosine similarity asks &quot;are these two vectors pointing the same way&quot; and ignores how long they are. Normalizing first turns that question into one cheap multiply-and-add.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If you write <code>model.encode([query], normalize_embeddings=True)</code> with square brackets, <code>q</code> comes back with shape (1, 384) and <code>vectors @ q</code> fails with a shapes-not-aligned <code>ValueError</code>.</span></div>
+        </li>
+        <li><h3>Find where similarity misleads you</h3><p>Save this as <code>limits.py</code>. This step is about learning what a high score does not tell you, which matters more than any of the wins in step 5. Before you run it, write down your guess for each of the four scores, because being wrong on paper is what makes the lesson land. The love and hate pair usually scores above 0.8, and the 9am against 5pm pair also scores high, which shows that similarity means &quot;about the same thing&quot; rather than &quot;says the same thing&quot;, and definitely not &quot;is correct&quot;. The river bank pair usually lands lower than people expect, often near 0.3, because the model adjusts each token's numbers using the rest of the sentence, so <code>bank</code> beside interest rates ends up somewhere different from <code>bank</code> beside river. The Friday pair is the one honest match in the list, and it scores high for the right reason. Finish by noting the score that separates your good matches from your bad ones, because that number is your <strong>threshold</strong>, and it belongs to this model on this data and will not transfer to another model.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># limits.py</span>
+<span class="t-k">import</span> numpy <span class="t-k">as</span> np
+<span class="t-k">from</span> sentence_transformers <span class="t-k">import</span> SentenceTransformer
+
+model = <span class="t-f">SentenceTransformer</span>(<span class="t-s">&quot;sentence-transformers/all-MiniLM-L6-v2&quot;</span>)
+
+pairs = [
+    (<span class="t-s">&quot;I love cats.&quot;</span>, <span class="t-s">&quot;I hate cats.&quot;</span>),
+    (<span class="t-s">&quot;The bank raised interest rates.&quot;</span>, <span class="t-s">&quot;We sat on the river bank.&quot;</span>),
+    (<span class="t-s">&quot;Ship it on Friday.&quot;</span>, <span class="t-s">&quot;Send the package on Friday.&quot;</span>),
+    (<span class="t-s">&quot;The meeting is at 9am.&quot;</span>, <span class="t-s">&quot;The meeting is at 5pm.&quot;</span>),
+]
+
+<span class="t-k">for</span> a, b <span class="t-k">in</span> pairs:
+    va, vb = model.<span class="t-f">encode</span>([a, b], normalize_embeddings=<span class="t-k">True</span>)
+    <span class="t-f">print</span>(f<span class="t-s">&quot;{float(np.dot(va, vb)): .3f}   {a!r} vs {b!r}&quot;</span>)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>pairs = [(&quot;I love cats.&quot;, &quot;I hate cats.&quot;), ...]</dt><dd>A list of two-item tuples, so each entry is one comparison. Keeping the test cases in a list separate from the loop means you can add your own awkward pairs without touching any logic.</dd>
+        <dt>for a, b in pairs:</dt><dd>Python unpacks each tuple straight into two names, so <code>a</code> is the first sentence and <code>b</code> the second. That saves writing <code>pair[0]</code> and <code>pair[1]</code> everywhere.</dd>
+        <dt>va, vb = model.encode([a, b], normalize_embeddings=True)</dt><dd>Encodes both sentences in one call, which is faster than two calls, and then unpacks the two returned rows into two names. This works because the result is a 2-row array and Python hands out one row per name.</dd>
+        <dt>float(np.dot(va, vb))</dt><dd><code>np.dot</code> on two flat arrays gives the dot product, which equals cosine similarity here because both were normalized to length one. Wrapping it in <code>float()</code> turns a numpy value into a plain Python number so the number formatting behaves predictably.</dd>
+        <dt>{a!r} vs {b!r}</dt><dd><code>!r</code> prints the value the way Python would write it, so the quotation marks stay visible around each sentence. That makes trailing spaces and odd characters obvious instead of invisible.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Why &quot;I love cats&quot; scores high against &quot;I hate cats&quot;.
+
+This is a deliberate simplification to build intuition. The model does not literally store a topic part and a sentiment part, but splitting the vector this way predicts the number you will see.
+
+Setup:
+Imagine each unit vector is made of two pieces at right angles to each other, a shared topic piece t (cats) and a sentiment piece s (love versus hate). Because they are at right angles, t . s = 0 and the weights must satisfy weight_t squared + weight_s squared = 1.
+
+Pick weight_t = 0.95 and weight_s = 0.312, since:
+0.95 x 0.95 = 0.9025
+0.312 x 0.312 = 0.0973
+0.9025 + 0.0973 = 0.9998, near enough to 1
+
+Vector A (love) = 0.95 t + 0.312 s
+Vector B (hate) = 0.95 t - 0.312 s
+
+Dot product:
+(0.95 x 0.95) + (0.312 x -0.312) = 0.9025 - 0.0973 = 0.805
+
+So the score is about 0.81 even though the sentiment is exactly reversed.
+
+Choosing your threshold:
+Suppose on your own data the good matches score 0.62, 0.58 and 0.55, and the bad ones score 0.31, 0.24 and 0.18. The gap sits between 0.55 and 0.31, so a sensible cut is the midpoint:
+(0.55 + 0.31) / 2 = 0.43
+Anything at or above 0.43 you keep, anything below you drop.
+
+What it means:
+If most of a vector is spent describing the topic, flipping the small part that carries the opinion barely moves the score. A high score tells you two texts are about the same subject, and nothing at all about whether they agree or whether either one is true.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Exact scores shift a little between library versions, machines and rounding, so never hardcode a number you saw once, and recompute your threshold whenever you change embedding model.</span></div>
+        </li>
+        </ol>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> You are done when <code>rank.py</code> prints a ranked list where the two login sentences beat the other three even though the query shares no words with them, <code>embed.py</code> prints <code>shape: (5, 384)</code> with a vector length of 1.0, and you can state how many tokens your own paragraph is and what one request containing it would cost on two different models from the table in <code>cost.py</code>.</div></div>
+        </section>
+        <section class="section section--mini"><h2 class="section__h" data-stamp="hands on"><span>Mini-project: your turn</span></h2>
+        <p class="prose">Build a tool that takes five sentences, four about one thing and one not, and names the odd one using embeddings and arithmetic only, with no LLM call and no keyword rules. It must write its results to odd_one_out.json, which check.py then verifies for you.</p>
+        <p class="small muted">No code given. Produce the file, then run the checker.</p>
+        <ol class="steps">
+        <li><p>Make a folder for the mini-project, save check.py (below) into it, and write your own script there as odd_one_out.py. Use the same model as the lab, sentence-transformers/all-MiniLM-L6-v2, so the model is already cached and nothing needs the internet.</p></li>
+        <li><p>Write two sets of five sentences each. The easy set is four sentences on one topic plus one clearly unrelated. The hard set is four on one topic plus one that shares words with them but not meaning, for example four about apples the fruit and one about Apple the company. For each set, record expected_odd_index, the position you think is the odd one, counting from 0.</p></li>
+        <li><p>Embed each set in one model.encode(sentences, normalize_embeddings=True) call, then build the 5x5 score matrix with V @ V.T. Every entry on the diagonal comes out at 1.0, because each sentence is compared with itself.</p></li>
+        <li><p>Fit score for sentence i is the mean of its four scores against the others. Exclude the diagonal: a 1.0 in every row would flatten the differences and hide the odd one. Then predicted_odd_index is the position of the lowest fit score, and confidence_gap is the second lowest score minus the lowest.</p></li>
+        <li><p>Write odd_one_out.json in that same folder, every number rounded to 4 decimals, in exactly this shape: {&quot;model&quot;: &quot;sentence-transformers/all-MiniLM-L6-v2&quot;, &quot;sets&quot;: [{&quot;name&quot;: &quot;easy&quot;, &quot;sentences&quot;: [five strings], &quot;expected_odd_index&quot;: 4, &quot;similarity_matrix&quot;: [five rows of five numbers], &quot;fit_scores&quot;: [five numbers], &quot;predicted_odd_index&quot;: 4, &quot;confidence_gap&quot;: 0.2043, &quot;correct&quot;: true}, {&quot;name&quot;: &quot;hard&quot;, ...the same eight keys...}]}. The correct field is simply predicted_odd_index == expected_odd_index.</p></li>
+        <li><p>Run python check.py in that folder and fix whatever it reports.</p></li>
+        </ol>
+        <div class="checker"><div class="checker__h">Check it yourself, automatically</div>
+        <p>Save this as <code>check.py</code> next to your work, then run <code>python check.py</code>. It reads what you produced, tests it, and prints a line per check.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>check.py</span></div>
+<pre><span class="t-c"># check.py - checks odd_one_out.json from the Module 3 mini-project.</span>
+<span class="t-c"># Run it in the same folder as your script: python check.py</span>
+<span class="t-k">import</span> json, os, re, sys
+
+PATH = <span class="t-s">&quot;odd_one_out.json&quot;</span>
+fails = []
+
+<span class="t-k">def</span> <span class="t-f">ok</span>(cond, msg):
+    <span class="t-s">&quot;&quot;&quot;Print one result line and remember the failures.&quot;&quot;&quot;</span>
+    <span class="t-f">print</span>((<span class="t-s">&quot;PASS &quot;</span> <span class="t-k">if</span> cond <span class="t-k">else</span> <span class="t-s">&quot;FAIL &quot;</span>) + msg)
+    <span class="t-k">if</span> <span class="t-k">not</span> cond:
+        fails.<span class="t-f">append</span>(msg)
+    <span class="t-k">return</span> cond
+
+<span class="t-k">def</span> <span class="t-f">num</span>(x):
+    <span class="t-k">return</span> x <span class="t-k">if</span> <span class="t-f">isinstance</span>(x, (int, float)) <span class="t-k">and</span> <span class="t-k">not</span> <span class="t-f">isinstance</span>(x, bool) <span class="t-k">else</span> <span class="t-k">None</span>
+
+<span class="t-k">def</span> <span class="t-f">near</span>(a, b, tol):
+    a, b = <span class="t-f">num</span>(a), <span class="t-f">num</span>(b)
+    <span class="t-k">return</span> a <span class="t-k">is</span> <span class="t-k">not</span> <span class="t-k">None</span> <span class="t-k">and</span> b <span class="t-k">is</span> <span class="t-k">not</span> <span class="t-k">None</span> <span class="t-k">and</span> <span class="t-f">abs</span>(a - b) &lt;= tol
+
+<span class="t-k">if</span> <span class="t-k">not</span> os.path.<span class="t-f">exists</span>(PATH):
+    <span class="t-f">print</span>(f<span class="t-s">&quot;FAIL {PATH} not found. Run your script from this folder so it writes the file here.&quot;</span>)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-k">try</span>:
+    <span class="t-k">with</span> <span class="t-f">open</span>(PATH, encoding=<span class="t-s">&quot;utf-8&quot;</span>) <span class="t-k">as</span> f:
+        data = json.<span class="t-f">load</span>(f)
+<span class="t-k">except</span> json.JSONDecodeError <span class="t-k">as</span> e:
+    <span class="t-f">print</span>(f<span class="t-s">&quot;FAIL {PATH} is not valid JSON (line {e.lineno}): {e.msg}&quot;</span>)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+
+sets = {s.<span class="t-f">get</span>(<span class="t-s">&quot;name&quot;</span>): s <span class="t-k">for</span> s <span class="t-k">in</span> data.<span class="t-f">get</span>(<span class="t-s">&quot;sets&quot;</span>, []) <span class="t-k">if</span> <span class="t-f">isinstance</span>(s, dict)}
+<span class="t-f">ok</span>(<span class="t-f">set</span>(sets) == {<span class="t-s">&quot;easy&quot;</span>, <span class="t-s">&quot;hard&quot;</span>}, <span class="t-s">&quot;the file holds exactly two sets, named easy and hard&quot;</span>)
+
+<span class="t-k">for</span> name <span class="t-k">in</span> (<span class="t-s">&quot;easy&quot;</span>, <span class="t-s">&quot;hard&quot;</span>):
+    s = sets.<span class="t-f">get</span>(name)
+    <span class="t-k">if</span> s <span class="t-k">is</span> <span class="t-k">None</span>:
+        <span class="t-k">continue</span>
+    sent, M, fit = s.<span class="t-f">get</span>(<span class="t-s">&quot;sentences&quot;</span>, []), s.<span class="t-f">get</span>(<span class="t-s">&quot;similarity_matrix&quot;</span>, []), s.<span class="t-f">get</span>(<span class="t-s">&quot;fit_scores&quot;</span>, [])
+    <span class="t-k">if</span> <span class="t-k">not</span> <span class="t-f">ok</span>(<span class="t-f">len</span>(sent) == <span class="t-s">5</span> <span class="t-k">and</span> <span class="t-f">len</span>(<span class="t-f">set</span>(sent)) == <span class="t-s">5</span>, f<span class="t-s">&quot;[{name}] five different sentences&quot;</span>):
+        <span class="t-k">continue</span>
+    square = <span class="t-f">len</span>(M) == <span class="t-s">5</span> <span class="t-k">and</span> <span class="t-f">all</span>(<span class="t-f">len</span>(r) == <span class="t-s">5</span> <span class="t-k">and</span> <span class="t-f">all</span>(<span class="t-f">num</span>(v) <span class="t-k">is</span> <span class="t-k">not</span> <span class="t-k">None</span> <span class="t-k">for</span> v <span class="t-k">in</span> r) <span class="t-k">for</span> r <span class="t-k">in</span> M)
+    <span class="t-k">if</span> <span class="t-k">not</span> <span class="t-f">ok</span>(square, f<span class="t-s">&quot;[{name}] similarity_matrix is 5 rows of 5 numbers&quot;</span>):
+        <span class="t-k">continue</span>
+    <span class="t-f">ok</span>(<span class="t-f">all</span>(<span class="t-f">near</span>(M[i][i], <span class="t-s">1.0</span>, <span class="t-s">0.01</span>) <span class="t-k">for</span> i <span class="t-k">in</span> <span class="t-f">range</span>(<span class="t-s">5</span>)), f<span class="t-s">&quot;[{name}] each sentence scores 1.0 against itself&quot;</span>)
+    <span class="t-f">ok</span>(<span class="t-f">all</span>(<span class="t-f">near</span>(M[i][j], M[j][i], <span class="t-s">0.002</span>) <span class="t-k">for</span> i <span class="t-k">in</span> <span class="t-f">range</span>(<span class="t-s">5</span>) <span class="t-k">for</span> j <span class="t-k">in</span> <span class="t-f">range</span>(<span class="t-s">5</span>)), f<span class="t-s">&quot;[{name}] the matrix is symmetric&quot;</span>)
+    means = [(<span class="t-f">sum</span>(M[i]) - M[i][i]) / <span class="t-s">4</span> <span class="t-k">for</span> i <span class="t-k">in</span> <span class="t-f">range</span>(<span class="t-s">5</span>)]  <span class="t-c"># the diagonal must not count</span>
+    <span class="t-k">if</span> <span class="t-k">not</span> <span class="t-f">ok</span>(<span class="t-f">len</span>(fit) == <span class="t-s">5</span> <span class="t-k">and</span> <span class="t-f">all</span>(<span class="t-f">near</span>(fit[i], means[i], <span class="t-s">0.002</span>) <span class="t-k">for</span> i <span class="t-k">in</span> <span class="t-f">range</span>(<span class="t-s">5</span>)),
+              f<span class="t-s">&quot;[{name}] fit_scores are the mean of the OTHER four scores, self excluded&quot;</span>):
+        <span class="t-k">continue</span>
+    low = <span class="t-f">min</span>(<span class="t-f">range</span>(<span class="t-s">5</span>), key=<span class="t-k">lambda</span> i: fit[i])
+    <span class="t-f">ok</span>(s.<span class="t-f">get</span>(<span class="t-s">&quot;predicted_odd_index&quot;</span>) == low, f<span class="t-s">&quot;[{name}] predicted_odd_index is the lowest fit score (index {low})&quot;</span>)
+    ranked = <span class="t-f">sorted</span>(fit)
+    <span class="t-f">ok</span>(<span class="t-f">near</span>(s.<span class="t-f">get</span>(<span class="t-s">&quot;confidence_gap&quot;</span>), ranked[<span class="t-s">1</span>] - ranked[<span class="t-s">0</span>], <span class="t-s">0.002</span>),
+       f<span class="t-s">&quot;[{name}] confidence_gap = second lowest minus lowest&quot;</span>)
+    <span class="t-f">ok</span>(s.<span class="t-f">get</span>(<span class="t-s">&quot;correct&quot;</span>) <span class="t-k">is</span> (s.<span class="t-f">get</span>(<span class="t-s">&quot;predicted_odd_index&quot;</span>) == s.<span class="t-f">get</span>(<span class="t-s">&quot;expected_odd_index&quot;</span>)),
+       f<span class="t-s">&quot;[{name}] the correct flag matches predicted against expected&quot;</span>)
+
+<span class="t-k">if</span> <span class="t-s">&quot;easy&quot;</span> <span class="t-k">in</span> sets:
+    <span class="t-f">ok</span>(sets[<span class="t-s">&quot;easy&quot;</span>].<span class="t-f">get</span>(<span class="t-s">&quot;correct&quot;</span>) <span class="t-k">is</span> <span class="t-k">True</span>, <span class="t-s">&quot;[easy] the tool picked the sentence you expected&quot;</span>)
+<span class="t-k">if</span> <span class="t-s">&quot;hard&quot;</span> <span class="t-k">in</span> sets:
+    h, e = sets[<span class="t-s">&quot;hard&quot;</span>], sets[<span class="t-s">&quot;hard&quot;</span>].<span class="t-f">get</span>(<span class="t-s">&quot;expected_odd_index&quot;</span>)
+    <span class="t-k">if</span> <span class="t-f">len</span>(h.<span class="t-f">get</span>(<span class="t-s">&quot;sentences&quot;</span>, [])) == <span class="t-s">5</span> <span class="t-k">and</span> <span class="t-f">isinstance</span>(e, int) <span class="t-k">and</span> <span class="t-s">0</span> &lt;= e &lt; <span class="t-s">5</span>:
+        words = <span class="t-k">lambda</span> t: <span class="t-f">set</span>(re.<span class="t-f">findall</span>(r<span class="t-s">&quot;[a-z]{4,}&quot;</span>, t.<span class="t-f">lower</span>()))
+        <span class="t-c"># crude stemming: apple and apples count as the same word</span>
+        overlap = <span class="t-k">lambda</span> x, y: <span class="t-f">any</span>(a.<span class="t-f">startswith</span>(b) <span class="t-k">or</span> b.<span class="t-f">startswith</span>(a) <span class="t-k">for</span> a <span class="t-k">in</span> x <span class="t-k">for</span> b <span class="t-k">in</span> y)
+        odd = <span class="t-f">words</span>(h[<span class="t-s">&quot;sentences&quot;</span>][e])
+        shared = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> i <span class="t-k">in</span> <span class="t-f">range</span>(<span class="t-s">5</span>) <span class="t-k">if</span> i != e <span class="t-k">and</span> <span class="t-f">overlap</span>(odd, <span class="t-f">words</span>(h[<span class="t-s">&quot;sentences&quot;</span>][i])))
+        <span class="t-f">ok</span>(shared &gt;= <span class="t-s">3</span>, f<span class="t-s">&quot;[hard] the odd sentence shares a word with 3 or more of the others (it shares with {shared})&quot;</span>)
+    <span class="t-f">print</span>(<span class="t-s">&quot;NOTE  whether the hard set fools the tool is not checked. Either answer is a real result.&quot;</span>)
+
+<span class="t-c"># Strongest check: re-embed your sentences and compare. Offline, and skipped if the model is not cached.</span>
+os.environ[<span class="t-s">&quot;HF_HUB_OFFLINE&quot;</span>] = <span class="t-s">&quot;1&quot;</span>
+<span class="t-k">try</span>:
+    <span class="t-k">from</span> sentence_transformers <span class="t-k">import</span> SentenceTransformer
+    model = <span class="t-f">SentenceTransformer</span>(data.<span class="t-f">get</span>(<span class="t-s">&quot;model&quot;</span>, <span class="t-s">&quot;sentence-transformers/all-MiniLM-L6-v2&quot;</span>))
+    <span class="t-k">for</span> name, s <span class="t-k">in</span> sets.<span class="t-f">items</span>():
+        V = model.<span class="t-f">encode</span>(s[<span class="t-s">&quot;sentences&quot;</span>], normalize_embeddings=<span class="t-k">True</span>)
+        fresh = (V @ V.T).<span class="t-f">tolist</span>()
+        worst = <span class="t-f">max</span>(<span class="t-f">abs</span>(fresh[i][j] - s[<span class="t-s">&quot;similarity_matrix&quot;</span>][i][j]) <span class="t-k">for</span> i <span class="t-k">in</span> <span class="t-f">range</span>(<span class="t-s">5</span>) <span class="t-k">for</span> j <span class="t-k">in</span> <span class="t-f">range</span>(<span class="t-s">5</span>))
+        <span class="t-f">ok</span>(worst &lt; <span class="t-s">0.02</span>, f<span class="t-s">&quot;[{name}] your scores match a fresh run of the model (worst gap {worst:.4f})&quot;</span>)
+<span class="t-k">except</span> Exception <span class="t-k">as</span> err:
+    <span class="t-f">print</span>(f<span class="t-s">&quot;NOTE  could not re-run the model offline ({type(err).__name__}), so the numbers were not re-checked&quot;</span>)
+
+<span class="t-f">print</span>(<span class="t-s">&quot;\nALL CHECKS PASSED&quot;</span> <span class="t-k">if</span> <span class="t-k">not</span> fails <span class="t-k">else</span> f<span class="t-s">&quot;\n{len(fails)} CHECK(S) FAILED&quot;</span>)
+sys.<span class="t-f">exit</span>(<span class="t-s">1</span> <span class="t-k">if</span> fails <span class="t-k">else</span> <span class="t-s">0</span>)
+</pre></div>
+        </div>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> check.py prints 21 PASS lines and ends with ALL CHECKS PASSED, and its exit code is 0. It re-embeds your own sentences offline and compares them against your saved matrix, so the numbers have to be real ones you computed. If the hard set fooled your tool, its correct field is false and the checker still passes: it prints a NOTE saying that outcome is not judged, because a tool that fails on hard input is a finding, not a mistake.</div></div>
+        <div class="note" style="margin-top:12px"><div class="note__t">If you want more</div><p>Print &quot;not confident&quot; when confidence_gap is under 0.05, and see how often that fires on hard sets. Then change the model field to Qwen/Qwen3-Embedding-0.6B, regenerate the file and run check.py again: it re-embeds with whichever model you name, so every check still applies. Raw scores from two models are not comparable, but the ordering usually is.</p></div>
+        </section>
+        <section class="section section--quiz"><h2 class="section__h" data-stamp="on record"><span>Check yourself</span></h2>
+        <p class="small muted">Explained either way.</p>
+        <div class="quiz" data-quiz>
+        <div class="q" data-answer="1"><p class="q__q">Why do models split text into tokens instead of just using whole words?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Tokens are cheaper to buy than words</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>A fixed list of chunks can spell any word, including ones the model has never seen</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Computers cannot store strings longer than a few letters</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Words mean different things in different languages</span></button>
+        </div><div class="q__why" hidden>A whole-word vocabulary would hit a wall the first time it met a typo, a product name or a new word, and would need a hole labeled &quot;unknown&quot;. Chunks avoid that, because anything unseen is spelled out of smaller pieces and in the worst case out of single bytes. Cost is a consequence of counting tokens, not the reason tokens exist, and computers handle long strings fine.</div></div>
+        <div class="q" data-answer="3"><p class="q__q">You want to send about 4,000 words of ordinary English to a model. Roughly how many input tokens is that?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>About 1,000</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>About 3,000</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>About 20,000</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>About 5,300</span></button>
+        </div><div class="q__why" hidden>The usual guide is one token per four characters, or about 1.3 tokens per English word, so 4,000 words lands near 5,300. It is only a guide: code, JSON, tables and non-English text can run much higher, and each provider tokenizes with its own chunk list so the exact number differs between them. Count with a real tokenizer whenever the money matters.</div></div>
+        <div class="q" data-answer="3"><p class="q__q">You embedded 10,000 documents with all-MiniLM-L6-v2 and saved the vectors. You now embed incoming questions with Qwen3-Embedding-0.6B and compare them to the stored vectors. What happens?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>It works fine, since cosine similarity is a standard measure</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>It works, just more slowly</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>It works as long as you normalize both sides</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>The comparison is meaningless, and everything has to be re-embedded with one model</span></button>
+        </div><div class="q__why" hidden>Each model builds its own space during training, so position 200 in one model's vector has nothing to do with position 200 in another's. Here you would get an outright error, because 384 numbers cannot be multiplied against 1024, and that error is lucky. The dangerous case is two different models with the same vector size, where the code runs happily and returns nonsense scores. The practical rule: switching embedding model means re-indexing your whole store.</div></div>
+        </div></section>
+        <section class="section section--notes notes" data-notes><h2 class="section__h" data-stamp="on record"><span>Your notes</span></h2>
+        <p class="small muted">Saves as you type, in this browser.</p>
+        <label class="sr" for="n3">Notes for this module</label>
+        <textarea id="n3" placeholder="What clicked? What is still fuzzy? What do you want to come back to?"></textarea><div class="notes__status"></div></section>
+        <section class="section section--done"><h2 class="section__h" data-stamp="on record"><span>Mark it done</span></h2>
+        <div class="marks"><button class="mark" data-mark="read" aria-pressed="false"><span>Read the notes</span></button><button class="mark" data-mark="lab" aria-pressed="false"><span>Finished the lab</span></button><button class="mark" data-mark="mini" aria-pressed="false"><span>Finished the mini-project</span></button></div></section>
+        <section class="section section--docs"><h2 class="section__h" data-stamp="reference"><span>Go to the source</span></h2>
+        <p class="small muted">If this course and the docs disagree, the docs are newer.</p><ul class="prose">
+        <li><a href="https://sbert.net/" target="_blank" rel="noopener">Sentence Transformers documentation (encode, similarity, model choice)</a></li>
+        <li><a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2" target="_blank" rel="noopener">all-MiniLM-L6-v2 model card (384 dimensions, 256 token limit)</a></li>
+        <li><a href="https://huggingface.co/Qwen/Qwen3-Embedding-0.6B" target="_blank" rel="noopener">Qwen3-Embedding-0.6B model card</a></li>
+        <li><a href="https://huggingface.co/learn/llm-course" target="_blank" rel="noopener">Hugging Face LLM Course (free, includes a full chapter on tokenizers)</a></li>
+        <li><a href="https://platform.openai.com/tokenizer" target="_blank" rel="noopener">OpenAI tokenizer playground (paste text, see the chunks and the count)</a></li>
+        <li><a href="https://huggingface.co/spaces/mteb/leaderboard" target="_blank" rel="noopener">MTEB embedding leaderboard (compare embedding models by task)</a></li>
+        </ul></section>
+    </div>
+    <nav data-chrome="pager"></nav>
+  </main>
+</div>
+
+<script src="../assets/data.js"></script>
+<script src="../assets/widgets.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

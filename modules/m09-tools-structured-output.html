@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>9. Getting exact data back, and calling your code</title>
+<meta name="description" content="Make a model return structured data you can rely on, and let it call your own Python functions.">
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+</head>
+<body data-module="m09" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="3">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+        <div data-chrome="modhead"></div>
+        <p class="prose">Paragraphs are fine for people and useless for programs. This module gives you two things: data back in an exact shape your code can parse, and a way to let the model ask your code to run a function, which is the only way it ever acts.</p>
+        <section class="section section--watch"><h2 class="section__h" data-stamp="take in"><span>Watch this first</span></h2>
+        <div data-videos="core"></div></section>
+        <section class="section section--ideas"><h2 class="section__h" data-stamp="take in"><span>The ideas, in plain English</span></h2>
+        <p class="small muted">Each idea, then a worked example of it.</p>
+        <div class="concepts">
+        <div class="concept"><div class="concept__n" aria-hidden="true">1</div><h3 class="concept__t">The model never runs your code</h3><p class="concept__b">Attach tools and the strongest thing the model can do is write a message naming a function and its arguments. That message arrives in your program as ordinary data sitting in a variable. Your code decides whether to run anything, which is why a permission check can only live in your code and never in the prompt.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">what came back from the API. Nothing has run.</p><pre>{<span class="t-f">&quot;role&quot;</span>: <span class="t-s">&quot;assistant&quot;</span>, <span class="t-f">&quot;tool_calls&quot;</span>: [{<span class="t-f">&quot;id&quot;</span>: <span class="t-s">&quot;call_a1&quot;</span>, <span class="t-f">&quot;type&quot;</span>: <span class="t-s">&quot;function&quot;</span>,
+  <span class="t-f">&quot;function&quot;</span>: {<span class="t-f">&quot;name&quot;</span>: <span class="t-s">&quot;delete_user&quot;</span>, <span class="t-f">&quot;arguments&quot;</span>: '{<span class="t-f">&quot;id&quot;</span>: <span class="t-s">42</span>}'}}]}</pre><p class="eg__say">user 42 still exists. These two lines are what would delete them:</p><pre><span class="t-k">if</span> call.function.name == <span class="t-s">&quot;delete_user&quot;</span> <span class="t-k">and</span> current_user.is_admin:
+    <span class="t-f">delete_user</span>(**json.<span class="t-f">loads</span>(call.function.arguments))</pre><p class="eg__say">comment them out and the model can ask 1,000 times with no effect</p><div class="eg__cap">The reply is data. Delete the dispatch line, delete the action.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">2</div><h3 class="concept__t">The four steps of a tool call</h3><p class="concept__b">One tool call is four messages and you own three of them. You send messages plus tool definitions, the model replies with a <code>tool_calls</code> field instead of text, your code runs the function, then you append the result with role <code>tool</code> and the matching <code>tool_call_id</code> and call the model again. Skip that last part and the model never learns what happened, because it remembers nothing between calls.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>step</th><th>who</th><th>what crosses the wire</th></tr></thead><tbody><tr><td>1</td><td>you</td><td>messages + tools=[get_price]</td></tr><tr><td>2</td><td>model</td><td>tool_calls: get_price, arguments '{&quot;item&quot;:&quot;bread&quot;,&quot;quantity&quot;:3}'</td></tr><tr><td>3</td><td>your code</td><td>get_price(&quot;bread&quot;, 3) returns {&quot;total&quot;: 7.2}, nothing is sent</td></tr><tr><td>4</td><td>you</td><td>{&quot;role&quot;:&quot;tool&quot;, &quot;tool_call_id&quot;:&quot;call_a1&quot;, &quot;content&quot;:'{&quot;total&quot;: 7.2}'}</td></tr><tr><td>4 reply</td><td>model</td><td>Three loaves of bread cost $7.20.</td></tr></tbody></table><div class="eg__cap">One question, two API calls, four messages in the list.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 640 260" role="img" aria-label="The four messages that make up one tool call" xmlns="http://www.w3.org/2000/svg"><title>The four messages that make up one tool call</title><defs><marker id="ah-tool" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><rect x="30" y="20" width="150" height="34" rx="6" class="d-fill"/><text x="105.0" y="42.0" text-anchor="middle" class="d-t">your program</text><rect x="430" y="20" width="150" height="34" rx="6" class="d-fill"/><text x="505.0" y="42.0" text-anchor="middle" class="d-t">the model</text><path d="M105 54 L105 240" class="d-dash"/><path d="M505 54 L505 240" class="d-dash"/><path d="M110 80 L500 80" class="d-arrow" marker-end="url(#ah-tool)"/><text x="305" y="72" text-anchor="middle" class="d-s">question + list of tools you offer</text><path d="M500 118 L110 118" class="d-arrow" marker-end="url(#ah-tool)"/><text x="305" y="110" text-anchor="middle" class="d-hi">I would like to call get_weather(city=Detroit)</text><path d="M105 140 L60 140 L60 172 L105 172" class="d-arrow" marker-end="url(#ah-tool)"/><text x="30" y="158" text-anchor="start" class="d-hi">you run it</text><path d="M110 200 L500 200" class="d-arrow" marker-end="url(#ah-tool)"/><text x="305" y="192" text-anchor="middle" class="d-s">here is the result: 21 degrees, clear</text><path d="M500 238 L110 238" class="d-arrow" marker-end="url(#ah-tool)"/><text x="305" y="230" text-anchor="middle" class="d-s">it is 21 degrees and clear in Detroit</text></svg><figcaption><b>Tool use is not magic.</b> The model cannot run anything. It writes a message saying which function it would like called and with what arguments. <b>Your</b> code decides whether to run it, runs it, and hands the result back. If you never write that middle step, nothing happens.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">3</div><h3 class="concept__t">The definition is the whole manual</h3><p class="concept__b">The model never sees your Python. It sees a name, a description and a JSON Schema for the arguments, so that text is the entire brief it gets. Write it the way you would brief a new colleague, say when <strong>not</strong> to use the tool, and put example values inside each parameter description.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>what the definition says</th><th>what the model sent for &quot;How much for 3 loaves of bread?&quot;</th></tr></thead><tbody><tr><td>name &quot;lookup&quot;, description &quot;gets info&quot;, one parameter data (string)</td><td>data: &quot;3 loaves of bread&quot;</td></tr><tr><td>name &quot;get_price&quot;, &quot;Look up the shop price of one grocery item and multiply it by a quantity. Do not use it for questions with no item in them&quot;, item: &quot;Single item name, for example apple, bread, milk&quot;, quantity: integer</td><td>item: &quot;bread&quot;, quantity: 3</td></tr></tbody></table><div class="eg__cap">Same model, same question. Only the wording changed.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">4</div><h3 class="concept__t">Tools are billed on every turn</h3><p class="concept__b">Every definition you attach is pasted into the prompt on every request, used or not. Agent work is input heavy already, so input price and cache hits decide your bill far more than output price does. Cached input costs about a tenth of fresh input and matches on prefixes, so keep the tool block early and unchanging and push timestamps and session IDs to the <strong>end</strong> of the prompt.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>measurement</th><th>input tokens</th></tr></thead><tbody><tr><td>&quot;say hi&quot;, no tools</td><td>12</td></tr><tr><td>&quot;say hi&quot;, one get_price definition</td><td>130</td></tr><tr><td>so one definition costs</td><td>118 per request</td></tr><tr><td>15 similar tools, 12 turns</td><td>21,240 per conversation</td></tr><tr><td>at $0.50 per million input</td><td>$0.0106 per conversation</td></tr><tr><td>10,000 conversations a month</td><td>$106</td></tr><tr><td>same month with cache hits, about a tenth</td><td>$11</td></tr></tbody></table><div class="eg__cap">Measured prompt_tokens from lab step 8, multiplied out. Yours will differ.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">5</div><h3 class="concept__t">Asking for JSON you can trust</h3><p class="concept__b">JSON (JavaScript Object Notation) is a plain text data format, such as <code>{&quot;item&quot;: &quot;bread&quot;, &quot;total&quot;: 7.2}</code>. Asking for JSON in the prompt works most of the time and then fails with a friendly sentence in front of the opening brace. Structured output means you hand the API a JSON Schema and the reply is made to match that shape, though support is uneven and small models you run yourself often do not enforce it at all.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">prompt said &quot;reply with JSON only&quot;</p><pre><span class="t-k">import</span> json
+raw = <span class="t-s">'Sure! Here you go:\n{&quot;city&quot;: &quot;Detroit&quot;, &quot;temp_c&quot;: 21}'</span>
+json.<span class="t-f">loads</span>(raw)</pre><p class="eg__say">JSONDecodeError: Expecting value: line 1 column 1 (char 0)</p><p class="eg__say">same request with a JSON Schema attached to the call</p><pre>raw = <span class="t-s">'{&quot;city&quot;:&quot;Detroit&quot;,&quot;temp_c&quot;:21}'</span>
+json.<span class="t-f">loads</span>(raw)</pre><p class="eg__say">{'city': 'Detroit', 'temp_c': 21}</p><div class="eg__cap">Four words of politeness is the whole failure.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 640 250" role="img" aria-label="Asking for JSON in words versus declaring a schema" xmlns="http://www.w3.org/2000/svg"><title>Asking for JSON in words versus declaring a schema</title><defs><marker id="ah-schema" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><text x="150" y="22" text-anchor="middle" class="d-hi">asking nicely</text><rect x="20" y="34" width="260" height="40" rx="6" class="d-box"/><text x="150.0" y="59.0" text-anchor="middle" class="d-t"></text><text x="150" y="58" text-anchor="middle" class="d-m">Reply with JSON please</text><path d="M150 74 L150 100" class="d-arrow" marker-end="url(#ah-schema)"/><rect x="20" y="104" width="260" height="74" rx="6" class="d-warn"/><text x="150.0" y="146.0" text-anchor="middle" class="d-t"></text><text x="150" y="126" text-anchor="middle" class="d-m">Sure! Here is the JSON:</text><text x="150" y="146" text-anchor="middle" class="d-m">```json</text><text x="150" y="166" text-anchor="middle" class="d-m">{"city": "Detroit"}</text><text x="150" y="202" text-anchor="middle" class="d-s">json.loads() raises an error</text><text x="490" y="22" text-anchor="middle" class="d-hi">declaring a schema</text><rect x="360" y="34" width="260" height="40" rx="6" class="d-box"/><text x="490.0" y="59.0" text-anchor="middle" class="d-t"></text><text x="490" y="52" text-anchor="middle" class="d-m">schema: {city: string,</text><text x="490" y="68" text-anchor="middle" class="d-m">temp_c: integer}</text><path d="M490 74 L490 100" class="d-arrow" marker-end="url(#ah-schema)"/><rect x="360" y="104" width="260" height="74" rx="6" class="d-ok"/><text x="490.0" y="146.0" text-anchor="middle" class="d-t"></text><text x="490" y="136" text-anchor="middle" class="d-m">{"city": "Detroit",</text><text x="490" y="156" text-anchor="middle" class="d-m"> "temp_c": 21}</text><text x="490" y="202" text-anchor="middle" class="d-s">parses every time</text><text x="320" y="238" text-anchor="middle" class="d-s">the schema is applied while the text is generated, so the wrong shape never comes out</text></svg><figcaption><b>Structured output.</b> Asking politely gives you JSON most of the time, and the times it does not are the ones that wake you up. A declared schema is different: the rules are applied as each token is chosen, so a reply that breaks the shape is never produced. Declare the shape, do not request it in prose.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">6</div><h3 class="concept__t">Validate, then retry with the error</h3><p class="concept__b">Pydantic is a Python library where you describe expected data as a class and it checks real data against that class. <code>model_validate_json</code> gives you a typed object or an error naming the bad field, and <code>model_json_schema()</code> gives you the schema to send, so the two copies cannot drift apart. Validate even with structured output switched on, because a schema controls shape and not sense, and cap retries at two or three so a repair loop cannot quietly spend money.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre><span class="t-k">class</span> <span class="t-f">Weather</span>(BaseModel):
+    city: str
+    temp_c: float = <span class="t-f">Field</span>(ge=-<span class="t-s">60</span>, le=<span class="t-s">60</span>)   <span class="t-c"># a plain schema accepts 9000</span></pre><pre>Weather.<span class="t-f">model_validate_json</span>(<span class="t-s">'{&quot;city&quot;:&quot;Detroit&quot;,&quot;temp_c&quot;:9000}'</span>)</pre><p class="eg__say">ValidationError: 1 validation error for Weather temp_c Input should be less than or equal to 60 [type=less_than_equal, input_value=9000, input_type=int]</p><p class="eg__say">retry 1 of 2, pasting that exact text back:</p><pre>messages.<span class="t-f">append</span>({<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>:
+    <span class="t-s">&quot;That failed: temp_c Input should be &lt;= 60. Return corrected JSON.&quot;</span>})</pre><div class="eg__cap">The named field and rule is what the model repairs from.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">7</div><h3 class="concept__t">How the shape gets forced</h3><p class="concept__b">A model writes one token (a chunk of a word) at a time by scoring every token in its vocabulary and picking one. Constrained decoding sits between the scoring and the picking: it works out which tokens keep the JSON legal and pushes every other score to negative infinity, so they cannot be chosen. Two honest limits: it guarantees shape and not truth, and forcing output into a grammar can pull a model off its natural phrasing, which providers publish little measurement on.</p>
+        <div class="eg"><div class="eg__h">Example</div><p>Schema: {&quot;city&quot;: string, &quot;temp_c&quot;: number}. The o200k_base vocabulary used by GPT-4o holds about 200,000 tokens. The model has written {&quot;cit so far. Only one continuation keeps that JSON legal against the schema, y&quot;, so roughly 199,999 scores are set to negative infinity and the model physically cannot write citation or city_name. After {&quot;city&quot;:&quot;Detroit&quot;, the only legal field name left is temp_c.</p><div class="eg__cap">Legal next tokens drop from about 200,000 to one.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">8</div><h3 class="concept__t">tool_choice decides who is in charge</h3><p class="concept__b"><code>tool_choice</code> settles whether calling a tool is optional. <code>&quot;auto&quot;</code> lets the model answer in text or call a tool and is the right default; <code>&quot;none&quot;</code> forbids calls, which is what you want on the final summarising turn; <code>&quot;required&quot;</code> (some providers call it <code>&quot;any&quot;</code>) forces some call, and naming a tool forces that one. Forcing deletes the other options rather than creating understanding, so a forced call on a question the tool cannot answer gets confident invented arguments.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>tool_choice</th><th>the model may</th><th>what came back for &quot;Tell me a joke.&quot;</th></tr></thead><tbody><tr><td>&quot;auto&quot;</td><td>write text or call get_price</td><td>text: a joke. tool_calls is None</td></tr><tr><td>&quot;none&quot;</td><td>write text only</td><td>text: a joke. tool_calls is None</td></tr><tr><td>&quot;required&quot;</td><td>must call some tool</td><td>get_price(item=&quot;joke&quot;)</td></tr><tr><td>{&quot;type&quot;:&quot;function&quot;,&quot;function&quot;:{&quot;name&quot;:&quot;get_price&quot;}}</td><td>must call that one</td><td>get_price(item=&quot;bread&quot;, quantity=1)</td></tr></tbody></table><div class="eg__cap">One tool attached, four settings. Forcing invents arguments, it does not refuse.</div></div>
+        </div>
+        </div></section>
+        <section class="section section--try"><h2 class="section__h" data-stamp="hands on"><span>Try it yourself</span></h2>
+        <p class="small muted" style="margin-bottom:6px">Step through a real tool call</p>
+        <div data-widget="toolcall"></div>
+        </section>
+        <div class="note note--gap"><div class="note__t">Worth knowing</div><p>There is no clear teaching video for constrained decoding, which is why the note above spells out the token by token mechanism instead of pointing you at one. Two things here are genuinely unsettled: whether forcing a schema lowers answer quality (providers publish little on it and are not neutral parties), and how much of JSON Schema each provider really enforces, which shifts between model versions. Treat any tool calling tutorial from 2024 as suspect on exact field names, because the message shapes have moved since.</p></div>
+        <section class="section section--more"><h2 class="section__h" data-stamp="optional"><span>If you want to go deeper</span></h2>
+        <p class="small muted">Optional.</p>
+        <div data-videos="more"></div></section>
+        <section class="section section--lab"><h2 class="section__h" data-stamp="hands on"><span>Lab: follow along</span></h2>
+        <div data-setupbanner></div>
+        <div class="note note--warn" data-path="offline" hidden><div class="note__t">Expect this to be harder on a local model</div><p>Choosing the right tool is exactly what small models are worst at. A 3B model will sometimes invent a tool name or send a malformed argument. That is not your bug, and the lab is deliberately written to survive it. If a run misbehaves repeatedly, try the same code once against a free hosted key: if it works there, your code is correct and you have learned something real about what model size buys you.</p></div>
+        <p class="prose">In this lab you build one tool by hand and watch every single message that crosses the wire. You will see the model ask for a function, you will run that function yourself, and you will hand the answer back so the model can turn a raw dict into a sentence. Nothing is hidden inside a framework, so by the end you can point at the exact line in your own file where the decision to act was made, and that line is yours, not the model's. You will also measure what one tool definition costs you in input tokens on every request, which is the number that decides an agent bill later.
+
+Before you start, make sure `python llm.py` works, see `setup.html`.</p>
+        <p class="small muted">Code given, every line explained.</p>
+        <ol class="steps">
+        <li><h3>Check the helper and note the token count</h3><p>Make a file at <code>my-work/labs/lab09/tool_roundtrip.py</code> and run this before you write anything else, because a broken key or a wrong model will look like a tool bug three steps from now. The shared helper <code>chat_raw</code> hands your messages straight to the provider and gives you back the raw reply object, so you can look at fields that a plain string would hide, such as <code>tool_calls</code> and <code>usage</code>. A token is a chunk of text the model counts in, usually a short word or part of a word, and <code>prompt_tokens</code> is how many of them the provider charged you for on the way in. On screen you should see one line naming your provider, model, endpoint and key state, then three words of greeting, then a small number somewhere between about 10 and 20. If the key line says MISSING, fix your <code>.env</code> now, and remember you change providers by editing <code>.env</code>, never by editing this file. If you are running a local model through Ollama, use one around 3B parameters or larger, because smaller ones call tools unreliably. If your copy of <code>llm.py</code> takes messages positionally rather than by keyword, adjust the calls below to match.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-k">import</span> sys, json, pathlib
+sys.path.<span class="t-f">append</span>(<span class="t-f">str</span>(pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parents[<span class="t-s">1</span>] / <span class="t-s">&quot;_shared&quot;</span>))
+<span class="t-k">from</span> llm <span class="t-k">import</span> chat_raw, whoami
+
+<span class="t-f">print</span>(<span class="t-f">whoami</span>())
+r = <span class="t-f">chat_raw</span>(messages=[{<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: <span class="t-s">&quot;say hi in three words&quot;</span>}])
+<span class="t-f">print</span>(<span class="t-s">&quot;reply       :&quot;</span>, r.choices[<span class="t-s">0</span>].message.content)
+<span class="t-f">print</span>(<span class="t-s">&quot;input tokens:&quot;</span>, r.usage.prompt_tokens)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>sys.path.append(str(pathlib.Path(__file__).resolve().parents[1] / &quot;_shared&quot;))</dt><dd>Python can only import from folders it already knows about, and <code>my-work/labs/_shared</code> is not one of them. This works out the path from this file's own location (<code>__file__</code>), goes up one folder (<code>parents[1]</code>), and adds <code>_shared</code> to the import list, so the script runs from any working directory.</dd>
+        <dt>from llm import chat_raw, whoami</dt><dd><code>chat</code> returns a tidy string, which is useless here because the interesting parts of a tool call are not in the text. <code>chat_raw</code> returns the whole reply object, which is the only way to reach <code>tool_calls</code> and <code>usage</code>.</dd>
+        <dt>print(whoami())</dt><dd>Prints which provider, model and endpoint you are actually about to use, plus whether the key is set. Half of all confusion in this lab is talking to a different model than you thought.</dd>
+        <dt>messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;say hi in three words&quot;}]</dt><dd>A conversation is a list of dicts, each with a <code>role</code> and <code>content</code>. This is the shape every provider in the registry expects, which is why one helper can talk to all of them.</dd>
+        <dt>r.choices[0].message.content</dt><dd><code>choices</code> is a list because the API can return several alternative replies in one call. You asked for one, so you take index 0.</dd>
+        <dt>r.usage.prompt_tokens</dt><dd>The count of input tokens the provider billed for this request. You print it now so you have a baseline to compare against in step 8.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Rough token count, and what it costs.
+
+Formula:
+  tokens is approximately characters / 4      (for ordinary English)
+  cost = (tokens / 1,000,000) * price_per_million
+
+What the symbols mean:
+  characters = how many characters are in your text
+  4 = the rough average number of characters per token for English prose
+  price_per_million = what your provider charges per million input tokens
+
+Worked example:
+  &quot;say hi in three words&quot; is 21 characters.
+  21 / 4 = 5.25, so about 5 tokens of your actual words.
+  But prompt_tokens will print more like 12 to 15. The extra is the chat wrapping the provider adds around your message (role markers, start and end markers) that you never typed.
+  At $0.50 per million input tokens, 15 tokens costs 15 / 1,000,000 * 0.50 = $0.0000075.
+
+Intuitively: a token is about three quarters of an English word, and you pay for everything that is sent, including the packaging you did not write. The divide-by-4 rule is a rough guide only, not the real tokenizer.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If the whoami line ends with key=MISSING, stop and fix .env now, because every later step will fail with an authentication error that looks nothing like a tool problem.</span></div>
+        </li>
+        <li><h3>Write the tool as an ordinary Python function</h3><p>Start with plain code that has nothing to do with the model at all, because a tool is just a normal function that you later agree to expose. Call it yourself once from a Python prompt, for example <code>get_price(&quot;bread&quot;, 3)</code>, so you know it works before any model is involved. Two design choices matter here and both are deliberate. First, it returns a dict (a set of named values) rather than a sentence, because in step 5 you will turn that dict into JSON text and hand it back to the model, and named fields are far easier for a model to read correctly than prose. Second, an unknown item comes back as <code>{&quot;error&quot;: ...}</code> instead of raising an exception, because an exception kills your program while an error dict travels back to the model as data it can read and correct on the next turn. You should see <code>{'item': 'bread', 'unit_price': 2.4, 'quantity': 3, 'total': 7.2}</code> printed at your prompt.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>PRICES = {<span class="t-s">&quot;apple&quot;</span>: <span class="t-s">0.50</span>, <span class="t-s">&quot;bread&quot;</span>: <span class="t-s">2.40</span>, <span class="t-s">&quot;milk&quot;</span>: <span class="t-s">1.15</span>}
+
+<span class="t-k">def</span> <span class="t-f">get_price</span>(item: str, quantity: int = <span class="t-s">1</span>) -&gt; dict:
+    key = item.<span class="t-f">strip</span>().<span class="t-f">lower</span>()
+    <span class="t-k">if</span> key <span class="t-k">not</span> <span class="t-k">in</span> PRICES:
+        <span class="t-k">return</span> {<span class="t-s">&quot;error&quot;</span>: f<span class="t-s">&quot;unknown item: {item}&quot;</span>, <span class="t-s">&quot;known_items&quot;</span>: <span class="t-f">sorted</span>(PRICES)}
+    <span class="t-k">return</span> {
+        <span class="t-s">&quot;item&quot;</span>: key,
+        <span class="t-s">&quot;unit_price&quot;</span>: PRICES[key],
+        <span class="t-s">&quot;quantity&quot;</span>: quantity,
+        <span class="t-s">&quot;total&quot;</span>: <span class="t-f">round</span>(PRICES[key] * quantity, <span class="t-s">2</span>),
+    }</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>PRICES = {&quot;apple&quot;: 0.50, &quot;bread&quot;: 2.40, &quot;milk&quot;: 1.15}</dt><dd>A stand-in for whatever real thing you would query in production, such as a database or an internal API. Keeping it a three line dict means nothing in this lab can fail for a reason that is not about tool calling.</dd>
+        <dt>key = item.strip().lower()</dt><dd>The model writes the argument, and it may write &quot;Bread&quot;, &quot; bread &quot; or &quot;BREAD&quot;. <code>strip()</code> removes spaces at the ends and <code>lower()</code> makes it lowercase, so all of those find the same entry.</dd>
+        <dt>return {&quot;error&quot;: f&quot;unknown item: {item}&quot;, &quot;known_items&quot;: sorted(PRICES)}</dt><dd>An unknown item is returned as data, not raised as an exception, so your loop keeps running. Sending <code>known_items</code> back gives the model a concrete list to pick from instead of guessing again.</dd>
+        <dt>&quot;total&quot;: round(PRICES[key] * quantity, 2)</dt><dd>Money needs rounding to two decimal places, because binary floating point cannot store 2.40 exactly. Rounding once at the end, rather than at every step, keeps the answer correct.</dd>
+        <dt>def get_price(item: str, quantity: int = 1) -&gt; dict:</dt><dd>The <code>: str</code>, <code>: int</code> and <code>-&gt; dict</code> parts are type hints. Python does not enforce them at runtime, they are notes for you and for tools, which is exactly why step 6 adds a real check.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Why 2.40 times 3 is not quite 7.20 inside the computer.
+
+Formula:
+  total = round(unit_price * quantity, 2)
+
+What the symbols mean:
+  unit_price = the price of one item, taken from PRICES
+  quantity = how many the model asked for
+  round(x, 2) = the nearest value to x that has two decimal places
+
+Worked example:
+  2.40 * 3
+  A computer stores numbers in binary, and 2.40 cannot be written exactly in binary. What is actually stored is 2.39999999999999991118...
+  Multiply that by 3 and Python prints 7.199999999999999, not 7.2.
+  round(7.199999999999999, 2) = 7.2, which is the answer you want.
+  Compare 0.50 * 3 = 1.5 exactly, because 0.5 is one half and halves are exact in binary.
+
+Intuitively: binary cannot write 2.40 exactly, in the same way decimal cannot write one third exactly. Rounding at the end hides the tiny error. For real money you would store integer cents or use decimal.Decimal instead, and this lab is a simplification on that point.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Python prints 7.2 rather than 7.20, so do not think the arithmetic is broken when the trailing zero is missing.</span></div>
+        </li>
+        <li><h3>Describe the tool for the model</h3><p>This block is the only thing the model ever learns about your function, because your Python code is invisible to it. What you are writing is a JSON Schema, which is a written description of an object: which fields exist, what type each one is, and which ones are required. Read the description out loud and ask whether a new colleague, given only these words, would know when to use it and when not to. Notice the last sentence tells the model when <strong>not</strong> to call it, which is the single most effective line in most tool descriptions. Nothing prints when you run this step, it is data sitting in a variable, and it does nothing until you attach it in step 4. Every character here is pasted into your prompt and charged as input tokens on every single request, so the job is to be specific and short at the same time.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>GET_PRICE_TOOL = {
+    <span class="t-s">&quot;type&quot;</span>: <span class="t-s">&quot;function&quot;</span>,
+    <span class="t-s">&quot;function&quot;</span>: {
+        <span class="t-s">&quot;name&quot;</span>: <span class="t-s">&quot;get_price&quot;</span>,
+        <span class="t-s">&quot;description&quot;</span>: (
+            <span class="t-s">&quot;Look up the shop price of one grocery item and multiply it by a &quot;</span>
+            <span class="t-s">&quot;quantity. Use it for any question about what an item costs or what &quot;</span>
+            <span class="t-s">&quot;several of them cost. Do not use it for questions with no item in them.&quot;</span>
+        ),
+        <span class="t-s">&quot;parameters&quot;</span>: {
+            <span class="t-s">&quot;type&quot;</span>: <span class="t-s">&quot;object&quot;</span>,
+            <span class="t-s">&quot;properties&quot;</span>: {
+                <span class="t-s">&quot;item&quot;</span>: {<span class="t-s">&quot;type&quot;</span>: <span class="t-s">&quot;string&quot;</span>,
+                         <span class="t-s">&quot;description&quot;</span>: <span class="t-s">&quot;Single item name, for example apple, bread, milk&quot;</span>},
+                <span class="t-s">&quot;quantity&quot;</span>: {<span class="t-s">&quot;type&quot;</span>: <span class="t-s">&quot;integer&quot;</span>, <span class="t-s">&quot;minimum&quot;</span>: <span class="t-s">1</span>,
+                             <span class="t-s">&quot;description&quot;</span>: <span class="t-s">&quot;How many of the item. Defaults to 1.&quot;</span>},
+            },
+            <span class="t-s">&quot;required&quot;</span>: [<span class="t-s">&quot;item&quot;</span>],
+            <span class="t-s">&quot;additionalProperties&quot;</span>: <span class="t-k">False</span>,
+        },
+    },
+}</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>&quot;name&quot;: &quot;get_price&quot;</dt><dd>This exact string is what the model echoes back when it wants the tool, and it is what your dispatch code compares against in step 6. It happens to match your Python function name here, but nothing forces that, the link is a string you maintain.</dd>
+        <dt>&quot;Do not use it for questions with no item in them.&quot;</dt><dd>A negative instruction, telling the model when to stay away. Models over-call tools that are attached, and one sentence like this usually fixes more wrong picks than rewriting the positive half.</dd>
+        <dt>&quot;parameters&quot;: {&quot;type&quot;: &quot;object&quot;, &quot;properties&quot;: {...}}</dt><dd>This is JSON Schema saying the arguments come as an object with named fields. Each field gets a type and its own description, and those per-field descriptions are where you put example values.</dd>
+        <dt>&quot;description&quot;: &quot;Single item name, for example apple, bread, milk&quot;</dt><dd>Examples inside a parameter description steer the format of the value the model writes. Without &quot;single item name&quot;, models happily send &quot;3 loaves of bread&quot; as the item.</dd>
+        <dt>&quot;required&quot;: [&quot;item&quot;]</dt><dd>Says <code>item</code> must always be present while <code>quantity</code> may be left out. That matches your Python default of <code>quantity=1</code>, so the two descriptions of the same function agree.</dd>
+        <dt>&quot;additionalProperties&quot;: False</dt><dd>Asks that no extra invented fields appear in the arguments. Treat it as a request rather than a guarantee, because providers differ in how much JSON Schema they really enforce.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>What this block costs you in tokens.
+
+Formula:
+  added_tokens is approximately len(json.dumps(tool)) / 4
+  cost_per_conversation = added_tokens * number_of_turns
+
+What the symbols mean:
+  json.dumps(tool) = the definition turned back into one line of JSON text, which is roughly what gets sent
+  len(...) = its length in characters
+  4 = the same rough characters-per-token figure from step 1
+  number_of_turns = how many times you call the API in one conversation
+
+Worked example:
+  json.dumps of this exact definition is 576 characters.
+  576 / 4 = 144, so roughly 144 tokens added to every request.
+  The description string alone is 202 characters, about 50 tokens. Cutting it in half saves about 25 tokens per request.
+  A 12 turn conversation pays 144 * 12 = 1,728 tokens for this one tool, whether it is used or not.
+
+Intuitively: a tool definition is text pasted into your prompt, so its length is money, charged again on every turn. Step 8 measures the real number for your provider instead of estimating it.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>&quot;minimum&quot;: 1 and &quot;additionalProperties&quot;: False are hints inside the schema and not enforcement, so do not skip the real validation in step 6 just because you wrote them here.</span></div>
+        </li>
+        <li><h3>Ask, and look at what comes back without running anything</h3><p>Send the question with the tool attached, print the reply, and stop there on purpose. You will usually see that <code>content</code> is <code>None</code> or empty, and that <code>tool_calls</code> holds one entry with an <code>id</code>, the name <code>get_price</code>, and <code>arguments</code> as a <strong>string</strong> of JSON such as <code>'{&quot;item&quot;:&quot;bread&quot;,&quot;quantity&quot;:3}'</code>, not a Python dict. Sit with that for a second: your function has not run, no price has been looked up, and nothing in the world has changed. All the model did was write a message saying what it would like you to do, and that message is now ordinary data sitting in a variable. Notice too that the user never typed the word &quot;quantity&quot;, the model read &quot;3 loaves&quot; and mapped it onto your schema, which is the actual work it did. The word &quot;usually&quot; in this step is honest, because the model picks its output by probability and not by rule, so an occasional plain text reply is not a bug in your code.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>messages = [
+    {<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;system&quot;</span>, <span class="t-s">&quot;content&quot;</span>: <span class="t-s">&quot;You answer shop price questions. Use the tools when a price is involved.&quot;</span>},
+    {<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: <span class="t-s">&quot;How much for 3 loaves of bread?&quot;</span>},
+]
+
+resp = <span class="t-f">chat_raw</span>(messages=messages, tools=[GET_PRICE_TOOL], tool_choice=<span class="t-s">&quot;auto&quot;</span>)
+msg = resp.choices[<span class="t-s">0</span>].message
+<span class="t-f">print</span>(<span class="t-s">&quot;text reply:&quot;</span>, msg.content)
+<span class="t-f">print</span>(<span class="t-s">&quot;tool calls:&quot;</span>, msg.tool_calls)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>{&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: &quot;You answer shop price questions. Use the tools when a price is involved.&quot;}</dt><dd>The system message sets the job before the user speaks. It nudges tool use, but it does not force it, the schema descriptions still do most of the steering.</dd>
+        <dt>&quot;How much for 3 loaves of bread?&quot;</dt><dd>Deliberately worded in human terms. The model has to map &quot;loaves&quot; onto <code>item: bread</code> and &quot;3&quot; onto <code>quantity: 3</code>, which is the translation step you are here to watch.</dd>
+        <dt>tools=[GET_PRICE_TOOL], tool_choice=&quot;auto&quot;</dt><dd><code>tools</code> is a list because you normally attach several. <code>&quot;auto&quot;</code> means the model may answer in plain text or call a tool, and it is the right default for real conversation.</dd>
+        <dt>msg = resp.choices[0].message</dt><dd>Pulls out the single assistant message from the reply. You keep the whole object rather than just the text, because you need <code>msg.tool_calls</code> and, in step 5, the message itself.</dd>
+        <dt>print(&quot;tool calls:&quot;, msg.tool_calls)</dt><dd>Prints <code>None</code> if the model chose to answer in text, or a list of call objects if it asked for the tool. This print is your proof that a tool call is data and not an action.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>How the model picks what to write next, and why the lab says &quot;usually&quot;.
+
+Formula (softmax):
+  P(token i) = exp(z_i) / sum over all j of exp(z_j)
+
+What the symbols mean:
+  z_i = the raw score, called a logit, that the model gives to candidate token i
+  exp(x) = the number e (about 2.718) raised to the power x, which turns any score into a positive number
+  the sum on the bottom = the same thing added up over every token in the vocabulary, so the results add to 1
+  P(token i) = the probability of choosing token i next
+
+Worked example with three candidates for the very next token:
+  z = 2.0 for the token that starts a tool call, 1.0 for the token that starts plain text, 0.5 for a refusal.
+  exp(2.0) = 7.39, exp(1.0) = 2.72, exp(0.5) = 1.65
+  total = 7.39 + 2.72 + 1.65 = 11.76
+  P(tool call) = 7.39 / 11.76 = 0.63
+  P(plain text) = 2.72 / 11.76 = 0.23
+  P(refusal)   = 1.65 / 11.76 = 0.14
+
+Intuitively: even a clear favourite is only a favourite. About one run in four in this made up example would answer in text instead of calling the tool, which is exactly why your code must handle &lt;code&gt;tool_calls&lt;/code&gt; being &lt;code&gt;None&lt;/code&gt;.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If tool_calls prints None every time, your model chose plain text, so try a larger local model, and if you are on llama.cpp check the server was started with --jinja or tool calling silently does nothing.</span></div>
+        </li>
+        <li><h3>Run the function yourself and send the result back</h3><p>This is the step where the round trip closes, and it has four moves in a fixed order. First you append the model's own message to the list, so the conversation contains the request before it contains the answer, and most providers reject a tool result that does not follow a message with <code>tool_calls</code>. Then you parse the arguments string into a dict, run your function, and append the result with the role <code>tool</code> and the matching <code>tool_call_id</code>, which is how the model knows which answer belongs to which request when several tools were called at once. The last call uses <code>tool_choice=&quot;none&quot;</code> so the model must write a sentence instead of cheerfully calling the same tool a second time. Remember the model has no memory between calls, so if you skip this step it never learns what happened and simply cannot mention the price. On screen you should see the arguments the model asked for, your dict with <code>total: 7.2</code>, and a final sentence containing 7.20.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>messages.<span class="t-f">append</span>(msg.<span class="t-f">model_dump</span>(exclude_none=<span class="t-k">True</span>))
+
+<span class="t-k">for</span> call <span class="t-k">in</span> msg.tool_calls <span class="t-k">or</span> []:
+    args = json.<span class="t-f">loads</span>(call.function.arguments)
+    <span class="t-f">print</span>(<span class="t-s">&quot;model asked for:&quot;</span>, call.function.name, args)
+    result = <span class="t-f">get_price</span>(**args)          <span class="t-c"># &lt;-- THIS line is your code choosing to act</span>
+    <span class="t-f">print</span>(<span class="t-s">&quot;your function returned:&quot;</span>, result)
+    messages.<span class="t-f">append</span>({
+        <span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;tool&quot;</span>,
+        <span class="t-s">&quot;tool_call_id&quot;</span>: call.id,
+        <span class="t-s">&quot;content&quot;</span>: json.<span class="t-f">dumps</span>(result),
+    })
+
+final = <span class="t-f">chat_raw</span>(messages=messages, tools=[GET_PRICE_TOOL], tool_choice=<span class="t-s">&quot;none&quot;</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;final answer:&quot;</span>, final.choices[<span class="t-s">0</span>].message.content)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>messages.append(msg.model_dump(exclude_none=True))</dt><dd>The reply is an object, not a dict, so <code>model_dump</code> converts it into a plain dict you can put back in the list. <code>exclude_none=True</code> drops empty fields such as <code>content=None</code>, which several providers reject if you send them back.</dd>
+        <dt>for call in msg.tool_calls or []:</dt><dd>The model can ask for more than one tool in a single reply, so this is a loop. The <code>or []</code> turns <code>None</code> into an empty list, so a plain text reply skips the loop instead of crashing.</dd>
+        <dt>args = json.loads(call.function.arguments)</dt><dd><code>arguments</code> arrives as a string of JSON text, not as a dict, because it is streamed back character by character. <code>json.loads</code> parses that string into a real Python dict.</dd>
+        <dt>result = get_price(**args)</dt><dd>The one line in the whole file where something actually happens. The <code>**</code> spreads the dict into keyword arguments, so <code>{&quot;item&quot;: &quot;bread&quot;, &quot;quantity&quot;: 3}</code> becomes <code>get_price(item=&quot;bread&quot;, quantity=3)</code>. Delete this line and the model can ask forever with no effect.</dd>
+        <dt>{&quot;role&quot;: &quot;tool&quot;, &quot;tool_call_id&quot;: call.id, &quot;content&quot;: json.dumps(result)}</dt><dd>The result goes back as a message with the role <code>tool</code>. <code>tool_call_id</code> pairs it with the exact request it answers, and <code>json.dumps</code> turns your dict into text because message content must be a string.</dd>
+        <dt>final = chat_raw(messages=messages, tools=[GET_PRICE_TOOL], tool_choice=&quot;none&quot;)</dt><dd>The second API call, now with the tool result in the history. <code>&quot;none&quot;</code> forbids another tool call, which is what makes the model summarise instead of looping.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Why a tool call costs more than it looks like it should.
+
+Formula:
+  P(k+1) = P(k) + A(k) + T(k)
+  total input billed = P(1) + P(2) + ... + P(N)
+
+What the symbols mean:
+  P(k) = input tokens sent on API call number k
+  A(k) = tokens the model wrote on call k (the tool call itself)
+  T(k) = tokens of your tool result, the JSON you appended
+  N = how many API calls one user question ended up needing
+
+Worked example for this step, using round numbers:
+  P(1) = 150 (system message, user question and the tool definition)
+  A(1) = 25 (the tool call the model wrote)
+  T(1) = 30 (your JSON result)
+  P(2) = 150 + 25 + 30 = 205
+  Total input billed for one question = 150 + 205 = 355 tokens, even though the user typed seven words.
+  If a task needed 4 rounds each adding about 55 tokens: total = 4 * 150 + 55 * (1 + 2 + 3) = 600 + 330 = 930 tokens.
+
+Intuitively: every round re-sends everything that came before it, so input cost grows roughly with the square of the number of rounds, not in a straight line. That is why the mini-project asks you to cap the loop at four rounds.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If you forget the messages.append(msg...) line first, most providers return a 400 error saying a tool message must follow a message containing tool_calls, which reads like a nonsense error until you know this.</span></div>
+        </li>
+        <li><h3>Stop trusting the arguments</h3><p><code>get_price(**args)</code> is fine until the model invents an argument name, at which point Python raises <code>TypeError: unexpected keyword argument</code> and your program dies mid conversation. Worse, it will happily accept <code>quantity: -5</code>, because nothing in your Python code checks the number, and the schema in step 3 only asked politely. Pydantic is a library where you describe the data you expect as a class, and it checks real data against that description for you. <code>PriceArgs.model_validate_json(raw_args)</code> either hands you a typed object with clean values or raises a <code>ValidationError</code> naming the exact bad field. Replace the old line with <code>result = run_tool(call.function.name, call.function.arguments)</code>, and note that <code>run_tool</code> never raises, it always returns a dict, so a bad call becomes a tool result the model can read and correct on its next turn instead of a crash. By default Pydantic ignores extra fields the model made up, and you can add <code>model_config = ConfigDict(extra=&quot;forbid&quot;)</code> if you would rather reject them loudly. Test it by hand: call <code>run_tool(&quot;get_price&quot;, '{&quot;item&quot;: &quot;bread&quot;, &quot;quantity&quot;: -5}')</code> and read the error dict that comes back.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-k">from</span> pydantic <span class="t-k">import</span> BaseModel, Field, ValidationError
+
+<span class="t-k">class</span> <span class="t-f">PriceArgs</span>(BaseModel):
+    item: str
+    quantity: int = <span class="t-f">Field</span>(default=<span class="t-s">1</span>, ge=<span class="t-s">1</span>)
+
+<span class="t-k">def</span> <span class="t-f">run_tool</span>(name: str, raw_args: str) -&gt; dict:
+    <span class="t-k">if</span> name != <span class="t-s">&quot;get_price&quot;</span>:
+        <span class="t-k">return</span> {<span class="t-s">&quot;error&quot;</span>: f<span class="t-s">&quot;no tool called {name}&quot;</span>}
+    <span class="t-k">try</span>:
+        args = PriceArgs.<span class="t-f">model_validate_json</span>(raw_args)
+    <span class="t-k">except</span> ValidationError <span class="t-k">as</span> e:
+        <span class="t-k">return</span> {<span class="t-s">&quot;error&quot;</span>: <span class="t-s">&quot;bad arguments&quot;</span>, <span class="t-s">&quot;detail&quot;</span>: <span class="t-f">str</span>(e)}
+    <span class="t-k">return</span> <span class="t-f">get_price</span>(args.item, args.quantity)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>class PriceArgs(BaseModel):</dt><dd>Describes the arguments you are willing to accept as a class. It is the same information as the JSON Schema in step 3, but this copy is enforced by your own machine rather than requested from the provider.</dd>
+        <dt>quantity: int = Field(default=1, ge=1)</dt><dd><code>int</code> rejects 2.5 and &quot;three&quot;. <code>ge=1</code> means greater than or equal to 1, so a negative or zero quantity is refused. <code>default=1</code> matches the Python function default, so an omitted quantity still works.</dd>
+        <dt>if name != &quot;get_price&quot;: return {&quot;error&quot;: f&quot;no tool called {name}&quot;}</dt><dd>A dispatch guard. Models sometimes ask for a tool you never attached, and this returns that fact as data instead of letting a lookup blow up. With three tools this becomes a small lookup table.</dd>
+        <dt>args = PriceArgs.model_validate_json(raw_args)</dt><dd>Parses the JSON string and checks it in one move, so you no longer need <code>json.loads</code> here. If the string is not even valid JSON, this raises the same <code>ValidationError</code> you are already catching.</dd>
+        <dt>except ValidationError as e: return {&quot;error&quot;: &quot;bad arguments&quot;, &quot;detail&quot;: str(e)}</dt><dd>The error text names the field and the rule that failed, and you send it back to the model as the tool result. Models repair a named error far better than a vague complaint, so this detail is worth the tokens.</dd>
+        <dt>return get_price(args.item, args.quantity)</dt><dd>Calls your function with validated values, passed one by one instead of spread with <code>**</code>. Nothing the model invented can reach your function signature any more.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>The constraint you just added, in plain arithmetic.
+
+Rule:
+  accept quantity q only if q is a whole number and q &gt;= 1
+
+What the symbols mean:
+  q = the quantity the model wrote in its arguments
+  &gt;= means greater than or equal to, which is what ge=1 says in Field
+
+Worked example:
+  q = 3     accepted. total = 2.40 * 3 = 7.20
+  q = -5    rejected by ge=1. Without the check, the old code returned total = 2.40 * -5 = -12.00, a refund the shop never agreed to.
+  q = 0     rejected. total would have been 0.00, which looks like a free loaf.
+  q = 2.5   rejected by the int type, because half a loaf is not something this shop sells.
+
+Intuitively: the schema in step 3 asks the model nicely, this check enforces the rule on your side. Only one of those two runs on hardware you control, and it is this one.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Do not forget to actually swap the old line for result = run_tool(call.function.name, call.function.arguments), because defining run_tool without calling it leaves the unsafe path running and everything still looks fine.</span></div>
+        </li>
+        <li><h3>Take control with tool_choice</h3><p><code>tool_choice</code> is the one parameter that settles whether using a tool is optional, and this step shows both extremes side by side. Run the two calls and compare them honestly. With <code>&quot;none&quot;</code> the tool is attached but forbidden, so the model answers from memory and usually invents a price like 2.50 or 3.00, which proves the tool was doing real work in step 5 rather than decorating an answer the model already knew. With a named tool forced onto &quot;Tell me a joke&quot;, watch it call <code>get_price</code> anyway with an invented item such as &quot;joke&quot; or &quot;bread&quot;, because forcing removes the option of saying no, it does not create understanding. That failure mode is the important half of this step, so read the arguments it made up before moving on. Some providers served through an OpenAI compatible endpoint reject a forced choice, so if you get an error here, write it down as a real portability limit rather than a bug in your code.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>a = <span class="t-f">chat_raw</span>(messages=[{<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: <span class="t-s">&quot;How much for 3 loaves of bread?&quot;</span>}],
+             tools=[GET_PRICE_TOOL], tool_choice=<span class="t-s">&quot;none&quot;</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;none   -&gt;&quot;</span>, a.choices[<span class="t-s">0</span>].message.content)
+
+b = <span class="t-f">chat_raw</span>(messages=[{<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: <span class="t-s">&quot;Tell me a joke.&quot;</span>}],
+             tools=[GET_PRICE_TOOL],
+             tool_choice={<span class="t-s">&quot;type&quot;</span>: <span class="t-s">&quot;function&quot;</span>, <span class="t-s">&quot;function&quot;</span>: {<span class="t-s">&quot;name&quot;</span>: <span class="t-s">&quot;get_price&quot;</span>}})
+<span class="t-f">print</span>(<span class="t-s">&quot;forced -&gt;&quot;</span>, b.choices[<span class="t-s">0</span>].message.tool_calls)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>tools=[GET_PRICE_TOOL], tool_choice=&quot;none&quot;</dt><dd>The tool is still attached, so you still pay for its definition, but the model is not allowed to call it. This is the setting you want on a final summarising turn, and here it is a controlled experiment showing what the model knows without help.</dd>
+        <dt>print(&quot;none   -&gt;&quot;, a.choices[0].message.content)</dt><dd>Reads <code>content</code> rather than <code>tool_calls</code>, because with <code>&quot;none&quot;</code> there will not be any tool calls. Compare the number it invents against the real 7.20 from step 5.</dd>
+        <dt>tool_choice={&quot;type&quot;: &quot;function&quot;, &quot;function&quot;: {&quot;name&quot;: &quot;get_price&quot;}}</dt><dd>Names one specific tool and forces it. This turns tool calling into a dependable data extractor when the tool genuinely fits, and into confident nonsense when it does not.</dd>
+        <dt>print(&quot;forced -&gt;&quot;, b.choices[0].message.tool_calls)</dt><dd>Prints the invented arguments for a question with no item in it. Seeing the model fill in a plausible looking item for a joke request is the whole point of this step.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>What forcing actually does inside the model.
+
+Formula (the same softmax from step 4, with a mask):
+  masked score z_i' = z_i if token i is allowed, otherwise negative infinity
+  P(token i) = exp(z_i') / sum over all j of exp(z_j')
+  and exp(negative infinity) = 0
+
+What the symbols mean:
+  z_i = the score the model gave token i before any forcing
+  allowed = the set of tokens that are legal given your tool_choice setting
+  P(token i) = the probability after the illegal options are removed
+
+Worked example with three candidates:
+  z = 2.0 plain text, 1.0 call tool A, 0.5 call tool B
+  Free choice: exp values 7.39, 2.72, 1.65, total 11.76, so P = 0.63, 0.23, 0.14
+  tool_choice &quot;required&quot;: plain text is masked to 0, total = 2.72 + 1.65 = 4.37, so P(A) = 0.62 and P(B) = 0.38
+  tool_choice naming tool A: plain text and B are both masked to 0, so P(A) = 2.72 / 2.72 = 1.00
+
+Intuitively: forcing does not persuade the model that a tool fits, it deletes every other option and renormalises what is left. That is exactly why a forced call on &quot;Tell me a joke&quot; still produces confident, invented arguments instead of an admission that the tool does not apply.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>A 400 error on the second call means your endpoint does not support a named tool_choice, so record it as a portability limit and move on rather than rewriting your file.</span></div>
+        </li>
+        <li><h3>See what the definition costs</h3><p>Same two word question, sent twice, once with the tool attached and once without, so the only difference between the two numbers is the tool definition. The gap in <code>prompt_tokens</code> is what that one definition costs you on every request for the rest of the project, whether the tool is used or not. Expect the plain call to report something like 10 to 15 tokens and the armed call to report roughly 100 to 170, and your exact numbers will differ by provider because each one formats tool definitions its own way. Write the difference down in a comment at the top of your file, then multiply it by fifteen tools and by every turn in a long conversation, and you are looking at the main line item in an agent bill. Prompt caching can cut repeated input to roughly a tenth of the price, but it matches on prefixes, so keep the tool block early and unchanging and push timestamps and session IDs to the end of the prompt. This is also the cheapest habit in the course: measure the token cost of a design choice instead of guessing at it.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>plain = <span class="t-f">chat_raw</span>(messages=[{<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: <span class="t-s">&quot;say hi&quot;</span>}])
+armed = <span class="t-f">chat_raw</span>(messages=[{<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: <span class="t-s">&quot;say hi&quot;</span>}],
+                 tools=[GET_PRICE_TOOL], tool_choice=<span class="t-s">&quot;auto&quot;</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;without tools:&quot;</span>, plain.usage.prompt_tokens)
+<span class="t-f">print</span>(<span class="t-s">&quot;with 1 tool  :&quot;</span>, armed.usage.prompt_tokens)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>plain = chat_raw(messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;say hi&quot;}])</dt><dd>No <code>tools</code> argument at all, which is your baseline. The question is deliberately tiny so the tool definition dominates the difference rather than the words.</dd>
+        <dt>armed = chat_raw(..., tools=[GET_PRICE_TOOL], tool_choice=&quot;auto&quot;)</dt><dd>Identical question, one tool attached. Keeping every other part of the call the same is what makes the subtraction meaningful.</dd>
+        <dt>plain.usage.prompt_tokens and armed.usage.prompt_tokens</dt><dd><code>usage</code> is the provider's own billing count, not an estimate, which is why it is worth reading rather than guessing with the divide-by-4 rule from step 1. Subtract one from the other to get the real cost of your definition.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Turning the two printed numbers into a monthly bill.
+
+Formula:
+  d = armed_prompt_tokens - plain_prompt_tokens
+  tokens_per_month = d * number_of_tools * turns_per_conversation * conversations_per_month
+  cost = (tokens_per_month / 1,000,000) * price_per_million_input
+
+What the symbols mean:
+  d = the extra input tokens one tool definition adds to one request
+  turns_per_conversation = how many API calls one user session makes
+  price_per_million_input = your provider's input price per million tokens
+
+Worked example (your numbers will differ):
+  plain prints 12, armed prints 130, so d = 130 - 12 = 118 tokens.
+  15 tools of similar size: 15 * 118 = 1,770 tokens per request. This is slightly high, because some wrapper text is shared across tools rather than repeated.
+  12 turns per conversation: 1,770 * 12 = 21,240 input tokens per conversation.
+  At $0.50 per million: 21,240 / 1,000,000 * 0.50 = $0.0106 per conversation.
+  10,000 conversations a month: about $106 a month, spent before the user said anything useful.
+  With prompt caching working well, repeated input costs roughly a tenth, so that becomes about $11, but only while the cached prefix stays byte for byte identical.
+
+Intuitively: tool definitions are a fixed tax charged on every request, and the only ways to lower it are fewer tools, shorter descriptions, or a cache hit.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If either number prints None, your provider is not reporting usage on that call (this happens with some local servers), which means the delta is unmeasurable there rather than zero.</span></div>
+        </li>
+        </ol>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> You are done when you can point at four things on screen. One, the tool call the model asked for, showing name get_price and arguments containing quantity 3. Two, the dict your own function returned, with total 7.2. Three, a final sentence containing 7.20 that the model could only write because you fed the result back, and which it got wrong in step 7 when you forbade the tool. Four, the two prompt_tokens numbers from step 8 and their difference, written in a comment at the top of your file. You can also name the exact line where your code, not the model, chose to act (result = get_price(**args), or result = run_tool(call.function.name, call.function.arguments) after step 6), and say what happens if you delete it.</div></div>
+        </section>
+        <section class="section section--mini"><h2 class="section__h" data-stamp="hands on"><span>Mini-project: your turn</span></h2>
+        <p class="prose">Give the model three tools and see whether it picks the right one on all five questions. You write two files, tools.py and results.json, and check.py grades both.</p>
+        <p class="small muted">No code given. Produce the file, then run the checker.</p>
+        <ol class="steps">
+        <li><p>Create my-work/labs/lab09/tools.py with three plain functions and no model involved. get_price(item, quantity=1) returns a dict with a total key, using the PRICES dict from the lab. convert_currency(amount, from_currency, to_currency) returns a dict with a converted key at fixed rates, USD to EUR 0.92 and EUR to USD 1.087. convert_mass(value, from_unit, to_unit) returns a dict with a converted key using 1 kg = 2.20462 lb. Round money and weights to 2 decimal places, and call each function yourself before going on. Nothing in this file may call a model when it is imported.</p></li>
+        <li><p>In the same file add TOOLS, a list of exactly three definitions in the shape from lab step 3. The name in each definition must match the Python function name and the property names must match the argument names above, or the checker cannot line them up. Make the two converters genuinely similar in purpose, because that is where the model slips and where the descriptions earn their keep.</p></li>
+        <li><p>Add run_tool(name, raw_args) to tools.py. It validates raw_args with Pydantic and always returns a dict, never raises. An unknown tool name, unparseable JSON, and quantity -5 must all come back as {&quot;error&quot;: ...} so the model can read the problem and correct itself.</p></li>
+        <li><p>Write your five questions in a runner file, my-work/labs/lab09/run.py, with the tool you expect written next to each one before you run anything. One question must need no tool at all (expected null), and one must sit close to the line between the two converters.</p></li>
+        <li><p>Run the five with tool_choice=&quot;auto&quot; and write my-work/labs/lab09/results.json in exactly this shape: {&quot;runs&quot;: [{&quot;question&quot;: string, &quot;expected_tool&quot;: string or null, &quot;chosen_tool&quot;: string or null, &quot;arguments&quot;: object}, five of them], &quot;tokens&quot;: {&quot;no_tools&quot;: int, &quot;three_tools&quot;: int}}. Use {} for arguments when no tool was called. Take the two token counts from prompt_tokens on &quot;say hi&quot; sent once with the three tools attached and once without.</p></li>
+        <li><p>Run python check.py in my-work/labs/lab09. When a pick is wrong, edit only the tool description, never the question, then rerun run.py and check.py. Fixing one and breaking another is normal and is the lesson.</p></li>
+        </ol>
+        <div class="checker"><div class="checker__h">Check it yourself, automatically</div>
+        <p>Save this as <code>check.py</code> next to your work, then run <code>cd my-work/labs/lab09 &amp;&amp; python check.py</code>. It reads what you produced, tests it, and prints a line per check.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>check.py</span></div>
+<pre><span class="t-c"># check.py - checks the Module 9 mini-project. Run from my-work/labs/lab09: python check.py</span>
+<span class="t-c"># Reads what your run recorded. It never calls a model, so no API key, no internet.</span>
+<span class="t-k">import</span> json, sys, pathlib, importlib.util
+HERE, fails, NOTHING = pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parent, [], <span class="t-f">object</span>()
+
+<span class="t-k">def</span> <span class="t-f">check</span>(ok, msg, got=NOTHING):      <span class="t-c"># got is printed only when the check fails</span>
+    <span class="t-f">print</span>((<span class="t-s">&quot;PASS &quot;</span> <span class="t-k">if</span> ok <span class="t-k">else</span> <span class="t-s">&quot;FAIL &quot;</span>) + msg + (<span class="t-s">&quot;&quot;</span> <span class="t-k">if</span> ok <span class="t-k">or</span> got <span class="t-k">is</span> NOTHING <span class="t-k">else</span> <span class="t-s">&quot;, got %.100r&quot;</span> % (got,)))
+    <span class="t-k">if</span> <span class="t-k">not</span> ok: fails.<span class="t-f">append</span>(msg)
+
+<span class="t-k">def</span> <span class="t-f">need</span>(name):                       <span class="t-c"># stop with a sentence, not a traceback</span>
+    p = HERE / name
+    <span class="t-k">if</span> <span class="t-k">not</span> p.<span class="t-f">exists</span>():
+        <span class="t-f">print</span>(<span class="t-s">&quot;FAIL missing file: %s&quot;</span> % p)
+        <span class="t-f">print</span>(<span class="t-s">&quot;Write it first. The mini-project steps give the exact shape.&quot;</span>); sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+    <span class="t-k">return</span> p
+
+res_path, tools_path = <span class="t-f">need</span>(<span class="t-s">&quot;results.json&quot;</span>), <span class="t-f">need</span>(<span class="t-s">&quot;tools.py&quot;</span>)
+<span class="t-k">try</span>:
+    data = json.<span class="t-f">loads</span>(res_path.<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>))
+<span class="t-k">except</span> json.JSONDecodeError <span class="t-k">as</span> e:
+    <span class="t-f">print</span>(<span class="t-s">&quot;FAIL results.json is not valid JSON: %s&quot;</span> % e); sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+spec = importlib.util.<span class="t-f">spec_from_file_location</span>(<span class="t-s">&quot;learner_tools&quot;</span>, tools_path)
+mod = importlib.util.<span class="t-f">module_from_spec</span>(spec)
+<span class="t-k">try</span>:
+    spec.loader.<span class="t-f">exec_module</span>(mod)      <span class="t-c"># tools.py must not call a model at import time</span>
+<span class="t-k">except</span> Exception <span class="t-k">as</span> e:
+    <span class="t-f">print</span>(<span class="t-s">&quot;FAIL tools.py failed to import: %r&quot;</span> % e); sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+
+<span class="t-c"># --- the three tool definitions --------------------------------------------</span>
+tools = <span class="t-f">getattr</span>(mod, <span class="t-s">&quot;TOOLS&quot;</span>, <span class="t-k">None</span>)
+ok_tools = <span class="t-f">isinstance</span>(tools, list) <span class="t-k">and</span> <span class="t-f">len</span>(tools) == <span class="t-s">3</span>
+<span class="t-f">check</span>(ok_tools, <span class="t-s">&quot;TOOLS is a list of exactly 3 definitions&quot;</span>)
+names, props = [], {}
+<span class="t-k">if</span> ok_tools:
+    <span class="t-k">for</span> t <span class="t-k">in</span> tools:
+        fn = (t <span class="t-k">or</span> {}).<span class="t-f">get</span>(<span class="t-s">&quot;function&quot;</span>) <span class="t-k">or</span> {}
+        par = fn.<span class="t-f">get</span>(<span class="t-s">&quot;parameters&quot;</span>) <span class="t-k">or</span> {}
+        names.<span class="t-f">append</span>(fn.<span class="t-f">get</span>(<span class="t-s">&quot;name&quot;</span>))
+        props[fn.<span class="t-f">get</span>(<span class="t-s">&quot;name&quot;</span>)] = par.<span class="t-f">get</span>(<span class="t-s">&quot;properties&quot;</span>) <span class="t-k">if</span> <span class="t-f">isinstance</span>(par.<span class="t-f">get</span>(<span class="t-s">&quot;properties&quot;</span>), dict) <span class="t-k">else</span> {}
+        <span class="t-f">check</span>(<span class="t-f">bool</span>(fn.<span class="t-f">get</span>(<span class="t-s">&quot;description&quot;</span>)) <span class="t-k">and</span> <span class="t-f">bool</span>(props[fn.<span class="t-f">get</span>(<span class="t-s">&quot;name&quot;</span>)]),
+              <span class="t-s">&quot;tool %r has a description and named parameters&quot;</span> % fn.<span class="t-f">get</span>(<span class="t-s">&quot;name&quot;</span>))
+    <span class="t-f">check</span>(<span class="t-f">len</span>(<span class="t-f">set</span>(names)) == <span class="t-s">3</span> <span class="t-k">and</span> <span class="t-f">all</span>(names), <span class="t-s">&quot;three different tool names: %s&quot;</span> % names)
+
+<span class="t-c"># --- dispatch returns data, never an exception ------------------------------</span>
+run_tool = <span class="t-f">getattr</span>(mod, <span class="t-s">&quot;run_tool&quot;</span>, <span class="t-k">None</span>)
+<span class="t-f">check</span>(<span class="t-f">callable</span>(run_tool), <span class="t-s">&quot;run_tool(name, raw_args) exists&quot;</span>)
+<span class="t-k">if</span> <span class="t-f">callable</span>(run_tool):
+    <span class="t-k">def</span> <span class="t-f">call</span>(n, raw):                 <span class="t-c"># a raise here is itself a failure, not a crash</span>
+        <span class="t-k">try</span>: <span class="t-k">return</span> <span class="t-f">run_tool</span>(n, raw)
+        <span class="t-k">except</span> Exception <span class="t-k">as</span> e: <span class="t-k">return</span> {<span class="t-s">&quot;raised instead of returning a dict&quot;</span>: <span class="t-f">repr</span>(e)}
+    <span class="t-k">for</span> n, raw, msg <span class="t-k">in</span> [(<span class="t-s">&quot;no_such_tool&quot;</span>, <span class="t-s">&quot;{}&quot;</span>, <span class="t-s">&quot;unknown tool name returns an error dict&quot;</span>),
+                        (<span class="t-s">&quot;get_price&quot;</span>, <span class="t-s">'{&quot;item&quot;:&quot;bread&quot;,&quot;quantity&quot;:-5}'</span>, <span class="t-s">&quot;quantity -5 is refused&quot;</span>),
+                        (<span class="t-s">&quot;get_price&quot;</span>, <span class="t-s">&quot;not json&quot;</span>, <span class="t-s">&quot;unparseable arguments return an error dict&quot;</span>)]:
+        r = <span class="t-f">call</span>(n, raw)
+        <span class="t-f">check</span>(<span class="t-f">isinstance</span>(r, dict) <span class="t-k">and</span> <span class="t-s">&quot;error&quot;</span> <span class="t-k">in</span> r, msg, r)
+    <span class="t-k">for</span> n, raw, want, msg <span class="t-k">in</span> [
+            (<span class="t-s">&quot;convert_mass&quot;</span>, <span class="t-s">'{&quot;value&quot;:5,&quot;from_unit&quot;:&quot;kg&quot;,&quot;to_unit&quot;:&quot;lb&quot;}'</span>, <span class="t-s">11.02</span>, <span class="t-s">&quot;5 kg is about 11.02 lb&quot;</span>),
+            (<span class="t-s">&quot;convert_currency&quot;</span>, <span class="t-s">'{&quot;amount&quot;:10,&quot;from_currency&quot;:&quot;USD&quot;,&quot;to_currency&quot;:&quot;EUR&quot;}'</span>, <span class="t-s">9.20</span>,
+             <span class="t-s">&quot;10 USD is 9.20 EUR at the fixed 0.92 rate&quot;</span>)]:
+        r = <span class="t-f">call</span>(n, raw)
+        v = r.<span class="t-f">get</span>(<span class="t-s">&quot;converted&quot;</span>) <span class="t-k">if</span> <span class="t-f">isinstance</span>(r, dict) <span class="t-k">else</span> r
+        <span class="t-f">check</span>(<span class="t-f">isinstance</span>(v, (int, float)) <span class="t-k">and</span> <span class="t-f">abs</span>(v - want) &lt; <span class="t-s">0.02</span>, msg, r)
+
+<span class="t-c"># --- the recorded run -------------------------------------------------------</span>
+runs, keys = data.<span class="t-f">get</span>(<span class="t-s">&quot;runs&quot;</span>), {<span class="t-s">&quot;question&quot;</span>, <span class="t-s">&quot;expected_tool&quot;</span>, <span class="t-s">&quot;chosen_tool&quot;</span>, <span class="t-s">&quot;arguments&quot;</span>}
+ok_runs = <span class="t-f">isinstance</span>(runs, list) <span class="t-k">and</span> <span class="t-f">len</span>(runs) == <span class="t-s">5</span> <span class="t-k">and</span> <span class="t-f">all</span>(
+    <span class="t-f">isinstance</span>(r, dict) <span class="t-k">and</span> keys &lt;= <span class="t-f">set</span>(r) <span class="t-k">for</span> r <span class="t-k">in</span> runs)
+<span class="t-f">check</span>(ok_runs, <span class="t-s">&quot;results.json holds 5 runs, each with %s&quot;</span> % <span class="t-f">sorted</span>(keys))
+<span class="t-k">if</span> ok_runs:
+    <span class="t-f">check</span>(<span class="t-f">sum</span>(r[<span class="t-s">&quot;expected_tool&quot;</span>] <span class="t-k">is</span> <span class="t-k">None</span> <span class="t-k">for</span> r <span class="t-k">in</span> runs) == <span class="t-s">1</span>, <span class="t-s">&quot;exactly one question expects no tool&quot;</span>)
+    <span class="t-f">check</span>(<span class="t-f">all</span>(r[<span class="t-s">&quot;chosen_tool&quot;</span>] <span class="t-k">in</span> names + [<span class="t-k">None</span>] <span class="t-k">for</span> r <span class="t-k">in</span> runs),
+          <span class="t-s">&quot;every chosen_tool is one of your three tools, or null&quot;</span>)
+    wrong = [r[<span class="t-s">&quot;question&quot;</span>] <span class="t-k">for</span> r <span class="t-k">in</span> runs <span class="t-k">if</span> r[<span class="t-s">&quot;chosen_tool&quot;</span>] != r[<span class="t-s">&quot;expected_tool&quot;</span>]]
+    <span class="t-f">check</span>(<span class="t-k">not</span> wrong, <span class="t-s">&quot;5 of 5 picks match your prediction. Wrong: %s&quot;</span> % wrong)
+    bad = [r[<span class="t-s">&quot;question&quot;</span>] <span class="t-k">for</span> r <span class="t-k">in</span> runs <span class="t-k">if</span> r[<span class="t-s">&quot;chosen_tool&quot;</span>]
+           <span class="t-k">and</span> <span class="t-k">not</span> <span class="t-f">set</span>(r[<span class="t-s">&quot;arguments&quot;</span>] <span class="t-k">or</span> {}) &lt;= <span class="t-f">set</span>(props.<span class="t-f">get</span>(r[<span class="t-s">&quot;chosen_tool&quot;</span>], {}))]
+    <span class="t-f">check</span>(<span class="t-k">not</span> bad, <span class="t-s">&quot;no invented argument names. Offenders: %s&quot;</span> % bad)
+
+tok = data.<span class="t-f">get</span>(<span class="t-s">&quot;tokens&quot;</span>) <span class="t-k">or</span> {}
+n0, n3 = tok.<span class="t-f">get</span>(<span class="t-s">&quot;no_tools&quot;</span>), tok.<span class="t-f">get</span>(<span class="t-s">&quot;three_tools&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">isinstance</span>(n0, int) <span class="t-k">and</span> <span class="t-f">isinstance</span>(n3, int) <span class="t-k">and</span> n3 &gt; n0,
+      <span class="t-s">&quot;prompt_tokens recorded, 3 tools cost more input than none (%s vs %s)&quot;</span> % (n0, n3))
+<span class="t-f">print</span>(<span class="t-s">&quot;\nNot checked automatically: whether your description wording is the clearest fix.&quot;</span>)
+<span class="t-k">if</span> fails: <span class="t-f">print</span>(<span class="t-s">&quot;%d CHECK(S) FAILED&quot;</span> % <span class="t-f">len</span>(fails)); sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;ALL CHECKS PASSED&quot;</span>)</pre></div>
+        </div>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> python check.py prints 17 PASS lines and ends with ALL CHECKS PASSED and exit code 0. A wrong pick prints FAIL with the question that missed, an invented argument name prints FAIL with the question that caused it, and a run_tool that raises instead of returning an error dict prints the exception it threw. The last line reminds you that the wording of your descriptions is not graded, so read that yourself once.</div></div>
+        <div class="note" style="margin-top:12px"><div class="note__t">If you want more</div><p>Add a sixth question that needs two tools in sequence, such as the price of three loaves converted into euros. Feed each result back until the model stops asking, with a hard cap of four rounds so a confused model cannot spin forever. Record it under a new top-level key such as &quot;bonus&quot;, because check.py reads only &quot;runs&quot; and &quot;tokens&quot; and ignores anything else.</p></div>
+        </section>
+        <section class="section section--quiz"><h2 class="section__h" data-stamp="on record"><span>Check yourself</span></h2>
+        <p class="small muted">Explained either way.</p>
+        <div class="quiz" data-quiz>
+        <div class="q" data-answer="2"><p class="q__q">Your program sends a question and the reply contains a tool call for delete_user with id 42. What has happened to user 42 at that moment?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>The user was deleted inside the model's sandbox.</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>The user was deleted, but only because the tool was not marked read only.</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Nothing. The reply is text asking your code to call that function.</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>The provider ran the function on their servers and put the result in the reply.</span></button>
+        </div><div class="q__why" hidden>The model only produces text, and a tool call is a request written in a structured form. Your code is the only thing that can act, so nothing happens until you choose to run the function. That is also why a permission check has to live in your code and cannot live in the prompt.</div></div>
+        <div class="q" data-answer="1"><p class="q__q">You attach fifteen tool definitions with long descriptions. Which statement about cost is true?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>They cost nothing until a tool is actually called.</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>They are sent as input tokens on every request, whether used or not.</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>They are billed as output tokens, since the model writes the call.</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>They are stored on the provider's side after the first request and are free after that.</span></button>
+        </div><div class="q__why" hidden>Definitions are pasted into the prompt each time you call the API, so unused tools still cost you. Agent workloads are input heavy already, which makes this the main driver of the bill. Prompt caching helps, but it matches on prefixes, so keep the tool block early and unchanging and put timestamps at the end.</div></div>
+        <div class="q" data-answer="3"><p class="q__q">Structured output with a JSON Schema is switched on and the schema says temp_c is a number. Which problem does this still not solve?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>A required field going missing from the reply.</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>A friendly sentence appearing before the opening brace.</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>A string arriving where a number was expected.</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>The value being wrong, such as 9000 for a room temperature.</span></button>
+        </div><div class="q__why" hidden>A schema controls shape only: field names, types, and what is required. It cannot know that 9000 is not a plausible room temperature, so range checks and sanity checks stay your job. That is why you still validate with something like Pydantic and retry with the exact error text attached.</div></div>
+        </div></section>
+        <section class="section section--notes notes" data-notes><h2 class="section__h" data-stamp="on record"><span>Your notes</span></h2>
+        <p class="small muted">Saves as you type, in this browser.</p>
+        <label class="sr" for="n9">Notes for this module</label>
+        <textarea id="n9" placeholder="What clicked? What is still fuzzy? What do you want to come back to?"></textarea><div class="notes__status"></div></section>
+        <section class="section section--done"><h2 class="section__h" data-stamp="on record"><span>Mark it done</span></h2>
+        <div class="marks"><button class="mark" data-mark="read" aria-pressed="false"><span>Read the notes</span></button><button class="mark" data-mark="lab" aria-pressed="false"><span>Finished the lab</span></button><button class="mark" data-mark="mini" aria-pressed="false"><span>Finished the mini-project</span></button></div></section>
+        <section class="section section--docs"><h2 class="section__h" data-stamp="reference"><span>Go to the source</span></h2>
+        <p class="small muted">If this course and the docs disagree, the docs are newer.</p><ul class="prose">
+        <li><a href="https://platform.openai.com/docs/guides/function-calling" target="_blank" rel="noopener">OpenAI: function calling guide</a></li>
+        <li><a href="https://platform.openai.com/docs/guides/structured-outputs" target="_blank" rel="noopener">OpenAI: structured outputs and JSON Schema</a></li>
+        <li><a href="https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview" target="_blank" rel="noopener">Anthropic: tool use overview</a></li>
+        <li><a href="https://docs.pydantic.dev/latest/" target="_blank" rel="noopener">Pydantic documentation</a></li>
+        <li><a href="https://json-schema.org/understanding-json-schema" target="_blank" rel="noopener">Understanding JSON Schema</a></li>
+        <li><a href="https://github.com/dottxt-ai/outlines" target="_blank" rel="noopener">Outlines (open source constrained decoding)</a></li>
+        </ul></section>
+    </div>
+    <nav data-chrome="pager"></nav>
+  </main>
+</div>
+
+<script src="../assets/data.js"></script>
+<script src="../assets/widgets.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

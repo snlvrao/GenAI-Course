@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>8. Context engineering</title>
+<meta name="description" content="Manage the model's limited working memory on purpose. This is the skill that separates a demo from a system.">
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+</head>
+<body data-module="m08" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="3">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+        <div data-chrome="modhead"></div>
+        <p class="prose">Your model has no memory. Every call, your program hands it one block of text, and that block is everything it knows, so this module is about choosing what goes in, what you cut, and how to see which cut broke the answer.</p>
+        <section class="section section--watch"><h2 class="section__h" data-stamp="take in"><span>Watch this first</span></h2>
+        <div data-videos="core"></div></section>
+        <section class="section section--ideas"><h2 class="section__h" data-stamp="take in"><span>The ideas, in plain English</span></h2>
+        <p class="small muted">Each idea, then a worked example of it.</p>
+        <div class="concepts">
+        <div class="concept"><div class="concept__n" aria-hidden="true">1</div><h3 class="concept__t">Your model forgets between calls</h3><p class="concept__b">A language model keeps nothing after it answers. Every call starts empty, and the only thing it sees is the text your program sends in that one call. Andrej Karpathy's November 2023 line still fits: the model is the CPU and the <strong>context window</strong> (the most text one call can hold) is the RAM. <strong>Context engineering</strong>, which Anthropic named in September 2025, means filling that block on purpose instead of letting it fill itself.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">turn 1, what your code actually sends over the wire</p><pre>[{<span class="t-f">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-f">&quot;content&quot;</span>: <span class="t-s">&quot;My invoice is INV-4471.&quot;</span>}]</pre><p class="eg__say">turn 3, your code resends all of it again, every time</p><pre>[{<span class="t-f">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>,      <span class="t-f">&quot;content&quot;</span>: <span class="t-s">&quot;My invoice is INV-4471.&quot;</span>},
+ {<span class="t-f">&quot;role&quot;</span>: <span class="t-s">&quot;assistant&quot;</span>, <span class="t-f">&quot;content&quot;</span>: <span class="t-s">&quot;Got it, INV-4471.&quot;</span>},
+ {<span class="t-f">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>,      <span class="t-f">&quot;content&quot;</span>: <span class="t-s">&quot;What was that number again?&quot;</span>}]</pre><p class="eg__say">-&gt; &quot;INV-4471.&quot;</p><p class="eg__say">now send only the last line and nothing else: -&gt; &quot;I don't have that number. Could you tell me the invoice ID?&quot;</p><div class="eg__cap">The conversation exists only because your code resends it on every call.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">2</div><h3 class="concept__t">Six layers, one budget</h3><p class="concept__b">That block usually holds six things at once: your system prompt, tool descriptions, retrieved documents, older turns, saved notes, and the user's question. The model does not see six categories, it sees one flat run of text with nothing marking which part matters. A 4,000 token log dump from step 3 sits at the same level as the question asked ten seconds ago. You set the order, the share of the budget, and the cut-off for each layer.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>layer</th><th>tokens</th><th>share of 845</th></tr></thead><tbody><tr><td>retrieved documents</td><td>362</td><td>43%</td></tr><tr><td>tool definitions</td><td>181</td><td>21%</td></tr><tr><td>conversation history</td><td>114</td><td>13%</td></tr><tr><td>memory notes</td><td>108</td><td>13%</td></tr><tr><td>system prompt</td><td>50</td><td>6%</td></tr><tr><td>user question</td><td>30</td><td>4%</td></tr></tbody></table><div class="eg__cap">Lab 8's own six layers. Retrieval eats 43 percent before you add anything.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 640 250" role="img" aria-label="Six things compete for one context budget, and accuracy falls as it fills" xmlns="http://www.w3.org/2000/svg"><title>Six things compete for one context budget, and accuracy falls as it fills</title><defs><marker id="ah-ctx" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><text x="160" y="20" text-anchor="middle" class="d-hi">what fills the window</text><rect x="20" y="30" width="280" height="24" rx="3" class="d-fill"/><text x="160.0" y="47.0" text-anchor="middle" class="d-t">system instructions</text><rect x="20" y="58" width="280" height="24" rx="3" class="d-fill"/><text x="160.0" y="75.0" text-anchor="middle" class="d-t">tool definitions</text><rect x="20" y="86" width="280" height="24" rx="3" class="d-fill"/><text x="160.0" y="103.0" text-anchor="middle" class="d-t">conversation history</text><rect x="20" y="114" width="280" height="32" rx="3" class="d-fill"/><text x="160.0" y="135.0" text-anchor="middle" class="d-t">retrieved documents</text><rect x="20" y="150" width="280" height="24" rx="3" class="d-fill"/><text x="160.0" y="167.0" text-anchor="middle" class="d-t">memory from last time</text><rect x="20" y="178" width="280" height="24" rx="3" class="d-fill"/><text x="160.0" y="195.0" text-anchor="middle" class="d-t">tool results arriving now</text><text x="160" y="222" text-anchor="middle" class="d-s">they all compete for one fixed budget</text><text x="480" y="20" text-anchor="middle" class="d-hi">what actually happens</text><path d="M360 190 L620 190" class="d-line"/><path d="M360 40 L360 190" class="d-line"/><path d="M360 60 C 430 62, 470 78, 510 110 C 550 145, 580 170, 615 182" class="d-curve"/><path d="M360 60 L615 60" class="d-dash"/><text x="500" y="52" text-anchor="middle" class="d-s">what you hoped for</text><text x="560" y="130" text-anchor="middle" class="d-hi">what you measure</text><text x="365" y="206" text-anchor="start" class="d-s">small</text><text x="615" y="206" text-anchor="end" class="d-s">1M tokens</text><text x="348" y="120" text-anchor="middle" class="d-s">accuracy</text><text x="490" y="240" text-anchor="middle" class="d-s">more input, worse answers, long before the limit</text></svg><figcaption><b>Context rot.</b> The advertised window is not the usable window. Chroma tested eighteen models in July 2025 and found accuracy drops as input grows, unevenly, well before the stated maximum. Filling a million tokens because you can is an expensive way to get a worse answer, so decide what earns its place.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">3</div><h3 class="concept__t">Longer input, worse answers</h3><p class="concept__b">In July 2025 a Chroma team (Kelly Hong, Anton Troynikov, Jeff Huber) ran the same task at many input lengths across 18 models. Accuracy got worse as input grew, unevenly, starting well before any advertised limit. They called it <strong>context rot</strong>, and the study names no safe threshold. Chroma sells a retrieval database, so treat the direction as well supported and the exact figures as theirs to defend.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>claim you will hear</th><th>in the study?</th><th>what it reports</th></tr></thead><tbody><tr><td>&quot;safe below 32,000 tokens&quot;</td><td>no</td><td>no threshold appears anywhere in it</td></tr><tr><td>&quot;only small models rot&quot;</td><td>no</td><td>all 18 models tested degraded</td></tr><tr><td>&quot;the fall is a smooth curve&quot;</td><td>no</td><td>uneven across models and tasks</td></tr><tr><td>&quot;a full window is a usable window&quot;</td><td>no</td><td>accuracy drops long before the limit</td></tr></tbody></table><div class="eg__cap">Four things people repeat about context rot, against what the paper says.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">4</div><h3 class="concept__t">Four ways context goes wrong</h3><p class="concept__b">Drew Breunig named these in June 2025 and the names stuck. <strong>Poisoning</strong> is a false fact entering the context and staying, because the model reads its own earlier output as settled truth. <strong>Distraction</strong> is a history so long the model repeats what it already did instead of choosing what to do next. <strong>Confusion</strong> is irrelevant material pulling the answer sideways, usually too many tools, and <strong>clash</strong> is two parts of the context contradicting each other with nothing saying which one you trust.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>failure</th><th>what happens</th><th>the lab 8 material, and what it would cause in an agent loop</th></tr></thead><tbody><tr><td>poisoning</td><td>a wrong fact enters and gets reused as truth</td><td>the 2025-11-02 note says the API is at 10.0.0.4, so the agent calls a dead host for 30 steps</td></tr><tr><td>distraction</td><td>long history crowds out fresh thinking</td><td>the agent calls list_payments a sixth time instead of issuing the refund</td></tr><tr><td>confusion</td><td>irrelevant material pulls the answer sideways</td><td>6 tools offered for a refund task, the model calls open_dispute()</td></tr><tr><td>clash</td><td>two parts disagree, nothing ranks them</td><td>history says the charges were &quot;on the 3rd and the 4th&quot;, a fresh lookup says the 11th</td></tr></tbody></table><div class="eg__cap">Each failure mode, with the lab 8 material that sets it up.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 640 240" role="img" aria-label="The four ways a context window goes wrong" xmlns="http://www.w3.org/2000/svg"><title>The four ways a context window goes wrong</title><defs><marker id="ah-fail" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><rect x="20" y="34" width="290" height="84" rx="6" class="d-box"/><text x="165.0" y="81.0" text-anchor="middle" class="d-t"></text><text x="165" y="58" text-anchor="middle" class="d-t">poisoning</text><text x="165" y="80" text-anchor="middle" class="d-s">a wrong fact gets into the context</text><text x="165" y="100" text-anchor="middle" class="d-s">and is repeated as true from then on</text><rect x="330" y="34" width="290" height="84" rx="6" class="d-box"/><text x="475.0" y="81.0" text-anchor="middle" class="d-t"></text><text x="475" y="58" text-anchor="middle" class="d-t">distraction</text><text x="475" y="80" text-anchor="middle" class="d-s">so much history piles up that the model</text><text x="475" y="100" text-anchor="middle" class="d-s">repeats it instead of thinking</text><rect x="20" y="128" width="290" height="84" rx="6" class="d-box"/><text x="165.0" y="175.0" text-anchor="middle" class="d-t"></text><text x="165" y="152" text-anchor="middle" class="d-t">confusion</text><text x="165" y="174" text-anchor="middle" class="d-s">irrelevant material is present,</text><text x="165" y="194" text-anchor="middle" class="d-s">so the model uses it anyway</text><rect x="330" y="128" width="290" height="84" rx="6" class="d-box"/><text x="475.0" y="175.0" text-anchor="middle" class="d-t"></text><text x="475" y="152" text-anchor="middle" class="d-t">clash</text><text x="475" y="174" text-anchor="middle" class="d-s">two parts of the context contradict,</text><text x="475" y="194" text-anchor="middle" class="d-s">and the later one usually wins</text><text x="320" y="232" text-anchor="middle" class="d-s">all four look the same from outside: a confident answer that is wrong</text></svg><figcaption><b>Four failure modes</b> (Drew Breunig, June 2025). They are not the same bug and the fixes differ: poisoning needs validation where data enters, distraction needs compaction, confusion needs tighter retrieval, clash needs an explicit order of precedence. Naming which one you have is most of the work.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">5</div><h3 class="concept__t">Bigger windows did not fix the cost</h3><p class="concept__b">Every current top model takes a million input tokens, GPT-5.6 included at all three tiers. Accuracy still rots as input grows, and you pay for every input token on every turn. Agent calls are input heavy, often 50,000 to 500,000 tokens in against a few hundred out. <strong>Prompt caching</strong> (the provider bills a repeated opening stretch at roughly a tenth) helps, but it matches on prefixes, so put anything that changes at the end of the prompt.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>prompt layout</th><th>cached / fresh input</th><th>billed as</th></tr></thead><tbody><tr><td>no caching at all</td><td>0 / 200,000</td><td>200,000</td></tr><tr><td>the 20,000 tokens that change, at the top</td><td>0 / 200,000</td><td>200,000</td></tr><tr><td>the 20,000 tokens that change, at the bottom</td><td>180,000 / 20,000</td><td>38,000</td></tr></tbody></table><div class="eg__cap">One 200,000 token call. Moving the 20,000 tokens that change to the end cuts the input bill 81 percent.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">6</div><h3 class="concept__t">Compaction trades detail for room</h3><p class="concept__b">When the window fills, the usual fix is <strong>compaction</strong>: ask a model to summarise the older turns and replace them with the summary. A fifty turn history can shrink to a few hundred tokens. The cost is that a model chose what mattered without knowing what you would need next, and a mistake in the summary is inherited by every later turn. Keep the raw turns on disk, and never compact the task definition or the file being edited.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">before: turns 1 to 50, 12,400 tokens</p><pre>&quot;user: the account is AC-90231, card ending 4417&quot;
+&quot;assistant: thanks, I see two charges on INV-4471&quot;
+...
+&quot;user: can you refund it to the same card?&quot;</pre><p class="eg__say">after compaction: 380 tokens, which open like this</p><pre>(&quot;The user reported a duplicate charge on INV-4471, confirmed it was &quot;
+ &quot;unintentional, and asked about the refund window. ...&quot;)</pre><p class="eg__say">turn 51 needs the account number. AC-90231 is not in the summary, and the raw turns are gone.</p><div class="eg__cap">12,400 tokens become 380. The account number is not one of them.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">7</div><h3 class="concept__t">Memory is a file, not a feature</h3><p class="concept__b">Nothing survives a session on its own, so memory means your program writes facts to a file or a small database and reads the relevant ones back next time. That is retrieval under a different name, and it inherits retrieval's problems. The worst is <strong>temporal drift</strong>: a note that was true when you saved it, is still on topic, and is now wrong. Timestamp every note, keep them few and specific, and give a note an expiry date when the fact can go stale.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre>MEMORY = [
+  <span class="t-s">&quot;2026-02-11: This agent handles the EU billing region. Amounts are shown in the invoice currency, not converted.&quot;</span>,
+  <span class="t-s">&quot;2026-02-11: This agent handles the EU billing region. Amounts are shown in the invoice currency, not converted. (re-saved)&quot;</span>,
+  <span class="t-s">&quot;2025-11-02: The staging billing API is at 10.0.0.4. Do not use it for real refunds.&quot;</span>,
+  <span class="t-s">&quot;2026-06-30: Supervisor approval codes are requested in the #billing-approvals channel and expire after one hour.&quot;</span>,
+]</pre><p class="eg__say">token cost: 28, 31, 21, 28 = 108 tokens. line 2 is a copy (31 wasted), and line 3 is 9 months old with nothing to confirm it (21 you cannot trust). The model reads all four with equal confidence. Only the date stamp separates them, and only if your code looks at it.</p><div class="eg__cap">Lab 8's memory file: 52 of its 108 tokens are a duplicate or wrong.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">8</div><h3 class="concept__t">Give messy work its own window</h3><p class="concept__b">If a job produces a lot of text you will not need again, hand it to a <strong>sub-agent</strong>, a separate model call with its own fresh context window and one narrow task. It reads the twenty search results and returns three sentences, so the noise never touches your main context. The trade is real: the sub-agent cannot see what the main agent knows unless you copy it in, you pay the input tokens twice, and a bad summary arrives looking exactly as trustworthy as a good one.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>approach</th><th>tokens into main context</th><th>paid across this turn and the next 5</th></tr></thead><tbody><tr><td>20 search results read inline, 420 tok each</td><td>8,400</td><td>8,400 + 8,400 x 5 = 50,400</td></tr><tr><td>sub-agent reads them, returns 3 sentences</td><td>60</td><td>8,400 in the sub-agent + 60 x 6 = 8,760</td></tr></tbody></table><div class="eg__cap">The saving compounds, because inline noise is resent on every later turn.</div></div>
+        </div>
+        </div></section>
+        <section class="section section--try"><h2 class="section__h" data-stamp="hands on"><span>Try it yourself</span></h2>
+        <p class="small muted" style="margin-bottom:6px">Fill a context window and watch it rot</p>
+        <div data-widget="context"></div>
+        </section>
+        <div class="note note--gap"><div class="note__t">Worth knowing</div><p>Almost every published rule about context engineering comes from a company that sells something next to it. Anthropic formalised the term and sells the model, Chroma published context rot and sells a retrieval database, and both claims point in a direction that suits the seller even though the evidence behind them is reasonable. Nobody has published a neutral, reproducible way to say how much context is too much for your particular task, and the quality of compaction summaries is essentially unmeasured, so test it on your own traces before you trust any number, including the ones here.</p></div>
+        <section class="section section--more"><h2 class="section__h" data-stamp="optional"><span>If you want to go deeper</span></h2>
+        <p class="small muted">Optional.</p>
+        <div data-videos="more"></div></section>
+        <section class="section section--lab"><h2 class="section__h" data-stamp="hands on"><span>Lab: follow along</span></h2>
+        <div data-setupbanner></div>
+        
+        <p class="prose">You are going to build a context packer: it takes six competing sources of text, a fixed token budget and a priority order, then decides what goes into the prompt and what gets cut. The part that matters most is the report, because it prints exactly what was dropped and why, with the numbers behind each decision. You will run the same question at three budgets and watch a correct answer turn into &quot;I do not know&quot;, purely because your packing threw away the one document that held the answer. Before you start, make sure <code>python llm.py</code> works, see <code>setup.html</code>.</p>
+        <p class="small muted">Code given, every line explained.</p>
+        <ol class="steps">
+        <li><h3>Open the folder and check your helper</h3><p>This step proves your shared helper is reachable before you write any real code. The helper lives at <code>my-work/labs/_shared/llm.py</code> and it is the only file in this course that talks to a language model, so if Python cannot import it, nothing later in the lab will run. The one-line command adds that shared folder to Python's import search path, imports <code>whoami</code>, and prints it. You should see a single line naming your provider, your model, the endpoint address and whether your key is set, something like <code>provider=groq  model=llama-3.1-8b-instant  endpoint=https://api.groq.com/openai/v1  key=set</code>. If it says <code>key=MISSING</code> instead, stop and fix your <code>.env</code> file now, because every model call in step 6 will fail the same way. Doing this check first means that when something breaks later, you already know it is your packing code and not your setup. Note that this lab, like every other module, switches provider by editing <code>LLM_PROVIDER</code> in <code>.env</code>, never by editing code.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>cd my-work\labs\lab08
+python -c <span class="t-s">&quot;import sys; sys.path.append('../_shared'); from llm import whoami; print(whoami())&quot;</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>cd my-work\labs\lab08</dt><dd>Moves you into the folder for this lab, which the course already ships. Every command in this lab assumes you are standing here, and the relative path <code>'../_shared'</code> on the next line only points at the right place from inside it.</dd>
+        <dt>sys.path.append('../_shared')</dt><dd>Python only imports from folders it already knows about. This adds the shared folder one level up to that list, so the import on the same line finds my-work/labs/_shared/llm.py without you copying that file into every lab folder.</dd>
+        <dt>from llm import whoami; print(whoami())</dt><dd>whoami reports which provider, model and endpoint you are about to use and whether your key is present. It makes no network call and costs nothing, so it is a safe check to run whenever you are confused about what is configured.</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>If you get <code>ModuleNotFoundError: No module named 'llm'</code> you are not standing inside the new folder, and if the line ends with <code>key=MISSING</code> your <code>.env</code> was not found, so fix both here rather than discovering them in step 6.</span></div>
+        </li>
+        <li><h3>Write the six sources</h3><p>Here you write the raw material, six separate layers of text that all want space in the same context window. On purpose there is more material here than the smallest budget can hold, because this lab is about choosing, and nothing forces a choice when everything fits. Three traps are planted deliberately, and you should leave all three exactly as they are. First, the document that actually answers the question sits third in <code>DOCS</code>, not first, so a packer that keeps only the top retrieval hits loses the answer. Second, two memory notes are near copies of each other, which is what a real memory file looks like after a few months, and packing both wastes tokens for no gain. Third, the note dated 2025-11-02 is stale: it is still on topic and it is no longer true, which is the failure the module calls temporal drift. Nothing runs yet, this file only holds data, and step 3 imports it.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab08/sources.py</span>
+
+SYSTEM = (
+    <span class="t-s">&quot;You are a support assistant for the Northwind billing system. &quot;</span>
+    <span class="t-s">&quot;Answer only from the context you are given. If the answer is not in the &quot;</span>
+    <span class="t-s">&quot;context, say exactly: I do not know from the context I was given.&quot;</span>
+)
+
+QUESTION = (
+    <span class="t-s">&quot;A customer paid twice for invoice INV-4471. How many days do I have to &quot;</span>
+    <span class="t-s">&quot;issue the refund, and do I need an approval code?&quot;</span>
+)
+
+TOOLS = [
+    <span class="t-s">&quot;lookup_invoice(invoice_id: str) -&gt; dict. Returns the invoice record including status, amount_cents, currency and the customer id.&quot;</span>,
+    <span class="t-s">&quot;list_payments(customer_id: str) -&gt; list[dict]. Returns every payment the customer has made, newest first, with charge dates.&quot;</span>,
+    <span class="t-s">&quot;refund(invoice_id: str, amount_cents: int, approval_code: str = '') -&gt; dict. Issues a refund against an invoice.&quot;</span>,
+    <span class="t-s">&quot;search_kb(query: str) -&gt; list[str]. Full text search over the internal support knowledge base. Returns up to ten passages.&quot;</span>,
+    <span class="t-s">&quot;send_email(to: str, subject: str, body: str) -&gt; dict. Sends an email to the customer from the support address.&quot;</span>,
+    <span class="t-s">&quot;open_dispute(invoice_id: str, reason: str) -&gt; dict. Moves an invoice into the disputes queue and assigns it to finance.&quot;</span>,
+]
+
+DOCS = [  <span class="t-c"># retrieved passages, best match first</span>
+    <span class="t-s">&quot;Refund policy overview. Refunds are returned to the original payment method used for the charge. Card refunds appear on the customer statement in three to five business days. Bank transfer refunds take five to ten business days. The customer does not need to return anything for a billing-only refund. Partial refunds are allowed on any invoice that has been paid in full. Refund records are written to the audit log and cannot be edited afterwards.&quot;</span>,
+    <span class="t-s">&quot;Duplicate payment handling. A duplicate payment is two successful charges against the same invoice number inside a rolling seven day period. The billing system does not block these automatically, because some customers pay part of an invoice twice on purpose. Confirm with the customer that the second charge was not intended before you take any action. Always check list_payments first.&quot;</span>,
+    <span class="t-s">&quot;Refund window and approval. A refund for a duplicate payment must be issued within 30 days of the date of the second charge. After 30 days the case moves to the finance team and support can no longer issue it. Any refund over 500 USD requires a supervisor approval code entered at the time of the refund. Refunds of 500 USD or less need no approval code.&quot;</span>,
+    <span class="t-s">&quot;Chargebacks. If the customer's bank has already opened a chargeback, stop. Do not refund a charge that is under dispute, because the account will be debited twice. Chargeback cases belong to the disputes queue. Add a note to the ticket and reassign it.&quot;</span>,
+]
+
+HISTORY = [  <span class="t-c"># oldest first</span>
+    <span class="t-s">&quot;user: Hi, I think one of my customers has been charged twice.&quot;</span>,
+    <span class="t-s">&quot;assistant: I can help with that. Do you have the invoice number?&quot;</span>,
+    <span class="t-s">&quot;user: It is INV-4471. The amount was 240 USD each time.&quot;</span>,
+    <span class="t-s">&quot;assistant: Thanks. I looked it up. There are two successful charges on INV-4471, on the 3rd and the 4th.&quot;</span>,
+    <span class="t-s">&quot;user: The customer says the second one was a mistake, they clicked pay twice.&quot;</span>,
+    <span class="t-s">&quot;assistant: Understood. I will check what the refund process is for a duplicate charge.&quot;</span>,
+]
+
+MEMORY = [  <span class="t-c"># notes carried from earlier sessions, with the date each was written</span>
+    <span class="t-s">&quot;2026-02-11: This agent handles the EU billing region. Amounts are shown in the invoice currency, not converted.&quot;</span>,
+    <span class="t-s">&quot;2026-02-11: This agent handles the EU billing region. Amounts are shown in the invoice currency, not converted. (re-saved)&quot;</span>,
+    <span class="t-s">&quot;2025-11-02: The staging billing API is at 10.0.0.4. Do not use it for real refunds.&quot;</span>,
+    <span class="t-s">&quot;2026-06-30: Supervisor approval codes are requested in the #billing-approvals channel and expire after one hour.&quot;</span>,
+]</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>say exactly: I do not know from the context I was given.</dt><dd>Gives the model one fixed sentence to produce when the context does not contain the answer. Because the wording is fixed, you can check for it in the output, and that is how you will spot the exact moment your packing starved the model.</dd>
+        <dt>DOCS = [  # retrieved passages, best match first</dt><dd>The list arrives in relevance order from a retriever, so index 0 is the best scoring match. That ordering is what makes the planted trap work, because a packer that trusts the ranking blindly keeps the top passages and loses the useful one.</dd>
+        <dt>Refund window and approval. A refund for a duplicate payment must be issued within 30 days</dt><dd>This third passage is the only one that contains both numbers the question asks for, the 30 day window and the 500 USD approval threshold. Keep your eye on this exact item, because it is the one you will watch disappear from the DROP lines later.</dd>
+        <dt>the two 2026-02-11 memory notes</dt><dd>They are the same sentence apart from a trailing (re-saved) marker. They exist so your duplicate check in step 4 has something realistic to catch, because memory files genuinely fill up with near copies over time.</dd>
+        <dt>2025-11-02: The staging billing API is at 10.0.0.4.</dt><dd>This note is old, still on topic, and probably no longer true. It is here so you can see that the date stamp is the only thing separating a useful note from a misleading one, since the model cannot tell them apart on its own.</dd>
+        <dt>HISTORY = [  # oldest first</dt><dd>The conversation is stored in normal reading order. Step 3 reverses it when packing so the newest turns are protected first, and step 5 flips it back for display, so the order changes twice on purpose.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Formula: layer_tokens = the sum of est_tokens(item) for every item in that layer, counting roughly four characters per token (the rule you write in step 3).
+
+What the symbols mean: est_tokens(item) is the estimated token cost of one string. layer_tokens is what that whole layer costs if you pack all of it.
+
+Worked example, the four retrieved documents. Their lengths are 449, 387, 354 and 252 characters. Divide each by four and round up: 449 becomes 113, 387 becomes 97, 354 becomes 89, 252 becomes 63. Add them: 113 + 97 + 89 + 63 = 362 tokens.
+
+Doing the same for every layer gives system 50, question 30, tools 181, docs 362, history 114, memory 108. Total = 50 + 30 + 181 + 362 + 114 + 108 = 845 tokens.
+
+What it means: docs are 362 of the 845 tokens, which is 100 * 362 / 845 = 43 percent of everything you have, so retrieval is the layer most likely to eat your budget. The passage holding the answer is 89 tokens, which costs about the same as four old chat turns, so this is a genuine trade and not an obvious one.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If you save <code>sources.py</code> anywhere other than next to <code>packer.py</code>, step 3 fails with <code>ModuleNotFoundError: No module named 'sources'</code>, which reads like a code bug and is really a file location problem.</span></div>
+        </li>
+        <li><h3>Count tokens and define one item</h3><p>Now you start <code>packer.py</code>, and the first thing it needs is a way to measure size. Models charge and limit by tokens, which are the sub-word pieces a model chops text into, not by characters and not by words. The exact count depends on which model's tokeniser you use, and installing one just for this lab is not worth it, so you approximate at four characters per token. Write the reason in the docstring, because a number that looks exact but is not causes bugs later when someone trusts it as a billing figure. The <code>Item</code> dataclass is the second half of this step: it holds one packable thing, which layer it came from, its text, its priority where 0 is most important, and whether it is pinned. Pinned means it goes in no matter what, which you use for the system prompt and the question, because a run missing either of those is meaningless. <code>build_items</code> flattens the six lists into one list of 22 Items, and once step 6 prints the total you should see 845 tokens of material available.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab08/packer.py</span>
+<span class="t-k">import</span> re
+<span class="t-k">from</span> dataclasses <span class="t-k">import</span> dataclass
+<span class="t-k">from</span> sources <span class="t-k">import</span> SYSTEM, QUESTION, TOOLS, DOCS, HISTORY, MEMORY
+
+
+<span class="t-k">def</span> <span class="t-f">est_tokens</span>(text: str) -&gt; int:
+    <span class="t-s">&quot;&quot;&quot;Rough estimate. Real tokenisers differ per model. This is close enough
+    to reason about budgets and it needs no extra install.&quot;&quot;&quot;</span>
+    <span class="t-k">return</span> <span class="t-f">max</span>(<span class="t-s">1</span>, (<span class="t-f">len</span>(text) + <span class="t-s">3</span>) // <span class="t-s">4</span>)
+
+
+@dataclass
+<span class="t-k">class</span> Item:
+    source: str        <span class="t-c"># one of: system, question, tools, docs, history, memory</span>
+    text: str
+    priority: int      <span class="t-c"># 0 is most important</span>
+    pinned: bool = <span class="t-k">False</span>
+
+    @property
+    <span class="t-k">def</span> <span class="t-f">tokens</span>(<span class="t-k">self</span>) -&gt; int:
+        <span class="t-k">return</span> <span class="t-f">est_tokens</span>(<span class="t-k">self</span>.text)
+
+
+<span class="t-k">def</span> <span class="t-f">build_items</span>():
+    items = [<span class="t-f">Item</span>(<span class="t-s">&quot;system&quot;</span>, SYSTEM, <span class="t-s">0</span>, pinned=<span class="t-k">True</span>),
+             <span class="t-f">Item</span>(<span class="t-s">&quot;question&quot;</span>, QUESTION, <span class="t-s">0</span>, pinned=<span class="t-k">True</span>)]
+    items += [<span class="t-f">Item</span>(<span class="t-s">&quot;tools&quot;</span>, t, <span class="t-s">1</span>) <span class="t-k">for</span> t <span class="t-k">in</span> TOOLS]
+    items += [<span class="t-f">Item</span>(<span class="t-s">&quot;docs&quot;</span>, d, <span class="t-s">2</span>) <span class="t-k">for</span> d <span class="t-k">in</span> DOCS]
+    items += [<span class="t-f">Item</span>(<span class="t-s">&quot;history&quot;</span>, h, <span class="t-s">3</span>) <span class="t-k">for</span> h <span class="t-k">in</span> <span class="t-f">reversed</span>(HISTORY)]  <span class="t-c"># newest first</span>
+    items += [<span class="t-f">Item</span>(<span class="t-s">&quot;memory&quot;</span>, m, <span class="t-s">4</span>) <span class="t-k">for</span> m <span class="t-k">in</span> MEMORY]
+    <span class="t-k">return</span> items</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>return max(1, (len(text) + 3) // 4)</dt><dd>Counts the characters and divides by four, adding 3 first so the division rounds up rather than down. The max(1, ...) makes sure nothing is ever counted as zero tokens, which would otherwise let empty strings into the prompt for free.</dd>
+        <dt>@dataclass</dt><dd>Generates the constructor and the printable representation from the field names below it, so you write four lines instead of fifteen. It is a convenience only, and the class behaves like any ordinary Python class.</dd>
+        <dt>the tokens property</dt><dd>Marking it with @property means you read it.tokens like an attribute, but the value is recomputed from the current text every time. That way you can edit an item's text and the count stays correct, with no stale stored number to forget about.</dd>
+        <dt>Item(&quot;system&quot;, SYSTEM, 0, pinned=True)</dt><dd>Priority 0 and pinned=True both matter, and they do different jobs. Priority decides where it sits in the sort, while pinned makes the packer skip every rejection check, so the system prompt and the question are guaranteed to be in the prompt at any budget.</dd>
+        <dt>items += [Item(&quot;history&quot;, h, 3) for h in reversed(HISTORY)]  # newest first</dt><dd>Reversing before packing means the most recent turns are considered first. If the budget runs out part way through, it is the oldest turns that get cut, which is almost always the right thing to lose in a conversation.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Formula: tokens = max(1, (characters + 3) // 4)
+
+What the symbols mean: characters is len(text), the number of characters in the string. // is integer division in Python, which divides and throws the remainder away. Adding 3 before dividing by 4 turns rounding down into rounding up. max(1, ...) means the result is never below 1.
+
+Worked example one, the SYSTEM string, which is 199 characters long. 199 + 3 = 202. 202 // 4 = 50, because 4 times 50 is 200 and the leftover 2 is discarded. So 50 tokens. Checking it by hand: 199 / 4 = 49.75, and rounded up that is 50, the same answer.
+
+Worked example two, showing why the +3 is there. Take a 5 character string. Without the +3 you get 5 // 4 = 1, which undercounts. With it you get (5 + 3) // 4 = 8 // 4 = 2, which is right.
+
+What it means: ordinary English text costs roughly one token per four characters, so dividing the character count by four is close enough to plan a budget with.
+
+Being honest about the simplification: real tokenisers split text into learned sub-word pieces, so the true count depends on which model you call. Code, JSON, long numbers and non-English text pack worse, sometimes nearer two or three characters per token, so this estimate can be low by half on that kind of input. Use it to reason about budgets, never to predict a bill.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Because <code>tokens</code> is a property you write <code>it.tokens</code> with no brackets, and writing <code>it.tokens()</code> gives <code>TypeError: 'int' object is not callable</code>, which is confusing until you remember the @property line.</span></div>
+        </li>
+        <li><h3>Write the packer</h3><p>This is the decision logic, the part that actually chooses what survives. It walks the items in a fixed order, pinned first and then by priority, and asks four questions of each one before letting it in. A source cap limits each layer to a fixed share of the budget, which stops one greedy layer swallowing everything, and retrieval is the usual offender because it will happily hand you fifty passages. A duplicate check stops the same text going in twice, which is where the module's clash and confusion failures come from, since two copies of a fact look like two independent confirmations to the model. Be clear about how crude this duplicate check is: it compares the first 80 characters after lowercasing and squashing whitespace, so it catches near identical copies and nothing else, while real deduplication compares meaning using the embeddings from the retrieval module. Every rejection is recorded with a reason code and the five numbers behind it, and that record is exactly what the mini-project later turns into plain English. Nothing prints yet, so run nothing at this point, the payoff arrives in step 5.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>CAPS = {<span class="t-s">&quot;docs&quot;</span>: <span class="t-s">0.40</span>, <span class="t-s">&quot;history&quot;</span>: <span class="t-s">0.25</span>, <span class="t-s">&quot;memory&quot;</span>: <span class="t-s">0.10</span>}  <span class="t-c"># share of budget allowed</span>
+
+
+<span class="t-k">def</span> <span class="t-f">_key</span>(text: str) -&gt; str:
+    <span class="t-k">return</span> re.<span class="t-f">sub</span>(r<span class="t-s">&quot;\s+&quot;</span>, <span class="t-s">&quot; &quot;</span>, text.<span class="t-f">strip</span>().<span class="t-f">lower</span>())[:<span class="t-s">80</span>]
+
+
+<span class="t-k">def</span> <span class="t-f">pack</span>(items, budget):
+    order = <span class="t-f">sorted</span>(items, key=<span class="t-k">lambda</span> i: (<span class="t-k">not</span> i.pinned, i.priority))
+    kept, dropped, seen = [], [], <span class="t-f">set</span>()
+    used = <span class="t-s">0</span>
+    per_source = {}
+
+    <span class="t-k">for</span> it <span class="t-k">in</span> order:
+        cap = <span class="t-f">int</span>(budget * CAPS[it.source]) <span class="t-k">if</span> it.source <span class="t-k">in</span> CAPS <span class="t-k">else</span> budget
+        so_far = per_source.<span class="t-f">get</span>(it.source, <span class="t-s">0</span>)
+
+        <span class="t-k">if</span> it.pinned:
+            why = <span class="t-k">None</span>
+        <span class="t-k">elif</span> <span class="t-f">_key</span>(it.text) <span class="t-k">in</span> seen:
+            why = <span class="t-s">&quot;duplicate&quot;</span>
+        <span class="t-k">elif</span> it.tokens &gt; cap:
+            why = <span class="t-s">&quot;bigger_than_source_cap&quot;</span>
+        <span class="t-k">elif</span> so_far + it.tokens &gt; cap:
+            why = <span class="t-s">&quot;source_cap_reached&quot;</span>
+        <span class="t-k">elif</span> used + it.tokens &gt; budget:
+            why = <span class="t-s">&quot;no_room_left&quot;</span>
+        <span class="t-k">else</span>:
+            why = <span class="t-k">None</span>
+
+        <span class="t-k">if</span> why:
+            dropped.<span class="t-f">append</span>({<span class="t-s">&quot;item&quot;</span>: it, <span class="t-s">&quot;reason&quot;</span>: why, <span class="t-s">&quot;budget&quot;</span>: budget,
+                            <span class="t-s">&quot;used&quot;</span>: used, <span class="t-s">&quot;cap&quot;</span>: cap, <span class="t-s">&quot;source_used&quot;</span>: so_far,
+                            <span class="t-s">&quot;needed&quot;</span>: it.tokens})
+        <span class="t-k">else</span>:
+            kept.<span class="t-f">append</span>(it)
+            used += it.tokens
+            per_source[it.source] = so_far + it.tokens
+            seen.<span class="t-f">add</span>(<span class="t-f">_key</span>(it.text))
+
+    <span class="t-k">return</span> kept, dropped, used</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>CAPS = {&quot;docs&quot;: 0.40, &quot;history&quot;: 0.25, &quot;memory&quot;: 0.10}</dt><dd>Each number is a share of the whole budget, not a token count, so the caps rescale automatically whenever you change the budget. Layers missing from this dictionary get no cap at all, and that choice has real consequences at small budgets.</dd>
+        <dt>re.sub(r&quot;\s+&quot;, &quot; &quot;, text.strip().lower())[:80]</dt><dd>Collapses every run of whitespace into a single space, lowercases everything, and keeps the first 80 characters. Two texts that begin the same way therefore produce the same key, which is how the near copy of the memory note gets caught.</dd>
+        <dt>sorted(items, key=lambda i: (not i.pinned, i.priority))</dt><dd>Sorting on a tuple sorts on the first value and breaks ties with the second. `not i.pinned` is False for pinned items and False counts as 0 in Python, so pinned items come first, and because Python's sort is stable, items sharing a priority keep the order build_items gave them.</dd>
+        <dt>the if/elif chain</dt><dd>The checks run in a fixed order and the first match wins, so an item that is both a duplicate and too big is reported only as a duplicate. Pinned is checked first, and that single line is what makes pinning absolute rather than merely strong.</dd>
+        <dt>the dropped.append record</dt><dd>It stores five numbers alongside the reason code: the budget, how much was already used, the cap for that layer, how much that layer had already spent, and how much the item needed. The mini-project turns exactly these numbers into a readable sentence, so capturing them now saves you rewriting the packer later.</dd>
+        <dt>the three running totals in the else branch</dt><dd>used, per_source and seen are updated only when an item is genuinely kept. If you update them before the checks run, the packer starts counting tokens it never packed and the report stops describing the prompt you actually sent.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Formula one, the cap for a layer: cap = int(budget * CAPS[source])
+
+What the symbols mean: budget is the total tokens allowed for the whole prompt. CAPS[source] is that layer's allowed share written as a decimal fraction, so 0.40 means 40 percent. int() throws away the decimal part, so it always rounds down.
+
+Worked example at budget 700: docs cap = int(0.40 * 700) = int(280.0) = 280 tokens. history cap = int(0.25 * 700) = 175. memory cap = int(0.10 * 700) = 70. Any layer not in CAPS gets cap = budget, so it is effectively uncapped.
+
+Formula two, the running check: keep the item only if (source_used_so_far + item_tokens) is less than or equal to cap, and (used + item_tokens) is less than or equal to budget.
+
+Worked example, the four documents at budget 700 with a docs cap of 280:
+doc 1 needs 113. 0 + 113 = 113, under 280, so it is kept and so_far becomes 113.
+doc 2 needs 97. 113 + 97 = 210, under 280, so it is kept and so_far becomes 210.
+doc 3 needs 89. 210 + 89 = 299, which is over 280, so it is dropped with reason source_cap_reached. This is the passage holding the answer.
+doc 4 needs 63. 210 + 63 = 273, under 280, so it is kept.
+
+What it means: the cap is tested one item at a time in list order, so a smaller lower ranked passage can slip in after a bigger higher ranked one has already been refused. That is greedy first fit packing, and it is why your best passage is never automatically safe.
+
+One more number worth seeing: the caps add up to 0.40 + 0.25 + 0.10 = 0.75, which leaves 25 percent of the budget for system, question and tools, none of which have a cap. At budget 400 those three need 50 + 30 + 181 = 261 tokens, and 100 * 261 / 400 = 65 percent. They overrun the quarter that was left for them, which is why history and memory starve at small budgets before their own caps ever matter.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Only docs, history and memory appear in CAPS, so tools are uncapped and quietly take 181 tokens, which is 45 percent of a 400 token budget, and if your tight runs look starved you should read the tools line before blaming the caps.</span></div>
+        </li>
+        <li><h3>Assemble the prompt and print the report</h3><p>Packing decided what goes in. Assembling decides what order it appears in, and those are two separate jobs that people often mash together. You put the layers that rarely change first (the system prompt and the tool descriptions) and the layers that change on every call last, because prompt caching matches on the prefix, and one changed character throws away the discount for everything below it. History is flipped back into reading order, oldest first, because you packed it newest first to protect the recent turns, but a conversation read backwards confuses a human reader and the model equally. The report function is the real deliverable of this lab and not a debug aid, because if you cannot see what was cut you cannot tell a wrong answer from a starved one. It prints one KEPT line per layer with its token total and its share of the budget, then one DROP line per rejected item with a reason code and the first 52 characters of the text. You should see blocks like <code>KEPT docs 273 tok 39.0% of budget</code> followed by <code>DROP docs 89 tok source_cap_reached</code>.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>LABEL = {<span class="t-s">&quot;system&quot;</span>: <span class="t-s">&quot;SYSTEM&quot;</span>, <span class="t-s">&quot;tools&quot;</span>: <span class="t-s">&quot;AVAILABLE TOOLS&quot;</span>,
+         <span class="t-s">&quot;memory&quot;</span>: <span class="t-s">&quot;NOTES FROM PAST SESSIONS&quot;</span>, <span class="t-s">&quot;docs&quot;</span>: <span class="t-s">&quot;RETRIEVED DOCUMENTS&quot;</span>,
+         <span class="t-s">&quot;history&quot;</span>: <span class="t-s">&quot;EARLIER CONVERSATION&quot;</span>, <span class="t-s">&quot;question&quot;</span>: <span class="t-s">&quot;USER QUESTION&quot;</span>}
+ORDER = [<span class="t-s">&quot;system&quot;</span>, <span class="t-s">&quot;tools&quot;</span>, <span class="t-s">&quot;memory&quot;</span>, <span class="t-s">&quot;docs&quot;</span>, <span class="t-s">&quot;history&quot;</span>, <span class="t-s">&quot;question&quot;</span>]  <span class="t-c"># stable to volatile</span>
+
+
+<span class="t-k">def</span> <span class="t-f">build_prompt</span>(kept):
+    blocks = []
+    <span class="t-k">for</span> s <span class="t-k">in</span> ORDER:
+        chunk = [i.text <span class="t-k">for</span> i <span class="t-k">in</span> kept <span class="t-k">if</span> i.source == s]
+        <span class="t-k">if</span> s == <span class="t-s">&quot;history&quot;</span>:
+            chunk = <span class="t-f">list</span>(<span class="t-f">reversed</span>(chunk))  <span class="t-c"># packed newest first, read oldest first</span>
+        <span class="t-k">if</span> chunk:
+            blocks.<span class="t-f">append</span>(f<span class="t-s">&quot;## {LABEL[s]}\n&quot;</span> + <span class="t-s">&quot;\n\n&quot;</span>.<span class="t-f">join</span>(chunk))
+    <span class="t-k">return</span> <span class="t-s">&quot;\n\n&quot;</span>.<span class="t-f">join</span>(blocks)
+
+
+<span class="t-k">def</span> <span class="t-f">report</span>(kept, dropped, used, budget):
+    <span class="t-f">print</span>(f<span class="t-s">&quot;\n=== BUDGET {budget} | used {used} | free {budget - used} ===&quot;</span>)
+    by_source = {}
+    <span class="t-k">for</span> i <span class="t-k">in</span> kept:
+        by_source[i.source] = by_source.<span class="t-f">get</span>(i.source, <span class="t-s">0</span>) + i.tokens
+    <span class="t-k">for</span> s, t <span class="t-k">in</span> <span class="t-f">sorted</span>(by_source.<span class="t-f">items</span>(), key=<span class="t-k">lambda</span> kv: -kv[<span class="t-s">1</span>]):
+        <span class="t-f">print</span>(f<span class="t-s">&quot;  KEPT {s:&lt;9} {t:&gt;5} tok  {100 * t / budget:5.1f}% of budget&quot;</span>)
+    <span class="t-k">for</span> d <span class="t-k">in</span> dropped:
+        it = d[<span class="t-s">&quot;item&quot;</span>]
+        head = <span class="t-s">&quot; &quot;</span>.<span class="t-f">join</span>(it.text.<span class="t-f">split</span>())[:<span class="t-s">52</span>]
+        <span class="t-f">print</span>(f<span class="t-s">&quot;  DROP {it.source:&lt;9} {it.tokens:&gt;5} tok  {d['reason']:&lt;22} {head}...&quot;</span>)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>ORDER = [&quot;system&quot;, &quot;tools&quot;, &quot;memory&quot;, &quot;docs&quot;, &quot;history&quot;, &quot;question&quot;]  # stable to volatile</dt><dd>The list runs from text that is identical on every call to text that changes on every call. That makes the unchanged opening stretch of your prompt as long as possible, and the length of that stretch is what prompt caching charges you less for.</dd>
+        <dt>chunk = list(reversed(chunk))  # packed newest first, read oldest first</dt><dd>History was packed newest first so the recent turns were protected when the budget ran out. This line puts it back into oldest first order for the prompt only, so the conversation reads forwards the way a conversation should.</dd>
+        <dt>blocks.append(f&quot;## {LABEL[s]}\n&quot; + &quot;\n\n&quot;.join(chunk))</dt><dd>Adds a plain heading above each layer so the model can tell a retrieved document from an old chat turn from a saved note. Without these headings the whole prompt is one flat wall of text with nothing marking where anything came from.</dd>
+        <dt>by_source[i.source] = by_source.get(i.source, 0) + i.tokens</dt><dd>Adds up the kept tokens for each layer. Using .get with a default of 0 means the first item from a layer starts the total at zero instead of raising KeyError, which is shorter than testing whether the key exists.</dd>
+        <dt>print(f&quot;  KEPT {s:&lt;9} {t:&gt;5} tok  {100 * t / budget:5.1f}% of budget&quot;)</dt><dd>The format codes line the columns up: &lt;9 pads the name to nine characters on the left, &gt;5 right aligns the number in five characters, and 5.1f shows one decimal place in five characters. Aligned columns are what let you scan three reports and spot the difference instantly.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Formula one, the share printed on each KEPT line: percent = 100 * layer_tokens / budget
+
+What the symbols mean: layer_tokens is the number of tokens kept from that layer, and budget is the total allowed for the whole prompt.
+
+Worked example: at budget 700 the packer kept 273 tokens of documents. 100 * 273 / 700 = 39.0, which prints as &quot;39.0% of budget&quot;.
+
+Formula two, why ORDER runs from stable to volatile. Prompt caching bills a repeated opening stretch at roughly one tenth of the normal input price, so:
+cost_in_token_equivalents = cached_tokens / 10 + fresh_tokens
+
+What the symbols mean: cached_tokens is the length of the opening stretch that is character for character identical to your previous call. fresh_tokens is everything from the first differing character onwards.
+
+Worked example: you send 200,000 input tokens and the first 180,000 are unchanged from last time. Cost = 180,000 / 10 + 20,000 = 18,000 + 20,000 = 38,000 token equivalents instead of 200,000, which is about 81 percent off. Now move a timestamp to the very top of the prompt. The first character now differs, cached_tokens becomes 0, and you pay the full 200,000.
+
+What it means: caching matches from the start of the prompt forward, so the earlier in the prompt something changes, the more of your discount it destroys.
+
+Being honest about the simplification: the one tenth figure is a round number, and the real discount, the minimum prefix length and how long the cache lives all vary by provider. Check your provider's pricing page before you build a cost model on it.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>The system text is inside the assembled prompt because &quot;system&quot; is listed in ORDER, so if you later switch to <code>chat(prompt, system=SYSTEM)</code> you must remove it from ORDER or the model receives the same instructions twice.</span></div>
+        </li>
+        <li><h3>Run it at three budgets and watch the answer break</h3><p>Now you add the entry point and run <code>python packer.py</code> from inside the lab folder. You get three passes over the same question at budgets of 1200, 700 and 400 tokens, with the full report and the model's answer printed after each one. At 1200 tokens everything fits except the duplicated memory note, the refund window document survives, and the model should answer with the real numbers, 30 days and an approval code for anything over 500 USD. At 700 the docs cap is 280 tokens, the first two passages use 210 of it, and the third one, the one holding the answer, needs 89 more and does not fit, so it is dropped with reason source_cap_reached and the model should switch to the exact refusal line from your system prompt. That is the whole lesson: the model did not get worse between those two runs, your packing did. At 400 the report grows to twelve DROP lines and almost nothing survives except the tools, which is a warning sign in itself. If the break does not land where you expect, change a budget or a cap and watch the report move.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-k">if</span> __name__ == <span class="t-s">&quot;__main__&quot;</span>:
+    <span class="t-k">import</span> sys, pathlib
+    sys.path.<span class="t-f">append</span>(<span class="t-f">str</span>(pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parents[<span class="t-s">1</span>] / <span class="t-s">&quot;_shared&quot;</span>))
+    <span class="t-k">from</span> llm <span class="t-k">import</span> chat, whoami
+
+    <span class="t-f">print</span>(<span class="t-s">&quot;provider:&quot;</span>, <span class="t-f">whoami</span>())
+    items = <span class="t-f">build_items</span>()
+    <span class="t-f">print</span>(<span class="t-s">&quot;material available:&quot;</span>, <span class="t-f">sum</span>(i.tokens <span class="t-k">for</span> i <span class="t-k">in</span> items), <span class="t-s">&quot;tokens&quot;</span>)
+
+    <span class="t-k">for</span> budget <span class="t-k">in</span> (<span class="t-s">1200</span>, <span class="t-s">700</span>, <span class="t-s">400</span>):
+        kept, dropped, used = <span class="t-f">pack</span>(items, budget)
+        <span class="t-f">report</span>(kept, dropped, used, budget)
+        answer = <span class="t-f">chat</span>(<span class="t-f">build_prompt</span>(kept))          <span class="t-c"># if your llm.py takes a system</span>
+        <span class="t-f">print</span>(<span class="t-s">&quot;  ANSWER:&quot;</span>, <span class="t-s">&quot; &quot;</span>.<span class="t-f">join</span>(answer.<span class="t-f">split</span>())[:<span class="t-s">300</span>])   <span class="t-c"># prompt separately, pass it there</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>sys.path.append(str(pathlib.Path(__file__).resolve().parents[1] / &quot;_shared&quot;))</dt><dd>Builds the path to my-work/labs/_shared from the location of this file rather than from wherever you happen to be standing. That means python packer.py works from any directory, unlike the '../_shared' shortcut you used in step 1.</dd>
+        <dt>print(&quot;material available:&quot;, sum(i.tokens for i in items), &quot;tokens&quot;)</dt><dd>Prints the total size of everything before any packing happens, which should read 845. Comparing that one number against each budget tells you straight away whether a run is a comfortable fit or a squeeze.</dd>
+        <dt>for budget in (1200, 700, 400):</dt><dd>Runs the same question three times with only the budget changed. Holding the question, the sources and the caps fixed is what lets you attribute the change in the answer to packing and to nothing else.</dd>
+        <dt>answer = chat(build_prompt(kept))</dt><dd>Sends the whole assembled block as one user message. The system text is already inside that string, so if you prefer to pass it separately use chat(prompt, system=SYSTEM) and remove &quot;system&quot; from ORDER so it is not sent twice.</dd>
+        <dt>&quot; &quot;.join(answer.split())[:300]</dt><dd>split() followed by join() squashes newlines and repeated spaces into single spaces, and [:300] trims the result. It keeps each answer on one readable line so the three runs sit side by side and are easy to compare.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Formula: free = budget - used, where used is the sum of the tokens of every item the packer kept.
+
+Worked example, budget 1200. The total material is 845 tokens, comfortably under 1200, so almost everything fits. The only rejection is the duplicated memory note at 31 tokens, so used = 845 - 31 = 814 and free = 1200 - 814 = 386. The document with the answer survives.
+
+Worked example, budget 700. The docs cap is int(0.40 * 700) = 280. Documents one and two use 113 + 97 = 210, and the third needs 89, but 210 + 89 = 299 is over 280, so it is dropped. The memory cap is int(0.10 * 700) = 70, and after two kept notes totalling 49 the last note needs 28, so 49 + 28 = 77 is over 70 and it goes too. used = 697 and free = 3.
+
+The detail that matters most: at the moment the answer document was refused, only 471 of the 700 tokens had been used (50 for system, 30 for question, 181 for tools, 113 and 97 for the first two documents). There were 229 tokens free and the item needed 89. The overall budget had plenty of room. The 280 token docs cap is what refused it.
+
+Worked example, budget 400. The docs cap is int(0.40 * 400) = 160, and only the first document fits, because 113 + 97 = 210 is already over 160. Twelve items are dropped in total, used = 396 and free = 4.
+
+What it means: the answer breaks somewhere between 1200 and 700 tokens, and it breaks because of a percentage cap you chose, not because the window filled up.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>At the tighter budgets a model may still confidently say &quot;30 days&quot; from its own training data rather than giving your refusal line, which looks like the lab failing but is really the model ignoring your system prompt, so check the DROP lines first to confirm the document really was cut and then treat the invented answer as the finding it is.</span></div>
+        </li>
+        </ol>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> You are done when you can run <code>python packer.py</code> and get three reports in a row. At budget 1200 you see 845 tokens of material available, 814 used, and only the duplicated memory note dropped, with the model answering 30 days and an approval code over 500 USD. At budget 700 you see a line reading <code>DROP docs 89 tok source_cap_reached</code> against the &quot;Refund window and approval&quot; passage, and the model switches to the exact refusal sentence from your system prompt. At budget 400 you see twelve DROP lines and the answer is still a refusal. Every dropped item carries a reason code you can name out loud and a number you can point at.</div></div>
+        </section>
+        <section class="section section--mini"><h2 class="section__h" data-stamp="hands on"><span>Mini-project: your turn</span></h2>
+        <p class="prose">Your report prints codes like source_cap_reached, which means something to you today and nothing to anyone else in three weeks. Rewrite every dropped item as two plain sentences that name the deciding number, and write them to drops.json so a program can check your work.</p>
+        <p class="small muted">No code given. Produce the file, then run the checker.</p>
+        <ol class="steps">
+        <li><p>In my-work/labs/lab08 create explain.py. It imports build_items and pack from packer.py and calls pack() directly, so it makes no model call and needs no API key.</p></li>
+        <li><p>Write why_sentence(rec): one sentence of ordinary English that names at least two of the record's own numbers (budget, cap, source_used, used, needed) and never prints the raw reason code. For the budget 700 docs drop it should read like &quot;Retrieved documents may use at most 280 of the 700 token budget. 210 were already spent and this document needed 89 more.&quot;</p></li>
+        <li><p>Write fix_sentence(rec): one sentence naming the number that would have kept the item, such as the smallest budget that fits it or the cap percentage that fits it.</p></li>
+        <li><p>Loop over budgets 1200, 700 and 400. For each, pack the items and build one run object {&quot;budget&quot;: 700, &quot;used&quot;: 697, &quot;drops&quot;: [...]}. Each drop is {&quot;source&quot;, &quot;reason&quot;, &quot;budget&quot;, &quot;needed&quot;, &quot;cap&quot;, &quot;source_used&quot;, &quot;used&quot;, &quot;text_head&quot;, &quot;why&quot;, &quot;fix&quot;}: the first seven come straight from the packer's drop record, text_head is the first 60 characters of the item text with whitespace squashed, and why and fix are your two sentences.</p></li>
+        <li><p>Write {&quot;budgets&quot;: [run1200, run700, run400]} to drops.json with json.dump(data, f, indent=2). Print the same sentences to the terminal too, grouped by source under a WHY THINGS WERE DROPPED heading.</p></li>
+        <li><p>Save check.py next to explain.py and run python check.py from inside my-work/labs/lab08.</p></li>
+        </ol>
+        <div class="checker"><div class="checker__h">Check it yourself, automatically</div>
+        <p>Save this as <code>check.py</code> next to your work, then run <code>python check.py     (run it inside my-work/labs/lab08, after explain.py has written drops.json)</code>. It reads what you produced, tests it, and prints a line per check.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>check.py</span></div>
+<pre><span class="t-s">&quot;&quot;&quot;Checks drops.json from the Module 8 mini-project.
+Run inside my-work/labs/lab08:  python check.py
+Standard library only. No API key, no internet.
+&quot;&quot;&quot;</span>
+<span class="t-k">import</span> json, os, re, sys
+
+PATH = <span class="t-s">&quot;drops.json&quot;</span>
+EXPECTED = {<span class="t-s">1200</span>: (<span class="t-s">1</span>, <span class="t-s">814</span>), <span class="t-s">700</span>: (<span class="t-s">3</span>, <span class="t-s">697</span>), <span class="t-s">400</span>: (<span class="t-s">12</span>, <span class="t-s">396</span>)}  <span class="t-c"># budget: (drops, tokens used)</span>
+CODES = (<span class="t-s">&quot;source_cap_reached&quot;</span>, <span class="t-s">&quot;no_room_left&quot;</span>, <span class="t-s">&quot;bigger_than_source_cap&quot;</span>)
+FIELDS = (<span class="t-s">&quot;source&quot;</span>, <span class="t-s">&quot;reason&quot;</span>, <span class="t-s">&quot;budget&quot;</span>, <span class="t-s">&quot;needed&quot;</span>, <span class="t-s">&quot;cap&quot;</span>, <span class="t-s">&quot;source_used&quot;</span>, <span class="t-s">&quot;used&quot;</span>, <span class="t-s">&quot;why&quot;</span>, <span class="t-s">&quot;fix&quot;</span>)
+NUMS = (<span class="t-s">&quot;budget&quot;</span>, <span class="t-s">&quot;needed&quot;</span>, <span class="t-s">&quot;cap&quot;</span>, <span class="t-s">&quot;source_used&quot;</span>, <span class="t-s">&quot;used&quot;</span>)
+fails = []
+
+
+<span class="t-k">def</span> <span class="t-f">check</span>(ok, msg):
+    <span class="t-f">print</span>((<span class="t-s">&quot;PASS &quot;</span> <span class="t-k">if</span> ok <span class="t-k">else</span> <span class="t-s">&quot;FAIL &quot;</span>) + msg)
+    <span class="t-k">if</span> <span class="t-k">not</span> ok:
+        fails.<span class="t-f">append</span>(msg)
+
+
+<span class="t-c"># the artefact has to exist and parse before anything else can be said about it</span>
+<span class="t-k">if</span> <span class="t-k">not</span> os.path.<span class="t-f">exists</span>(PATH):
+    <span class="t-f">print</span>(<span class="t-s">&quot;FAIL &quot;</span> + PATH + <span class="t-s">&quot; not found. Run 'python explain.py' inside my-work/labs/lab08 first.&quot;</span>)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-k">try</span>:
+    <span class="t-k">with</span> <span class="t-f">open</span>(PATH, encoding=<span class="t-s">&quot;utf-8&quot;</span>) <span class="t-k">as</span> f:
+        data = json.<span class="t-f">load</span>(f)
+<span class="t-k">except</span> json.JSONDecodeError <span class="t-k">as</span> e:
+    <span class="t-f">print</span>(<span class="t-s">&quot;FAIL &quot;</span> + PATH + <span class="t-s">&quot; is not valid JSON: &quot;</span> + <span class="t-f">str</span>(e))
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+
+runs = data.<span class="t-f">get</span>(<span class="t-s">&quot;budgets&quot;</span>) <span class="t-k">if</span> <span class="t-f">isinstance</span>(data, dict) <span class="t-k">else</span> <span class="t-k">None</span>
+<span class="t-f">check</span>(<span class="t-f">isinstance</span>(runs, list) <span class="t-k">and</span> <span class="t-f">len</span>(runs) == <span class="t-s">3</span>, <span class="t-s">&quot;top level is {'budgets': [...]} holding 3 runs&quot;</span>)
+runs = [r <span class="t-k">for</span> r <span class="t-k">in</span> (runs <span class="t-k">or</span> []) <span class="t-k">if</span> <span class="t-f">isinstance</span>(r, dict)]
+by_budget = {r.<span class="t-f">get</span>(<span class="t-s">&quot;budget&quot;</span>): r <span class="t-k">for</span> r <span class="t-k">in</span> runs}
+<span class="t-f">check</span>(<span class="t-f">sorted</span>(k <span class="t-k">for</span> k <span class="t-k">in</span> by_budget <span class="t-k">if</span> <span class="t-f">isinstance</span>(k, int)) == [<span class="t-s">400</span>, <span class="t-s">700</span>, <span class="t-s">1200</span>],
+      <span class="t-s">&quot;the three runs are budgets 400, 700 and 1200&quot;</span>)
+
+<span class="t-c"># drop count and tokens used must match what the lab packer really produces</span>
+<span class="t-k">for</span> b <span class="t-k">in</span> (<span class="t-s">1200</span>, <span class="t-s">700</span>, <span class="t-s">400</span>):
+    n_want, used = EXPECTED[b]
+    run = by_budget.<span class="t-f">get</span>(b, {})
+    got = run.<span class="t-f">get</span>(<span class="t-s">&quot;drops&quot;</span>)
+    n = <span class="t-f">len</span>(got) <span class="t-k">if</span> <span class="t-f">isinstance</span>(got, list) <span class="t-k">else</span> -<span class="t-s">1</span>
+    <span class="t-f">check</span>(n == n_want, <span class="t-s">&quot;budget %d has %d dropped items (got %d)&quot;</span> % (b, n_want, n))
+    <span class="t-f">check</span>(run.<span class="t-f">get</span>(<span class="t-s">&quot;used&quot;</span>) == used, <span class="t-s">&quot;budget %d used %d tokens (got %r)&quot;</span> % (b, used, run.<span class="t-f">get</span>(<span class="t-s">&quot;used&quot;</span>)))
+
+drops = [d <span class="t-k">for</span> r <span class="t-k">in</span> runs <span class="t-k">if</span> <span class="t-f">isinstance</span>(r.<span class="t-f">get</span>(<span class="t-s">&quot;drops&quot;</span>), list) <span class="t-k">for</span> d <span class="t-k">in</span> r[<span class="t-s">&quot;drops&quot;</span>] <span class="t-k">if</span> <span class="t-f">isinstance</span>(d, dict)]
+missing = <span class="t-f">sorted</span>({k <span class="t-k">for</span> d <span class="t-k">in</span> drops <span class="t-k">for</span> k <span class="t-k">in</span> FIELDS <span class="t-k">if</span> k <span class="t-k">not</span> <span class="t-k">in</span> d})
+<span class="t-f">check</span>(<span class="t-k">not</span> missing, <span class="t-s">&quot;every drop record carries all 9 fields (missing: %s)&quot;</span> % (<span class="t-s">&quot;, &quot;</span>.<span class="t-f">join</span>(missing) <span class="t-k">or</span> <span class="t-s">&quot;none&quot;</span>))
+full = [d <span class="t-k">for</span> d <span class="t-k">in</span> drops <span class="t-k">if</span> <span class="t-f">all</span>(k <span class="t-k">in</span> d <span class="t-k">for</span> k <span class="t-k">in</span> FIELDS)]
+numeric = [d <span class="t-k">for</span> d <span class="t-k">in</span> full <span class="t-k">if</span> <span class="t-f">all</span>(<span class="t-f">isinstance</span>(d[k], int) <span class="t-k">for</span> k <span class="t-k">in</span> NUMS)]
+<span class="t-f">check</span>(<span class="t-f">len</span>(numeric) == <span class="t-f">len</span>(full), <span class="t-s">&quot;the five drop numbers are integers, not strings&quot;</span>)
+
+<span class="t-c"># the sentences must be English, and must name the numbers that decided the drop</span>
+leaks = [d <span class="t-k">for</span> d <span class="t-k">in</span> full <span class="t-k">if</span> <span class="t-f">any</span>(c <span class="t-k">in</span> <span class="t-f">str</span>(d[<span class="t-s">&quot;why&quot;</span>]) <span class="t-k">for</span> c <span class="t-k">in</span> CODES)]
+<span class="t-f">check</span>(<span class="t-k">not</span> leaks, <span class="t-s">&quot;no 'why' sentence leaks a raw reason code (%d do)&quot;</span> % <span class="t-f">len</span>(leaks))
+thin = [d <span class="t-k">for</span> d <span class="t-k">in</span> numeric
+        <span class="t-k">if</span> <span class="t-f">len</span>(<span class="t-f">set</span>(re.<span class="t-f">findall</span>(r<span class="t-s">&quot;\d+&quot;</span>, <span class="t-f">str</span>(d[<span class="t-s">&quot;why&quot;</span>]))) &amp; {<span class="t-f">str</span>(d[k]) <span class="t-k">for</span> k <span class="t-k">in</span> NUMS}) &lt; <span class="t-s">2</span>]
+<span class="t-f">check</span>(<span class="t-k">not</span> thin, <span class="t-s">&quot;every 'why' names at least 2 of its own numbers (%d do not)&quot;</span> % <span class="t-f">len</span>(thin))
+<span class="t-f">check</span>(<span class="t-f">all</span>(re.<span class="t-f">search</span>(r<span class="t-s">&quot;\d&quot;</span>, <span class="t-f">str</span>(d[<span class="t-s">&quot;fix&quot;</span>])) <span class="t-k">for</span> d <span class="t-k">in</span> full), <span class="t-s">&quot;every 'fix' names a number&quot;</span>)
+
+<span class="t-c"># the numbers must support the reason given, so records cannot be invented</span>
+bad = <span class="t-s">0</span>
+<span class="t-k">for</span> d <span class="t-k">in</span> numeric:
+    <span class="t-k">if</span> d[<span class="t-s">&quot;reason&quot;</span>] == <span class="t-s">&quot;source_cap_reached&quot;</span> <span class="t-k">and</span> d[<span class="t-s">&quot;source_used&quot;</span>] + d[<span class="t-s">&quot;needed&quot;</span>] &lt;= d[<span class="t-s">&quot;cap&quot;</span>]:
+        bad += <span class="t-s">1</span>
+    <span class="t-k">if</span> d[<span class="t-s">&quot;reason&quot;</span>] == <span class="t-s">&quot;no_room_left&quot;</span> <span class="t-k">and</span> d[<span class="t-s">&quot;used&quot;</span>] + d[<span class="t-s">&quot;needed&quot;</span>] &lt;= d[<span class="t-s">&quot;budget&quot;</span>]:
+        bad += <span class="t-s">1</span>
+<span class="t-f">check</span>(<span class="t-k">not</span> bad, <span class="t-s">&quot;the numbers behind each reason add up (%d records do not)&quot;</span> % bad)
+
+<span class="t-c"># the planted trap: the passage holding the answer dies at 700 and survives at 1200</span>
+trap = [d <span class="t-k">for</span> d <span class="t-k">in</span> by_budget.<span class="t-f">get</span>(<span class="t-s">700</span>, {}).<span class="t-f">get</span>(<span class="t-s">&quot;drops&quot;</span>, []) <span class="t-k">if</span> <span class="t-f">isinstance</span>(d, dict)
+        <span class="t-k">and</span> d.<span class="t-f">get</span>(<span class="t-s">&quot;source&quot;</span>) == <span class="t-s">&quot;docs&quot;</span> <span class="t-k">and</span> d.<span class="t-f">get</span>(<span class="t-s">&quot;needed&quot;</span>) == <span class="t-s">89</span>
+        <span class="t-k">and</span> d.<span class="t-f">get</span>(<span class="t-s">&quot;reason&quot;</span>) == <span class="t-s">&quot;source_cap_reached&quot;</span>]
+<span class="t-f">check</span>(<span class="t-f">len</span>(trap) == <span class="t-s">1</span>, <span class="t-s">&quot;budget 700 drops the 89-token 'Refund window and approval' doc on the docs cap&quot;</span>)
+<span class="t-f">check</span>(<span class="t-k">not</span> [d <span class="t-k">for</span> d <span class="t-k">in</span> by_budget.<span class="t-f">get</span>(<span class="t-s">1200</span>, {}).<span class="t-f">get</span>(<span class="t-s">&quot;drops&quot;</span>, []) <span class="t-k">if</span> <span class="t-f">isinstance</span>(d, dict)
+           <span class="t-k">and</span> d.<span class="t-f">get</span>(<span class="t-s">&quot;source&quot;</span>) == <span class="t-s">&quot;docs&quot;</span>], <span class="t-s">&quot;budget 1200 drops no documents at all&quot;</span>)
+
+<span class="t-f">print</span>(<span class="t-s">&quot;\nNot checked automatically: whether your sentences read clearly to someone who has&quot;</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;never seen packer.py. Read the budget 700 run out loud.&quot;</span>)
+<span class="t-k">if</span> fails:
+    <span class="t-f">print</span>(<span class="t-s">&quot;%d CHECK(S) FAILED&quot;</span> % <span class="t-f">len</span>(fails))
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;ALL CHECKS PASSED&quot;</span>)
+sys.<span class="t-f">exit</span>(<span class="t-s">0</span>)
+</pre></div>
+        </div>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> python check.py prints 16 PASS lines, then ALL CHECKS PASSED, and exits 0. It checks the drop counts (1, 3 and 12), the tokens used (814, 697 and 396), that every why sentence names at least two of its own numbers and leaks no reason code, that every fix names a number, that each reason is consistent with its own arithmetic, and that the 89 token &quot;Refund window and approval&quot; document is dropped at budget 700 and kept at 1200. Whether your sentences read clearly to a stranger is not checked automatically, and the script says so at the end.</div></div>
+        <div class="note" style="margin-top:12px"><div class="note__t">If you want more</div><p>Run the same question at ten budgets from 300 to 2000 and record which items were dropped at each. If one document is dropped at every budget except the largest, its priority in build_items is wrong, not your budget. Change the priority, rerun, and show the before and after drop lists.</p></div>
+        </section>
+        <section class="section section--quiz"><h2 class="section__h" data-stamp="on record"><span>Check yourself</span></h2>
+        <p class="small muted">Explained either way.</p>
+        <div class="quiz" data-quiz>
+        <div class="q" data-answer="1"><p class="q__q">Chroma's context rot study, published in July 2025, tested 18 models. What did it actually find?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Accuracy holds steady until around 32,000 tokens and then drops sharply</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Accuracy gets worse as input grows, unevenly, starting well before the advertised limit</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Only models under 10 billion parameters lose accuracy on long inputs</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Accuracy is unaffected as long as the input fits inside the context window</span></button>
+        </div><div class="q__why" hidden>The study names no threshold at all, and the 32K figure is something people repeat that is not in it. The decline was uneven across models and tasks, which is exactly why you cannot pick one safe number. All 18 models showed it, so it is not a small-model problem, and fitting inside the window is not the same as being used well.</div></div>
+        <div class="q" data-answer="0"><p class="q__q">In step 2 your agent reads a file path wrong. For the next 25 steps it keeps using that wrong path, even though the tool returns an error every single time. Which of Drew Breunig's four failure modes is this?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Poisoning</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Distraction</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Confusion</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Clash</span></button>
+        </div><div class="q__why" hidden>Poisoning is a false fact entering the context and staying there, because the model treats its own earlier output as settled truth. Distraction is a long history crowding out fresh thinking, so the model repeats what it already did rather than what the situation now needs. Confusion is irrelevant material, usually too many tools, pulling the answer sideways, and clash is two parts of the context contradicting each other.</div></div>
+        <div class="q" data-answer="2"><p class="q__q">Your agent sends about 200,000 input tokens per call and gets back about 300 output tokens. Which change cuts the bill the most?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Ask the model for shorter answers</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Switch to a model with a larger context window</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Move the session ID and timestamp from the top of the prompt to the bottom so prompt caching can hit</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Raise the output token limit so you make fewer calls</span></button>
+        </div><div class="q__why" hidden>Agent workloads are input heavy, so trimming 300 output tokens barely moves anything. Cached input costs roughly a tenth of fresh input, and the cache matches on the prefix, so one character that changes every call near the top throws away the discount for everything below it. A bigger window does not lower the price of the tokens you are already sending.</div></div>
+        </div></section>
+        <section class="section section--notes notes" data-notes><h2 class="section__h" data-stamp="on record"><span>Your notes</span></h2>
+        <p class="small muted">Saves as you type, in this browser.</p>
+        <label class="sr" for="n8">Notes for this module</label>
+        <textarea id="n8" placeholder="What clicked? What is still fuzzy? What do you want to come back to?"></textarea><div class="notes__status"></div></section>
+        <section class="section section--done"><h2 class="section__h" data-stamp="on record"><span>Mark it done</span></h2>
+        <div class="marks"><button class="mark" data-mark="read" aria-pressed="false"><span>Read the notes</span></button><button class="mark" data-mark="lab" aria-pressed="false"><span>Finished the lab</span></button><button class="mark" data-mark="mini" aria-pressed="false"><span>Finished the mini-project</span></button></div></section>
+        <section class="section section--docs"><h2 class="section__h" data-stamp="reference"><span>Go to the source</span></h2>
+        <p class="small muted">If this course and the docs disagree, the docs are newer.</p><ul class="prose">
+        <li><a href="https://www.anthropic.com/engineering" target="_blank" rel="noopener">Anthropic engineering blog (context engineering for agents, September 2025)</a></li>
+        <li><a href="https://research.trychroma.com/context-rot" target="_blank" rel="noopener">Chroma Research: Context Rot (Hong, Troynikov, Huber, July 2025)</a></li>
+        <li><a href="https://www.dbreunig.com/" target="_blank" rel="noopener">Drew Breunig's blog (How Contexts Fail and How to Fix Them, 22 June 2025)</a></li>
+        <li><a href="https://platform.openai.com/docs/guides/prompt-caching" target="_blank" rel="noopener">OpenAI: prompt caching guide (how prefixes decide cache hits)</a></li>
+        <li><a href="https://ai.google.dev/gemini-api/docs/long-context" target="_blank" rel="noopener">Gemini API: long context guide</a></li>
+        <li><a href="https://langchain-ai.github.io/langgraph/" target="_blank" rel="noopener">LangGraph documentation (persistence, checkpointers and memory)</a></li>
+        </ul></section>
+    </div>
+    <nav data-chrome="pager"></nav>
+  </main>
+</div>
+
+<script src="../assets/data.js"></script>
+<script src="../assets/widgets.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

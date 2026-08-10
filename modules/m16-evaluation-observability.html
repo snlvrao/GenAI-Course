@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>16. Knowing whether your agent works</title>
+<meta name="description" content="Trace what your agent actually did, and build evaluations that catch problems before your users find them.">
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+</head>
+<body data-module="m16" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="5">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+        <div data-chrome="modhead"></div>
+        <p class="prose">Your agents run, and right now &quot;it looked fine&quot; is all the evidence you have. This module gives you a step by step record of what each run actually did, plus a pass/fail checker whose agreement with your own judgement you have measured.</p>
+        <section class="section section--watch"><h2 class="section__h" data-stamp="take in"><span>Watch this first</span></h2>
+        <div data-videos="core"></div></section>
+        <section class="section section--ideas"><h2 class="section__h" data-stamp="take in"><span>The ideas, in plain English</span></h2>
+        <p class="small muted">Each idea, then a worked example of it.</p>
+        <div class="concepts">
+        <div class="concept"><div class="concept__n" aria-hidden="true">1</div><h3 class="concept__t">Agents break in the middle</h3><p class="concept__b">An agent fails at step 4 of 9 and the later steps build politely on that mistake, so the final answer still reads well. Grading only the answer tells you a run went wrong, never where. Grade the <strong>trajectory</strong>, the ordered list of steps with what went in and what came back. The fix is almost always at the step that picked the wrong tool or misread a tool result.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>step</th><th>span</th><th>what happened</th></tr></thead><tbody><tr><td>1</td><td>llm_call</td><td>calls search_docs with q=&quot;rifampcin dosing&quot;, the user's typo</td></tr><tr><td>2</td><td>tool_call</td><td>search_docs returns 0 rows in 1103 ms</td></tr><tr><td>3</td><td>llm_call</td><td>answers from memory: &quot;600 mg once daily&quot;</td></tr><tr><td>whole run</td><td>agent_run (the span wrapping steps 1 to 3)</td><td>final answer reads well and cites nothing</td></tr></tbody></table><div class="eg__cap">Step 1 lets the typo through, step 3 turns it into an invented answer, and the run's final answer is the only text you would have graded.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">2</div><h3 class="concept__t">Traces and spans</h3><p class="concept__b">A <strong>span</strong> is one timed record of one thing the agent did (one model call, one tool call) with its inputs, its result, its duration and whether it raised. A <strong>trace</strong> is every span from one user request, tied by a shared <code>trace_id</code>, each span naming its <code>parent_id</code> so you can rebuild the tree. This is not a product you buy, it is append-only lines of JSON, which is what you write in the lab.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">two lines from traces.jsonl, one run, children written first</p><pre>{<span class="t-f">&quot;trace_id&quot;</span>:<span class="t-s">&quot;a91f3c7d2b04&quot;</span>,<span class="t-f">&quot;span_id&quot;</span>:<span class="t-s">&quot;b32f9e10&quot;</span>,<span class="t-f">&quot;parent_id&quot;</span>:<span class="t-s">&quot;7c1e0a4d&quot;</span>,
+ <span class="t-f">&quot;name&quot;</span>:<span class="t-s">&quot;tool_call&quot;</span>,<span class="t-f">&quot;started&quot;</span>:<span class="t-s">&quot;2026-08-06T09:14:02&quot;</span>,
+ <span class="t-f">&quot;attrs&quot;</span>:{<span class="t-f">&quot;tool&quot;</span>:<span class="t-s">&quot;search_docs&quot;</span>,<span class="t-f">&quot;args&quot;</span>:{<span class="t-f">&quot;q&quot;</span>:<span class="t-s">&quot;refund windwo&quot;</span>},
+          <span class="t-f">&quot;result_chars&quot;</span>:<span class="t-s">6</span>,<span class="t-f">&quot;result_head&quot;</span>:<span class="t-s">&quot;0 rows&quot;</span>},
+ <span class="t-f">&quot;status&quot;</span>:<span class="t-s">&quot;ok&quot;</span>,<span class="t-f">&quot;ms&quot;</span>:<span class="t-s">1103.8</span>}
+{<span class="t-f">&quot;trace_id&quot;</span>:<span class="t-s">&quot;a91f3c7d2b04&quot;</span>,<span class="t-f">&quot;span_id&quot;</span>:<span class="t-s">&quot;7c1e0a4d&quot;</span>,<span class="t-f">&quot;parent_id&quot;</span>:<span class="t-k">null</span>,
+ <span class="t-f">&quot;name&quot;</span>:<span class="t-s">&quot;agent_run&quot;</span>,<span class="t-f">&quot;started&quot;</span>:<span class="t-s">&quot;2026-08-06T09:14:01&quot;</span>,
+ <span class="t-f">&quot;attrs&quot;</span>:{<span class="t-f">&quot;question&quot;</span>:<span class="t-s">&quot;What is the refund window?&quot;</span>,
+          <span class="t-f">&quot;final&quot;</span>:<span class="t-s">&quot;The refund window is 30 days.&quot;</span>,<span class="t-f">&quot;steps&quot;</span>:<span class="t-s">2</span>},
+ <span class="t-f">&quot;status&quot;</span>:<span class="t-s">&quot;ok&quot;</span>,<span class="t-f">&quot;ms&quot;</span>:<span class="t-s">4210.3</span>}</pre><p class="eg__say">parent_id 7c1e0a4d is the run's span_id, so the tool call nests inside it</p><div class="eg__cap">A search that returns no rows is still status ok. parent_id is what ties it to the run that opened it.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 640 230" role="img" aria-label="A trace shows each step of a run, and where it really went wrong" xmlns="http://www.w3.org/2000/svg"><title>A trace shows each step of a run, and where it really went wrong</title><defs><marker id="ah-trace" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><text x="320" y="20" text-anchor="middle" class="d-hi">one agent run, drawn as spans over time</text><rect x="20" y="34" width="600" height="24" rx="3" class="d-fill"/><text x="320.0" y="51.0" text-anchor="middle" class="d-t"></text><text x="320" y="51" text-anchor="middle" class="d-s">whole run  4.2s</text><rect x="40" y="64" width="180" height="22" rx="3" class="d-fill"/><text x="130.0" y="80.0" text-anchor="middle" class="d-t"></text><text x="130" y="80" text-anchor="middle" class="d-s">think  0.9s</text><rect x="230" y="64" width="150" height="22" rx="3" class="d-fill"/><text x="305.0" y="80.0" text-anchor="middle" class="d-t"></text><text x="305" y="80" text-anchor="middle" class="d-s">search_docs  1.1s</text><rect x="250" y="92" width="110" height="22" rx="3" class="d-warn"/><text x="305.0" y="108.0" text-anchor="middle" class="d-t"></text><text x="305" y="108" text-anchor="middle" class="d-s">returned 0 rows</text><rect x="390" y="64" width="120" height="22" rx="3" class="d-fill"/><text x="450.0" y="80.0" text-anchor="middle" class="d-t"></text><text x="450" y="80" text-anchor="middle" class="d-s">think  0.7s</text><rect x="520" y="64" width="100" height="22" rx="3" class="d-fill"/><text x="570.0" y="80.0" text-anchor="middle" class="d-t"></text><text x="570" y="80" text-anchor="middle" class="d-s">answer  1.5s</text><text x="305" y="136" text-anchor="middle" class="d-hi">here is the real bug</text><path d="M305 118 L305 128" class="d-arrow" marker-end="url(#ah-trace)"/><text x="320" y="174" text-anchor="middle" class="d-s">the final answer looked confident and plausible</text><text x="320" y="194" text-anchor="middle" class="d-s">the failure was three steps earlier, and only the trace shows it</text></svg><figcaption><b>Why tracing matters.</b> Agents rarely fail at the last sentence. They fail somewhere in the middle: a search returns nothing, a tool gets the wrong argument, a step repeats. The final answer still reads well, so scoring only the answer tells you almost nothing. A <b>trace</b> records every step with its timing so you can see where it actually broke.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">3</div><h3 class="concept__t">Error analysis before metrics</h3><p class="concept__b"><strong>Error analysis</strong> means reading twenty to fifty real runs end to end and writing one plain sentence per failure, before you invent any metric. Then sort the sentences into groups, name them, and count them. Two or three groups usually cover most of the damage, and the biggest group tells you what your first checker checks. Pick a metric first and you measure something nobody ever complained about.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>failure group</th><th>runs</th><th>share of failures</th></tr></thead><tbody><tr><td>answered from memory, never called search</td><td>4</td><td>57%</td></tr><tr><td>searched the user's typo, got 0 rows, answered anyway</td><td>2</td><td>29%</td></tr><tr><td>quoted a price no tool result contained</td><td>1</td><td>14%</td></tr></tbody></table><div class="eg__cap">20 runs, 7 bad; one checker on the top group covers over half.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">4</div><h3 class="concept__t">Binary pass or fail</h3><p class="concept__b">Ask anyone, human or model, to score out of five and you get threes and fours nobody can reproduce next week. A binary <strong>pass/fail</strong> forces you to write the rule down, such as &quot;does every number in the answer appear in a retrieved chunk?&quot;. If you feel you are losing nuance, add a second binary check instead of widening the scale. Always ask for a one line reason beside the verdict, because that reason is what you read when you disagree.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>trace</th><th>1-5 score Mon</th><th>1-5 score Fri</th><th>binary rule: every number appears in a tool result</th></tr></thead><tbody><tr><td>3f9a1c</td><td>4</td><td>3</td><td>fail, answer says $49, no tool result contains 49</td></tr><tr><td>8b02de</td><td>3</td><td>4</td><td>pass</td></tr><tr><td>c41f77</td><td>4</td><td>4</td><td>fail, answer says 30 days, tool result says 14</td></tr></tbody></table><div class="eg__cap">The 1 to 5 column drifts between sittings; the rule column does not.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">5</div><h3 class="concept__t">An uncalibrated judge measures nothing</h3><p class="concept__b">Label forty to a hundred runs yourself, then run the judge over the same ones. Report <strong>true positive rate</strong> (of the runs you called good, the share it also called good), <strong>true negative rate</strong> (the same for the bad ones), or <strong>Cohen's kappa</strong>, which is agreement minus what two random guessers would reach at those base rates. Raw agreement lies whenever one class dominates. Kappa above 0.6 is the usual bar, though that cut-off is a 1977 convention with no statistical backing.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>on the same 40 labelled runs</th><th>judge that says pass to everything</th><th>your calibrated judge</th></tr></thead><tbody><tr><td>tp / tn / fp / fn</td><td>27 / 0 / 13 / 0</td><td>24 / 10 / 3 / 3</td></tr><tr><td>raw agreement</td><td>0.675</td><td>0.850</td></tr><tr><td>TPR</td><td>1.000</td><td>0.889</td></tr><tr><td>TNR</td><td>0.000</td><td>0.769</td></tr><tr><td>Cohen's kappa</td><td>0.000</td><td>0.658</td></tr></tbody></table><div class="eg__cap">A judge with zero information still scores 67.5% raw agreement.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 640 265" role="img" aria-label="Why a single agreement percentage hides a broken judge" xmlns="http://www.w3.org/2000/svg"><title>Why a single agreement percentage hides a broken judge</title><defs><marker id="ah-conf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><text x="300" y="22" text-anchor="middle" class="d-hi">100 answers you labelled by hand, then judged by your evaluator</text><text x="195" y="54" text-anchor="middle" class="d-s">judge said PASS</text><text x="335" y="54" text-anchor="middle" class="d-s">judge said FAIL</text><text x="74" y="100" text-anchor="middle" class="d-s">really good</text><text x="74" y="160" text-anchor="middle" class="d-s">really bad</text><rect x="130" y="66" width="130" height="56" rx="6" class="d-ok"/><text x="195.0" y="99.0" text-anchor="middle" class="d-t"></text><text x="195" y="90" text-anchor="middle" class="d-t">45</text><text x="195" y="110" text-anchor="middle" class="d-s">correctly passed</text><rect x="270" y="66" width="130" height="56" rx="6" class="d-warn"/><text x="335.0" y="99.0" text-anchor="middle" class="d-t"></text><text x="335" y="90" text-anchor="middle" class="d-t">5</text><text x="335" y="110" text-anchor="middle" class="d-s">wrongly failed</text><rect x="130" y="126" width="130" height="56" rx="6" class="d-warn"/><text x="195.0" y="159.0" text-anchor="middle" class="d-t"></text><text x="195" y="150" text-anchor="middle" class="d-t">20</text><text x="195" y="170" text-anchor="middle" class="d-s">wrongly passed</text><rect x="270" y="126" width="130" height="56" rx="6" class="d-ok"/><text x="335.0" y="159.0" text-anchor="middle" class="d-t"></text><text x="335" y="150" text-anchor="middle" class="d-t">30</text><text x="335" y="170" text-anchor="middle" class="d-s">correctly failed</text><text x="530" y="82" text-anchor="middle" class="d-t">agreement = 75%</text><text x="530" y="102" text-anchor="middle" class="d-s">sounds acceptable</text><text x="530" y="142" text-anchor="middle" class="d-t">TPR = 45/50 = 90%</text><text x="530" y="166" text-anchor="middle" class="d-t">TNR = 30/50 = 60%</text><text x="530" y="190" text-anchor="middle" class="d-s">it waves bad work through</text><text x="320" y="232" text-anchor="middle" class="d-s">one number hid the problem, two numbers found it</text><text x="320" y="252" text-anchor="middle" class="d-s">TPR is how often it spots good work, TNR how often it catches bad work</text></svg><figcaption><b>Calibrating a judge.</b> This judge agrees with you 75% of the time, which reads as passable. Split it and the picture changes: it recognises good answers 90% of the time but catches only 60% of bad ones, so a fifth of your failures sail through. Report the two rates separately, or use Cohen's kappa, which corrects for the agreement you would get by chance.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">6</div><h3 class="concept__t">Judges have countable biases</h3><p class="concept__b"><strong>Position bias</strong>: shown two answers in order, the first wins roughly 10 to 15 points more often than it should, so run every comparison twice with the order swapped. <strong>Verbosity bias</strong>: longer answers score higher at equal correctness, so measure the length of your passes against your fails. <strong>Self-preference</strong>: a judge favours its own model family by something like 10 to 25 points, so set <code>LLM_PROVIDER</code> to a different family than the agent used. Those sizes come from particular tasks and move around, so read them as big enough to change your conclusion, not as constants.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">verbosity check: is the judge just preferring long answers?</p><pre><span class="t-k">import</span> json, statistics
+<span class="t-k">from</span> spans <span class="t-k">import</span> read
+<span class="t-k">from</span> judge <span class="t-k">import</span> judge
+runs = <span class="t-f">read</span>(<span class="t-s">&quot;traces.jsonl&quot;</span>)
+labels = [json.<span class="t-f">loads</span>(l) <span class="t-k">for</span> l <span class="t-k">in</span> <span class="t-f">open</span>(<span class="t-s">&quot;labels.jsonl&quot;</span>, encoding=<span class="t-s">&quot;utf-8&quot;</span>)]
+lens = {<span class="t-k">True</span>: [], <span class="t-k">False</span>: []}
+<span class="t-k">for</span> lab <span class="t-k">in</span> labels:
+    rows = runs[lab[<span class="t-s">&quot;trace_id&quot;</span>]]
+    run = <span class="t-f">next</span>(r <span class="t-k">for</span> r <span class="t-k">in</span> rows <span class="t-k">if</span> r[<span class="t-s">&quot;name&quot;</span>] == <span class="t-s">&quot;agent_run&quot;</span>)
+    ev = <span class="t-s">&quot;\n&quot;</span>.<span class="t-f">join</span>(<span class="t-f">str</span>(r[<span class="t-s">&quot;attrs&quot;</span>].<span class="t-f">get</span>(<span class="t-s">&quot;result_head&quot;</span>, <span class="t-s">&quot;&quot;</span>)) <span class="t-k">for</span> r <span class="t-k">in</span> rows <span class="t-k">if</span> r[<span class="t-s">&quot;name&quot;</span>] == <span class="t-s">&quot;tool_call&quot;</span>)
+    v, _ = <span class="t-f">judge</span>(run[<span class="t-s">&quot;attrs&quot;</span>][<span class="t-s">&quot;question&quot;</span>], ev, run[<span class="t-s">&quot;attrs&quot;</span>].<span class="t-f">get</span>(<span class="t-s">&quot;final&quot;</span>, <span class="t-s">&quot;&quot;</span>))
+    lens[v].<span class="t-f">append</span>(<span class="t-f">len</span>(run[<span class="t-s">&quot;attrs&quot;</span>].<span class="t-f">get</span>(<span class="t-s">&quot;final&quot;</span>, <span class="t-s">&quot;&quot;</span>)))
+<span class="t-f">print</span>(<span class="t-f">len</span>(lens[<span class="t-k">True</span>]), <span class="t-f">round</span>(statistics.<span class="t-f">mean</span>(lens[<span class="t-k">True</span>])))     <span class="t-c"># 27 812</span>
+<span class="t-f">print</span>(<span class="t-f">len</span>(lens[<span class="t-k">False</span>]), <span class="t-f">round</span>(statistics.<span class="t-f">mean</span>(lens[<span class="t-k">False</span>])))   <span class="t-c"># 13 344</span></pre><p class="eg__say">passes average 2.4x longer than fails, so length is a suspect</p><div class="eg__cap">Fourteen lines that tell you whether length, not correctness, drove the passes.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">7</div><h3 class="concept__t">Freeze a set, gate the deploy</h3><p class="concept__b">Once the judge agrees with you, freeze fifty inputs and record today's pass rate in a baseline file you keep in version control. Rerun the same fifty before every deploy and fail the build when the rate drops more than ten points, or when any must-never-break case fails. One case flipping is noise; ten points is not. Agent runs are input heavy and cached input costs about a tenth of fresh input, so keep the unchanging judge instructions at the top of the prompt, since the cache matches on prefixes.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre><span class="t-k">$</span> cat baseline.json
+<span class="t-o">{&quot;pass_rate&quot;: 0.88}</span></pre><pre><span class="t-k">$</span> python gate.py
+<span class="t-o">pass rate 0.82   baseline 0.88   cases 50</span>
+<span class="t-k">$</span> echo $LASTEXITCODE        <span class="t-c"># PowerShell. On Mac or Linux it is echo $?</span>
+<span class="t-o">0            # 6 points down, inside normal run-to-run noise</span></pre><pre><span class="t-k">$</span> python gate.py            <span class="t-c"># after the retriever started returning 0 rows</span>
+<span class="t-o">pass rate 0.72   baseline 0.88   cases 50</span>
+<span class="t-k">$</span> echo $LASTEXITCODE        <span class="t-c"># PowerShell. On Mac or Linux it is echo $?</span>
+<span class="t-o">1            # 16 points down, CI marks the build failed</span></pre><div class="eg__cap">Exit code 1 is the entire interface a build server needs.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">8</div><h3 class="concept__t">The tooling market in 2026</h3><p class="concept__b">This market consolidated hard through 2026, so check the date on any tutorial you follow. OpenTelemetry's GenAI <strong>semantic conventions</strong> (agreed span field names so different tools can read each other's traces) are still not stable and now live in their own repository, so do not depend on those names. What finds your bugs is you reading traces, so start with a JSONL file you own and pay for a dashboard when the reading gets painful.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>tool</th><th>status as of August 2026</th><th>what that means for you</th></tr></thead><tbody><tr><td>Helicone</td><td>acquired by Mintlify March 2026, maintenance only</td><td>do not start a new project here</td></tr><tr><td>Langfuse</td><td>acquired by ClickHouse</td><td>active, but check tutorial dates</td></tr><tr><td>Arize Phoenix</td><td>source-available, Elastic License 2.0</td><td>not OSI open source, read the licence first</td></tr><tr><td>Ragas</td><td>RAG-only, slow moving</td><td>will not evaluate agent trajectories</td></tr><tr><td>OTel GenAI conventions</td><td>own repo, still not stable</td><td>field names can change under you</td></tr></tbody></table><div class="eg__cap">Status at August 2026; re-check any of these before you commit.</div></div>
+        </div>
+        </div></section>
+        <div class="note note--gap"><div class="note__t">Worth knowing</div><p>Video coverage of agent evaluation is thin and goes stale fast. Most tutorials you will find teach a 1 to 5 rubric and a vendor dashboard, and skip calibration entirely, which is the part that decides whether the number means anything. Two things here are genuinely contested: the kappa thresholds (0.4, 0.6, 0.8) are a 1977 convention with no statistical basis, and the judge bias percentages come from measurements on specific tasks and move around a lot, so treat both as directional rather than exact. Also note that most published comparisons of tracing tools are written by the companies selling them.</p></div>
+        <section class="section section--more"><h2 class="section__h" data-stamp="optional"><span>If you want to go deeper</span></h2>
+        <p class="small muted">Optional.</p>
+        <div data-videos="more"></div></section>
+        <section class="section section--lab"><h2 class="section__h" data-stamp="hands on"><span>Lab: follow along</span></h2>
+        <div data-setupbanner></div>
+        <div class="note note--warn" data-path="offline" hidden><div class="note__t">Your judge will be weak, and that is worth knowing</div><p>A 3B local model makes a poor judge: expect a low true-negative rate, meaning it waves bad answers through. Do the calibration anyway. Seeing a judge fail its own calibration is the lesson, and it is the reason the module insists you measure a judge before trusting it. If you can borrow a free hosted key for the judge alone, the numbers get much better.</p></div>
+        <p class="prose">You are going to give your Module 12 agent a flight recorder, read what it records, then build a pass/fail checker and measure how often it agrees with you. A <strong>span</strong> is one timed record of one thing the agent did, and a <strong>trace</strong> is every span from a single user question tied together, which is what lets you see <em>where</em> a run went wrong instead of only that it did. Everything here runs on the Python standard library plus the shared <code>llm.py</code> helper you already have, so there is nothing new to install and no dashboard to sign up for. Before you start, make sure <code>python llm.py</code> works, see <code>setup.html</code>.</p>
+        <p class="small muted">Code given, every line explained.</p>
+        <ol class="steps">
+        <li><h3>Write the span logger</h3><p>This step builds the recorder that every later step reads from. A <strong>span</strong> is one timed record of one thing your agent did, such as one model call or one tool call, with its inputs, how long it took, and whether it raised an error. A <strong>trace</strong> is all the spans from one user question, tied together by a shared <code>trace_id</code>. The tricky part is knowing which span sits inside which, and this file solves it with <code>contextvars</code>, a standard library module that holds a value which any nested code can read without you passing it in as an argument. Without that you would have to thread a parent id through every function in your agent by hand, and you would stop bothering within a week. Each span writes its own JSON line the moment its <code>with</code> block exits, so if the agent crashes halfway you still have every step up to the crash sitting on disk. Running this file right now prints nothing useful, it is a library, and the next step is what proves it works.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-s">&quot;&quot;&quot;spans.py - tiny span logger, standard library only.&quot;&quot;&quot;</span>
+<span class="t-k">import</span> json, os, time, uuid, contextvars
+<span class="t-k">from</span> contextlib <span class="t-k">import</span> contextmanager
+<span class="t-k">from</span> pathlib <span class="t-k">import</span> Path
+
+LOG_PATH = <span class="t-f">Path</span>(os.<span class="t-f">getenv</span>(<span class="t-s">&quot;SPAN_LOG&quot;</span>, <span class="t-s">&quot;traces.jsonl&quot;</span>))
+_current = contextvars.<span class="t-f">ContextVar</span>(<span class="t-s">&quot;current_span&quot;</span>, default=<span class="t-k">None</span>)
+_trace = contextvars.<span class="t-f">ContextVar</span>(<span class="t-s">&quot;trace_id&quot;</span>, default=<span class="t-k">None</span>)
+
+
+<span class="t-k">def</span> <span class="t-f">_write</span>(rec):
+    <span class="t-k">with</span> LOG_PATH.<span class="t-f">open</span>(<span class="t-s">&quot;a&quot;</span>, encoding=<span class="t-s">&quot;utf-8&quot;</span>) <span class="t-k">as</span> f:
+        f.<span class="t-f">write</span>(json.<span class="t-f">dumps</span>(rec, ensure_ascii=<span class="t-k">False</span>, default=str) + <span class="t-s">&quot;\n&quot;</span>)
+
+
+@contextmanager
+<span class="t-k">def</span> <span class="t-f">span</span>(name, **attrs):
+    new_trace = _trace.<span class="t-f">get</span>() <span class="t-k">is</span> <span class="t-k">None</span>
+    tid_token = _trace.<span class="t-f">set</span>(uuid.<span class="t-f">uuid4</span>().hex[:<span class="t-s">12</span>]) <span class="t-k">if</span> new_trace <span class="t-k">else</span> <span class="t-k">None</span>
+    rec = {
+        <span class="t-s">&quot;trace_id&quot;</span>: _trace.<span class="t-f">get</span>(),
+        <span class="t-s">&quot;span_id&quot;</span>: uuid.<span class="t-f">uuid4</span>().hex[:<span class="t-s">8</span>],
+        <span class="t-s">&quot;parent_id&quot;</span>: _current.<span class="t-f">get</span>(),
+        <span class="t-s">&quot;name&quot;</span>: name,
+        <span class="t-s">&quot;started&quot;</span>: time.<span class="t-f">strftime</span>(<span class="t-s">&quot;%Y-%m-%dT%H:%M:%S&quot;</span>),
+        <span class="t-s">&quot;attrs&quot;</span>: attrs,
+    }
+    cur_token = _current.<span class="t-f">set</span>(rec[<span class="t-s">&quot;span_id&quot;</span>])
+    t0 = time.<span class="t-f">perf_counter</span>()
+    <span class="t-k">try</span>:
+        <span class="t-k">yield</span> rec[<span class="t-s">&quot;attrs&quot;</span>]           <span class="t-c"># add fields as the step runs</span>
+        rec[<span class="t-s">&quot;status&quot;</span>] = <span class="t-s">&quot;ok&quot;</span>
+    <span class="t-k">except</span> Exception <span class="t-k">as</span> e:
+        rec[<span class="t-s">&quot;status&quot;</span>] = <span class="t-s">&quot;error&quot;</span>
+        rec[<span class="t-s">&quot;error&quot;</span>] = f<span class="t-s">&quot;{type(e).__name__}: {e}&quot;</span>
+        <span class="t-k">raise</span>
+    <span class="t-k">finally</span>:
+        rec[<span class="t-s">&quot;ms&quot;</span>] = <span class="t-f">round</span>((time.<span class="t-f">perf_counter</span>() - t0) * <span class="t-s">1000</span>, <span class="t-s">1</span>)
+        _current.<span class="t-f">reset</span>(cur_token)
+        <span class="t-k">if</span> tid_token <span class="t-k">is</span> <span class="t-k">not</span> <span class="t-k">None</span>:
+            _trace.<span class="t-f">reset</span>(tid_token)
+        <span class="t-f">_write</span>(rec)
+
+
+<span class="t-k">def</span> <span class="t-f">read</span>(path=<span class="t-k">None</span>):
+    path = <span class="t-f">Path</span>(path <span class="t-k">or</span> LOG_PATH)
+    rows = [json.<span class="t-f">loads</span>(l) <span class="t-k">for</span> l <span class="t-k">in</span> path.<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>).<span class="t-f">splitlines</span>() <span class="t-k">if</span> l.<span class="t-f">strip</span>()]
+    traces = {}
+    <span class="t-k">for</span> r <span class="t-k">in</span> rows:
+        traces.<span class="t-f">setdefault</span>(r[<span class="t-s">&quot;trace_id&quot;</span>], []).<span class="t-f">append</span>(r)
+    <span class="t-k">return</span> traces
+
+
+<span class="t-k">def</span> <span class="t-f">show</span>(rows):
+    kids = {}
+    <span class="t-k">for</span> r <span class="t-k">in</span> rows:
+        kids.<span class="t-f">setdefault</span>(r[<span class="t-s">&quot;parent_id&quot;</span>], []).<span class="t-f">append</span>(r)
+
+    <span class="t-k">def</span> <span class="t-f">walk</span>(pid, depth):
+        <span class="t-k">for</span> r <span class="t-k">in</span> kids.<span class="t-f">get</span>(pid, []):
+            flag = <span class="t-s">&quot;  OK &quot;</span> <span class="t-k">if</span> r[<span class="t-s">&quot;status&quot;</span>] == <span class="t-s">&quot;ok&quot;</span> <span class="t-k">else</span> <span class="t-s">&quot; FAIL&quot;</span>
+            <span class="t-f">print</span>(f<span class="t-s">'{flag} {&quot;  &quot; * depth}{r[&quot;name&quot;]}  {r[&quot;ms&quot;]}ms  {r[&quot;attrs&quot;]}'</span>)
+            <span class="t-k">if</span> r.<span class="t-f">get</span>(<span class="t-s">&quot;error&quot;</span>):
+                <span class="t-f">print</span>(f<span class="t-s">'      {&quot;  &quot; * depth}{r[&quot;error&quot;]}'</span>)
+            <span class="t-f">walk</span>(r[<span class="t-s">&quot;span_id&quot;</span>], depth + <span class="t-s">1</span>)
+
+    <span class="t-f">walk</span>(<span class="t-k">None</span>, <span class="t-s">0</span>)
+
+
+<span class="t-k">if</span> __name__ == <span class="t-s">&quot;__main__&quot;</span>:
+    <span class="t-k">for</span> tid, rows <span class="t-k">in</span> <span class="t-f">read</span>().<span class="t-f">items</span>():
+        <span class="t-f">print</span>(f<span class="t-s">&quot;--- trace {tid} ---&quot;</span>)
+        <span class="t-f">show</span>(rows)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>LOG_PATH = Path(os.getenv(&quot;SPAN_LOG&quot;, &quot;traces.jsonl&quot;))</dt><dd>This reads the environment variable SPAN_LOG once, at the moment the module is imported, and falls back to traces.jsonl if it is not set. Because it runs at import time, setting SPAN_LOG after the line 'import spans' has no effect at all, which is the rule that steps 2 and 8 both depend on.</dd>
+        <dt>_current = contextvars.ContextVar(&quot;current_span&quot;, default=None)</dt><dd>A ContextVar is a slot that holds a value for the current flow of execution, so nested code can read it without being handed it as an argument. This one holds the id of the span you are currently inside, which becomes the parent_id of the next span you open, and it starts as None so the outermost span records no parent.</dd>
+        <dt>tid_token = _trace.set(uuid.uuid4().hex[:12]) if new_trace else None</dt><dd>Only the first span in a run creates a trace id, and every span opened inside it reads that same id back out. The set() call returns a token that remembers the previous value, which is what lets the finally block put everything back exactly as it was.</dd>
+        <dt>yield rec[&quot;attrs&quot;]</dt><dd>This hands the attributes dictionary back to your 'with ... as s' variable, so you can add facts while the step is running, such as s[&quot;out_tokens&quot;] = 812. It is the same dictionary object that gets written to disk afterwards, so anything you put into it lands in the log.</dd>
+        <dt>the finally block</dt><dd>Everything that must happen no matter what lives here: the duration is measured, the two context variables are put back, and the line is written. That is why a span that raised an exception still appears in the log marked as an error, instead of vanishing.</dd>
+        <dt>walk(None, 0)</dt><dd>The tree is rebuilt by starting at parent_id None, which is the root span, then recursing into each span's children. This is why the order of lines in the file does not matter, and it needs to be, because inner spans finish first and are written before their own parents.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Two numbers in this file are worth understanding properly.
+
+1) The duration field.
+Formula: ms = round((t1 - t0) * 1000, 1)
+t0 is the reading from time.perf_counter() taken just before the step runs, t1 is the reading taken in the finally block, and both are seconds as floating point numbers. perf_counter is used instead of time.time() because it only ever counts forwards, so a clock adjustment mid run cannot produce a negative duration.
+Worked example: t0 = 12.340000 and t1 = 13.827412. The difference is 1.487412 seconds. Times 1000 that is 1487.412 milliseconds. Rounded to one decimal place the log stores 1487.4.
+Intuition: you record milliseconds because most model and tool calls land somewhere between 100 and 5000 of them, and whole seconds would flatten nearly all of them to 1 or 2.
+
+2) How safe the shortened ids are.
+Formula: chance of at least one clash among n ids is roughly (n * n) / (2 * N), where N is the number of possible ids.
+uuid4().hex is 32 hexadecimal characters. Each hex character carries 4 bits, so [:8] keeps 8 * 4 = 32 bits, giving N = 2 to the power 32 = 4,294,967,296 possible span ids. The trace id keeps 12 characters, so 48 bits, giving 281,474,976,710,656 possible trace ids.
+Worked example for span ids with n = 1000 spans in one file: n * n = 1,000,000, and 2 * N = 8,589,934,592. Divide: 1,000,000 / 8,589,934,592 = 0.000116, which is about 1 chance in 8,600.
+Intuition: cutting the id to 8 characters keeps the log readable by eye and still almost never repeats at lab scale, but it would not be a safe choice for millions of spans.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Running python spans.py before any run has happened raises FileNotFoundError, because read() tries to open traces.jsonl and that file does not exist yet.</span></div>
+        </li>
+        <li><h3>Prove it records a tree, including failures</h3><p>Test the recorder on a fake run before you point it at your real agent. If you skip this and a trace later looks wrong, you will not know whether the agent misbehaved or the logger did, and you will spend an afternoon reading the wrong file. The fake run opens one nested model span and one tool span, and the second call deliberately raises an error inside the tool span. Notice that the exception is caught <em>outside</em> the <code>with</code> block and the span is still written with <code>status: error</code>, because the writing happens in a <code>finally</code> block that runs on the way out either way. On screen you should see two blocks headed <code>--- trace ... ---</code>, each with an indented tree, and the second one carries a <code>FAIL</code> line for <code>tool_call</code> with <code>ValueError: index missing</code> printed underneath it. The file <code>t.jsonl</code> will hold six lines, three per run, with children written before their parents because inner blocks always exit first.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># test_spans.py</span>
+<span class="t-k">import</span> os
+os.environ[<span class="t-s">&quot;SPAN_LOG&quot;</span>] = <span class="t-s">&quot;t.jsonl&quot;</span>      <span class="t-c"># must be set BEFORE importing spans</span>
+<span class="t-k">from</span> pathlib <span class="t-k">import</span> Path
+<span class="t-f">Path</span>(<span class="t-s">&quot;t.jsonl&quot;</span>).<span class="t-f">unlink</span>(missing_ok=<span class="t-k">True</span>)
+<span class="t-k">import</span> spans
+
+<span class="t-k">def</span> <span class="t-f">fake_run</span>(q):
+    <span class="t-k">with</span> spans.<span class="t-f">span</span>(<span class="t-s">&quot;agent_run&quot;</span>, question=q) <span class="t-k">as</span> s:
+        <span class="t-k">with</span> spans.<span class="t-f">span</span>(<span class="t-s">&quot;llm_call&quot;</span>, model=<span class="t-s">&quot;fake&quot;</span>) <span class="t-k">as</span> l:
+            l[<span class="t-s">&quot;out_tokens&quot;</span>] = <span class="t-s">12</span>
+        <span class="t-k">try</span>:
+            <span class="t-k">with</span> spans.<span class="t-f">span</span>(<span class="t-s">&quot;tool_call&quot;</span>, tool=<span class="t-s">&quot;search&quot;</span>, args={<span class="t-s">&quot;q&quot;</span>: q}):
+                <span class="t-k">if</span> <span class="t-s">&quot;boom&quot;</span> <span class="t-k">in</span> q:
+                    <span class="t-k">raise</span> <span class="t-f">ValueError</span>(<span class="t-s">&quot;index missing&quot;</span>)
+        <span class="t-k">except</span> ValueError:
+            <span class="t-k">pass</span>
+        s[<span class="t-s">&quot;steps&quot;</span>] = <span class="t-s">2</span>
+
+<span class="t-f">fake_run</span>(<span class="t-s">&quot;hello&quot;</span>)
+<span class="t-f">fake_run</span>(<span class="t-s">&quot;boom now&quot;</span>)
+<span class="t-k">for</span> tid, rows <span class="t-k">in</span> spans.<span class="t-f">read</span>().<span class="t-f">items</span>():
+    <span class="t-f">print</span>(f<span class="t-s">&quot;--- trace {tid} ---&quot;</span>)
+    spans.<span class="t-f">show</span>(rows)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>os.environ[&quot;SPAN_LOG&quot;] = &quot;t.jsonl&quot;</dt><dd>This has to be the first thing the file does, above 'import spans', because spans.py reads SPAN_LOG at import time and never checks it again. It keeps the test output in its own file so your fake runs do not get mixed into the real traces.jsonl you read in step 4.</dd>
+        <dt>Path(&quot;t.jsonl&quot;).unlink(missing_ok=True)</dt><dd>The logger only ever appends, so without this delete you would be reading today's fake run stacked on top of every previous one. The missing_ok=True part means the very first run does not fail just because the file is not there yet.</dd>
+        <dt>with spans.span(&quot;llm_call&quot;, model=&quot;fake&quot;) as l:  /  l[&quot;out_tokens&quot;] = 12</dt><dd>These two lines show the two ways to attach facts to a span: keyword arguments for what you know when the step starts, and the yielded dictionary for what you only learn once it has finished. Token counts, reply lengths and result sizes all belong in the second group.</dd>
+        <dt>the try / except ValueError around the tool span</dt><dd>The exception is raised inside the tool span and caught outside it, which is exactly what a real agent does when it recovers from a failed tool call. The tool span is still written with status error while the agent_run span around it stays ok, so the log shows you both the failure and the recovery.</dd>
+        <dt>fake_run(&quot;boom now&quot;)</dt><dd>The word boom is the trigger for the raise, so this second call is the one that produces the FAIL line. One clean case and one broken case is the smallest test that proves both the success path and the error path actually write to disk.</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>If the line setting SPAN_LOG ends up anywhere below 'import spans', it is silently ignored and your fake runs get appended to traces.jsonl instead, quietly polluting the real log you read in step 4.</span></div>
+        </li>
+        <li><h3>Wire the logger into your Module 12 agent</h3><p>Now put the recorder into the agent loop you built in Module 12. You wrap three things and no more: the whole run, each model call, and each tool call. That gives you one root span per question with its children underneath, which is exactly the tree you need to find the step where things went wrong. <code>SYSTEM</code>, <code>parse_tool_call</code> and your tools dictionary all come from your Module 12 file, so paste this structure around your existing code rather than replacing it. Store <code>result_chars</code> plus only the first 200 characters of each tool result, because a full retrieval result is often several thousand characters and your log would otherwise be mostly retrieved text. Be honest with yourself about what that cap costs: <code>result_head</code> is the only evidence your judge sees in step 5, so a fact sitting at character 900 of a tool result will look invented to the judge even though the agent read it. Raise 200 to 1000 if your tool results are long, and accept a bigger log in exchange.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># agent.py  (your Module 12 loop, now instrumented)</span>
+<span class="t-k">import</span> sys
+sys.path.<span class="t-f">insert</span>(<span class="t-s">0</span>, <span class="t-s">&quot;../_shared&quot;</span>)
+<span class="t-k">from</span> llm <span class="t-k">import</span> chat
+<span class="t-k">from</span> spans <span class="t-k">import</span> span
+
+<span class="t-k">def</span> <span class="t-f">run_agent</span>(question, tools, max_steps=<span class="t-s">6</span>):
+    <span class="t-k">with</span> <span class="t-f">span</span>(<span class="t-s">&quot;agent_run&quot;</span>, question=question) <span class="t-k">as</span> run:
+        messages = [{<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;system&quot;</span>, <span class="t-s">&quot;content&quot;</span>: SYSTEM},
+                    {<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: question}]
+        <span class="t-k">for</span> step <span class="t-k">in</span> <span class="t-f">range</span>(max_steps):
+            <span class="t-k">with</span> <span class="t-f">span</span>(<span class="t-s">&quot;llm_call&quot;</span>, step=step) <span class="t-k">as</span> s:
+                reply = <span class="t-f">chat</span>(messages)
+                s[<span class="t-s">&quot;reply_chars&quot;</span>] = <span class="t-f">len</span>(reply)
+            call = <span class="t-f">parse_tool_call</span>(reply)          <span class="t-c"># your Module 12 parser</span>
+            <span class="t-k">if</span> call <span class="t-k">is</span> <span class="t-k">None</span>:
+                run[<span class="t-s">&quot;final&quot;</span>] = reply
+                run[<span class="t-s">&quot;steps&quot;</span>] = step + <span class="t-s">1</span>
+                <span class="t-k">return</span> reply
+            <span class="t-k">with</span> <span class="t-f">span</span>(<span class="t-s">&quot;tool_call&quot;</span>, tool=call[<span class="t-s">&quot;name&quot;</span>], args=call[<span class="t-s">&quot;args&quot;</span>]) <span class="t-k">as</span> t:
+                result = tools[call[<span class="t-s">&quot;name&quot;</span>]](**call[<span class="t-s">&quot;args&quot;</span>])
+                t[<span class="t-s">&quot;result_chars&quot;</span>] = <span class="t-f">len</span>(<span class="t-f">str</span>(result))
+                t[<span class="t-s">&quot;result_head&quot;</span>] = <span class="t-f">str</span>(result)[:<span class="t-s">200</span>]
+            messages += [{<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;assistant&quot;</span>, <span class="t-s">&quot;content&quot;</span>: reply},
+                         {<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: f<span class="t-s">&quot;TOOL RESULT: {result}&quot;</span>}]
+        run[<span class="t-s">&quot;final&quot;</span>] = <span class="t-s">&quot;gave up&quot;</span>
+        run[<span class="t-s">&quot;steps&quot;</span>] = max_steps
+        <span class="t-k">return</span> <span class="t-s">&quot;gave up&quot;</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>sys.path.insert(0, &quot;../_shared&quot;)</dt><dd>This tells Python to look in the shared folder first when importing, which is how every lab finds llm.py without installing anything. If you run agent.py from a different folder the relative path will not resolve, so run it from inside the lab16 directory.</dd>
+        <dt>with span(&quot;agent_run&quot;, question=question) as run:</dt><dd>This is the outermost span, so it is the one that creates the trace id, and every span opened inside the loop attaches itself to it automatically. It also holds the two facts you look up most often later, the question at the start and run[&quot;final&quot;] at the end.</dd>
+        <dt>reply = chat(messages)</dt><dd>This is the one line you will probably have to change. The shared llm.py chat() takes a plain prompt string with an optional system= argument, not a message list, so either flatten your messages into a single string or switch to chat_raw(messages).choices[0].message.content, which does accept a list.</dd>
+        <dt>t[&quot;result_head&quot;] = str(result)[:200]</dt><dd>Only the first 200 characters of the tool result are stored, sitting next to the full length in result_chars, so you can still see that a result was 4000 characters long without keeping all 4000. Remember that this exact text becomes the evidence your judge reads in step 5.</dd>
+        <dt>messages += [{&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: reply}, {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: f&quot;TOOL RESULT: {result}&quot;}]</dt><dd>The full result goes back to the model, not the truncated head, so the agent is never limited by your logging cap. The tool output is sent back as a user turn because this loop parses tool calls out of plain text rather than using the provider's tool calling API, so there is no tool role available to put it in.</dd>
+        <dt>run[&quot;final&quot;] = &quot;gave up&quot;</dt><dd>If the loop reaches max_steps without the model producing a final answer, the run is recorded as a give up rather than silently returning nothing. In step 7 that becomes an answer the judge will fail, which is the correct outcome, because a run that never answered is a failed run.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>The 200 character cap is the only real number in this step, so here is what it buys and what it costs.
+
+Formula: characters kept = runs * tool_calls_per_run * cap
+Formula: rough token count = characters / 4, because English averages about 4 characters per token for most tokenisers. This is an approximation and it is off for code, numbers and non English text.
+
+Worked example. Say 20 questions, 3 tool calls each, and an average tool result of 2000 characters.
+Without the cap: 20 * 3 * 2000 = 120,000 characters, so about 120 KB of log, and 120,000 / 4 = 30,000 tokens if you ever feed it to a model.
+With the cap: 20 * 3 * 200 = 12,000 characters, so about 12 KB, and 12,000 / 4 = 3,000 tokens.
+That is a factor of 10 saved on both file size and token cost.
+
+The same cap sets the size of your judge prompt in step 5, because result_head is the evidence. Per run the evidence is 3 * 200 = 600 characters, about 150 tokens, instead of 3 * 2000 = 6000 characters, about 1500 tokens. Across the 40 calibration runs in step 7 that is 6,000 evidence tokens instead of 60,000.
+
+One more count worth knowing: with max_steps = 6, a single run writes at most 1 agent_run span plus 6 llm_call spans plus 6 tool_call spans, which is 13 lines in the log.
+
+Intuition: you are trading evidence for size, and that trade is fine right up until the fact you care about sits past character 200.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If you are using the shared llm.py, chat(messages) fails because that chat() expects a prompt string, so fix that one line before you run anything else in this lab.</span></div>
+        </li>
+        <li><h3>Read twenty traces before you write any evaluator</h3><p>This is the step that decides what your evaluator will check, so do not jump past it. <strong>Error analysis</strong> means reading real runs end to end and writing one plain sentence for each thing that went wrong, before you invent any metric at all. If you write the judge first you will end up measuring something generic like helpfulness, which gives you a number that moves up and down without ever telling you what to fix. Write twenty questions you actually care about into <code>questions.txt</code>, run them, dump the printed trees into <code>review.txt</code>, and read that file in your editor rather than skimming the terminal. For every run that is wrong or annoying, put one sentence and its trace id into <code>failures.md</code>, then group the similar sentences and give each group a name. Expect two or three groups to cover most of the damage, and expect <code>review.txt</code> to be a few hundred lines, which is a twenty minute read and not more. Note that <code>agent.py</code> as written has no command line handling yet, so add a small <code>if __name__ == &quot;__main__&quot;:</code> block that reads the file and calls <code>run_agent</code> once per line.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>python agent.py --questions questions.txt     <span class="t-c"># writes traces.jsonl</span>
+python spans.py &gt; review.txt                  <span class="t-c"># one printed tree per run</span>
+
+<span class="t-c"># then, by hand, in failures.md:</span>
+<span class="t-c"># 3f9a1c  answered from memory, never called search</span>
+<span class="t-c"># 8b02de  searched the user's typo, returned nothing, still answered</span>
+<span class="t-c"># c41f77  quoted a price that is not in any tool result</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>python agent.py --questions questions.txt</dt><dd>This runs every question through the instrumented agent and appends one full trace per question into traces.jsonl. The agent.py from step 3 defines a function and never calls it, so add a small block at the bottom that reads the file line by line and calls run_agent for each line.</dd>
+        <dt>python spans.py &gt; review.txt</dt><dd>The 'if __name__ == &quot;__main__&quot;:' block at the bottom of spans.py prints one tree per trace, and the &gt; sends that printout into a file instead of the screen. Read the file in your editor, because scrolling a terminal makes you skim, and skimming is exactly how you miss the middle steps where agents break.</dd>
+        <dt># 3f9a1c  answered from memory, never called search</dt><dd>Each line is a trace id and one plain sentence, nothing more, because the point is to be able to sort them into groups afterwards. Keeping the trace id means you can always go back to the exact run and check whether you remembered it correctly.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Twenty runs is a real sample, so it has real limits. Two calculations tell you what twenty can and cannot show you.
+
+1) Coverage of a failure group.
+Formula: share = failures_in_group / total_failures
+Worked example: 20 runs produce 7 bad ones. Grouping the sentences gives 4 in &quot;answered from memory&quot;, 2 in &quot;searched the typo&quot;, and 1 in &quot;quoted a price nobody returned&quot;. The shares are 4/7 = 0.571, 2/7 = 0.286 and 1/7 = 0.143. So the top group alone is 57 percent of your damage and the top two together are 86 percent.
+Intuition: one checker aimed at the top group buys you more than a vague checker that tries to cover everything at once.
+
+2) The chance twenty runs miss a failure mode completely.
+Formula: P(never seen) = (1 - p) to the power n, where p is how often the failure really happens and n is how many runs you looked at.
+Worked example with p = 0.10 and n = 20, so 0.9 to the power 20. Step it up: 0.9 squared = 0.81, to the 4th = 0.6561, to the 8th = 0.4305, to the 16th = 0.1853, and 0.1853 * 0.6561 = 0.1216.
+So there is about a 12 percent chance you see zero examples of a bug that hits one run in ten.
+Intuition: twenty runs is enough to find your big problems and nowhere near enough to prove a rare one does not exist, so treat an empty group as unmeasured rather than as fixed.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>The first command does nothing until you add an 'if __name__ == &quot;__main__&quot;:' block to agent.py, because the code in step 3 only defines run_agent and never calls it.</span></div>
+        </li>
+        <li><h3>Write one binary judge for your biggest failure group</h3><p>Now write one checker for whichever group came top of your error analysis. The rubric here checks made up facts, which is usually the biggest group, but replace it with your own if yours differs. Three defences are built into this prompt on purpose: it checks exactly one rule so the model cannot trade one quality off against another, it is told to ignore length because judges reliably score longer answers higher, and it must reply with a tiny JSON object so you can parse a verdict instead of reading prose. Keep the verdict <strong>binary</strong>, pass or fail, because a 1 to 5 scale produces a pile of threes and fours that nobody can reproduce twice. Set <code>LLM_PROVIDER</code> in your <code>.env</code> to a different model family than your agent uses, since a model marking its own family's work is measurably more generous. The function returns a tuple, a boolean and a short reason string, and that reason is the thing you will read when you and the judge disagree in step 7. One line differs from the module page: the shared <code>chat()</code> takes a plain prompt string, not a message list, so the judge passes the formatted template straight in.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># judge.py</span>
+<span class="t-k">import</span> json, re, sys
+sys.path.<span class="t-f">insert</span>(<span class="t-s">0</span>, <span class="t-s">&quot;../_shared&quot;</span>)
+<span class="t-k">from</span> llm <span class="t-k">import</span> chat
+
+RULE = (<span class="t-s">&quot;PASS if every number, name and date in the answer also appears in at least one &quot;</span>
+        <span class="t-s">&quot;tool result below. FAIL if the answer states any fact that is not in the tool &quot;</span>
+        <span class="t-s">&quot;results, even if that fact is true in the real world.&quot;</span>)
+
+TEMPLATE = <span class="t-s">&quot;&quot;&quot;You check one rule and nothing else.
+
+RULE:
+{rule}
+
+QUESTION:
+{question}
+
+TOOL RESULTS THE AGENT SAW:
+{evidence}
+
+ANSWER TO CHECK:
+{answer}
+
+Ignore length, tone and style. A short answer is not worse than a long one.
+Reply with only this JSON: {{&quot;verdict&quot;: &quot;pass&quot; or &quot;fail&quot;, &quot;why&quot;: &quot;12 words max&quot;}}&quot;&quot;&quot;</span>
+
+
+<span class="t-k">def</span> <span class="t-f">judge</span>(question, evidence, answer):
+    raw = <span class="t-f">chat</span>(TEMPLATE.<span class="t-f">format</span>(
+        rule=RULE, question=question, evidence=evidence, answer=answer))
+    m = re.<span class="t-f">search</span>(r<span class="t-s">&quot;\{.*\}&quot;</span>, raw, re.S)          <span class="t-c"># survives ```json fences</span>
+    <span class="t-k">if</span> <span class="t-k">not</span> m:
+        <span class="t-k">return</span> <span class="t-k">False</span>, <span class="t-s">&quot;no JSON in judge reply&quot;</span>
+    <span class="t-k">try</span>:
+        d = json.<span class="t-f">loads</span>(m.<span class="t-f">group</span>(<span class="t-s">0</span>))
+    <span class="t-k">except</span> json.JSONDecodeError:
+        <span class="t-k">return</span> <span class="t-k">False</span>, <span class="t-s">&quot;bad JSON in judge reply&quot;</span>
+    <span class="t-k">return</span> <span class="t-f">str</span>(d.<span class="t-f">get</span>(<span class="t-s">&quot;verdict&quot;</span>, <span class="t-s">&quot;&quot;</span>)).<span class="t-f">strip</span>().<span class="t-f">lower</span>() == <span class="t-s">&quot;pass&quot;</span>, d.<span class="t-f">get</span>(<span class="t-s">&quot;why&quot;</span>, <span class="t-s">&quot;&quot;</span>)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>even if that fact is true in the real world.</dt><dd>That last clause is the part that makes the rule checkable. Without it the judge starts using its own knowledge and passes any answer that happens to be correct, which is not what you are measuring here; you are measuring whether the agent actually used the evidence it retrieved.</dd>
+        <dt>Reply with only this JSON: {{&quot;verdict&quot;: &quot;pass&quot; or &quot;fail&quot;, &quot;why&quot;: &quot;12 words max&quot;}}</dt><dd>The braces are doubled because this string goes through .format(), and .format turns a doubled brace back into a single one. The 12 word limit on 'why' keeps each reason short enough that you can scan forty of them in step 7 without losing patience.</dd>
+        <dt>raw = chat(TEMPLATE.format(rule=RULE, question=question, evidence=evidence, answer=answer))</dt><dd>One formatted string goes in and one string comes back. This differs from the module page, which passes a message list, because the shared llm.py chat() takes a prompt string and a list would fail at the API call.</dd>
+        <dt>m = re.search(r&quot;\{.*\}&quot;, raw, re.S)</dt><dd>Models often wrap JSON in a markdown code fence or add a sentence before it, so this pulls out everything from the first opening brace to the last closing one. The re.S flag makes the dot match newlines as well, which it does not by default, and the pattern is greedy on purpose so a JSON object spread over several lines is captured whole.</dd>
+        <dt>return False, &quot;no JSON in judge reply&quot;</dt><dd>A reply you cannot parse is treated as a fail rather than crashing the run or being skipped. That is the safe direction, because an unreadable verdict should never quietly count as a pass and inflate your score.</dd>
+        <dt>str(d.get(&quot;verdict&quot;, &quot;&quot;)).strip().lower() == &quot;pass&quot;</dt><dd>Anything that is not exactly the word pass, after trimming spaces and lowering the case, comes out as False. That single line covers PASS, ' pass ', a missing key entirely, and a model that decided to answer with true instead.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>The judge calls the shared chat(), which does not pass a temperature, so it uses the helper's default of 0.2. That number is doing real work here, so it is worth knowing what it changes.
+
+A language model does not pick words directly. For every possible next token it produces a raw score called a logit, and those scores are turned into probabilities by softmax with temperature.
+
+Formula: P(token i) = exp(z_i / T) divided by the sum over all j of exp(z_j / T)
+z_i is the logit for token i, T is the temperature, and exp is the exponential function. Every P comes out between 0 and 1 and they all add up to 1.
+
+Worked example with three candidate tokens and logits z = 2.0, 1.0 and 0.5.
+At T = 1.0: exp(2.0) = 7.389, exp(1.0) = 2.718, exp(0.5) = 1.649. The sum is 11.756. The probabilities are 7.389 / 11.756 = 0.629, then 2.718 / 11.756 = 0.231, then 1.649 / 11.756 = 0.140.
+At T = 0.2: first divide each logit by 0.2, giving 10, 5 and 2.5. Then exp(10) = 22026.5, exp(5) = 148.4, exp(2.5) = 12.2. The sum is 22187.1. The probabilities are 0.993, 0.0067 and 0.0005.
+Intuition: dividing by a small T spreads the scores further apart before the exponential, so the leading token goes from about a 63 percent chance to about a 99 percent chance. For a judge that is exactly what you want, because the same input should give you the same verdict tomorrow.
+
+One more number, from the module notes. A judge tends to favour answers written by its own model family by something like 10 to 25 percentage points. On 40 labelled runs, 15 points is 6 runs flipping from fail to pass, which on its own is enough to push kappa across the 0.6 line. Those percentages come from measurements on particular tasks and they move around, so read them as an effect big enough to change your conclusion rather than as a fixed constant.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If LLM_PROVIDER points at the same model family that wrote the answers, the pass rate comes out flattering for no good reason, and the fix belongs in .env and never in this file.</span></div>
+        </li>
+        <li><h3>Label forty runs yourself, before you see the judge's verdicts</h3><p>This is the step people skip, and it is the step that turns your judge's output into a number that means something. Label <strong>blind</strong>, which means you decide pass or fail before you have seen any verdict from the judge, because once you have seen its answer you will drift towards agreeing with it and your measurement becomes circular. The script prints the question, then each tool call with the first 200 characters of its result, then the final answer, and waits for one keypress. Press <code>y</code> for pass, <code>n</code> for fail, and <code>s</code> to skip anything you genuinely cannot decide. Aim for forty labelled runs and make sure at least ten of them are ones you call failures, because the true negative rate is computed only from the failures and ten is the smallest number that gives it any resolution at all. Each label is written and flushed straight away, so you can stop with Ctrl+C after twelve runs, come back tomorrow, and carry on without losing work.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># label.py</span>
+<span class="t-k">import</span> json
+<span class="t-k">from</span> spans <span class="t-k">import</span> read
+
+<span class="t-k">with</span> <span class="t-f">open</span>(<span class="t-s">&quot;labels.jsonl&quot;</span>, <span class="t-s">&quot;a&quot;</span>, encoding=<span class="t-s">&quot;utf-8&quot;</span>) <span class="t-k">as</span> out:
+    <span class="t-k">for</span> tid, rows <span class="t-k">in</span> <span class="t-f">read</span>(<span class="t-s">&quot;traces.jsonl&quot;</span>).<span class="t-f">items</span>():
+        run = <span class="t-f">next</span>(r <span class="t-k">for</span> r <span class="t-k">in</span> rows <span class="t-k">if</span> r[<span class="t-s">&quot;name&quot;</span>] == <span class="t-s">&quot;agent_run&quot;</span>)
+        <span class="t-f">print</span>(<span class="t-s">&quot;\nQ:&quot;</span>, run[<span class="t-s">&quot;attrs&quot;</span>][<span class="t-s">&quot;question&quot;</span>])
+        <span class="t-k">for</span> r <span class="t-k">in</span> rows:
+            <span class="t-k">if</span> r[<span class="t-s">&quot;name&quot;</span>] == <span class="t-s">&quot;tool_call&quot;</span>:
+                <span class="t-f">print</span>(<span class="t-s">&quot;   tool&quot;</span>, r[<span class="t-s">&quot;attrs&quot;</span>][<span class="t-s">&quot;tool&quot;</span>], <span class="t-s">&quot;-&gt;&quot;</span>, r[<span class="t-s">&quot;attrs&quot;</span>].<span class="t-f">get</span>(<span class="t-s">&quot;result_head&quot;</span>))
+        <span class="t-f">print</span>(<span class="t-s">&quot;A:&quot;</span>, run[<span class="t-s">&quot;attrs&quot;</span>].<span class="t-f">get</span>(<span class="t-s">&quot;final&quot;</span>))
+        v = <span class="t-f">input</span>(<span class="t-s">&quot;pass? [y/n/s] &quot;</span>).<span class="t-f">strip</span>().<span class="t-f">lower</span>()
+        <span class="t-k">if</span> v <span class="t-k">in</span> (<span class="t-s">&quot;y&quot;</span>, <span class="t-s">&quot;n&quot;</span>):
+            out.<span class="t-f">write</span>(json.<span class="t-f">dumps</span>({<span class="t-s">&quot;trace_id&quot;</span>: tid, <span class="t-s">&quot;human_pass&quot;</span>: v == <span class="t-s">&quot;y&quot;</span>}) + <span class="t-s">&quot;\n&quot;</span>)
+            out.<span class="t-f">flush</span>()</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>with open(&quot;labels.jsonl&quot;, &quot;a&quot;, encoding=&quot;utf-8&quot;) as out:</dt><dd>The file is opened in append mode so you can label across several sittings without losing earlier work. The cost is that running label.py twice over the same traces writes a second label for the same trace id, and calibrate.py will then count that run twice.</dd>
+        <dt>run = next(r for r in rows if r[&quot;name&quot;] == &quot;agent_run&quot;)</dt><dd>This picks the single root span out of the trace, which is where the question and the final answer live. It raises StopIteration if a trace has no agent_run span, which happens when spans from something other than run_agent got logged into the same file.</dd>
+        <dt>print(&quot;   tool&quot;, r[&quot;attrs&quot;][&quot;tool&quot;], &quot;-&gt;&quot;, r[&quot;attrs&quot;].get(&quot;result_head&quot;))</dt><dd>You are shown the same 200 character heads that the judge will see, not the full tool output. That is deliberate, because if you label using evidence the judge never receives, you will disagree with it for reasons that are your fault and not its.</dd>
+        <dt>v = input(&quot;pass? [y/n/s] &quot;).strip().lower()</dt><dd>One keypress per run keeps the pace fast enough that forty runs is twenty minutes rather than a whole evening. Only y and n are recorded, so s writes nothing and that run simply stays unlabelled.</dd>
+        <dt>out.flush()</dt><dd>Python buffers writes, so without this a Ctrl+C could throw away the last several labels while they are still sitting in memory. Flushing after every line makes the file safe to interrupt at any moment.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>How many failures you label decides how precise your true negative rate can possibly be, so here is the arithmetic behind the &quot;at least ten&quot; rule.
+
+TNR is computed only from the runs you called fail. If you label k failures, TNR can only take the values 0/k, 1/k, and so on up to k/k.
+Formula for the uncertainty: SE = square root of ( p * (1 - p) / k ), and a rough 95 percent range is p plus or minus 1.96 * SE.
+p is the TNR you observed, k is how many failures you labelled, and SE stands for standard error, which is how much that fraction would wobble if you labelled a different set of the same size.
+
+Worked example with k = 3 and 2 of them caught, so p = 0.667.
+p * (1 - p) = 0.667 * 0.333 = 0.222. Divide by 3: 0.0740. Square root: 0.272. Times 1.96: 0.533.
+The range is 0.667 plus or minus 0.533, so 0.13 to 1.00. That range tells you nothing at all.
+
+Worked example with k = 13 and 10 of them caught, so p = 0.769.
+p * (1 - p) = 0.769 * 0.231 = 0.178. Divide by 13: 0.01366. Square root: 0.117. Times 1.96: 0.229.
+The range is 0.769 plus or minus 0.229, so 0.54 to 1.00. Still wide, but it now rules out a judge that only catches half your failures.
+
+Intuition: three failures give you a number with four possible values and an error bar wider than the scale itself, so ten is the floor and not the target.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Running label.py a second time over the same traces.jsonl appends duplicate labels, so delete labels.jsonl and start again rather than trying to spot the duplicates afterwards.</span></div>
+        </li>
+        <li><h3>Calibrate, then fix the rubric and repeat</h3><p>Now compare the judge against your own labels and read four numbers plus the list of disagreements. <strong>TPR</strong> (true positive rate) is the share of the runs you called good that the judge also called good, and <strong>TNR</strong> (true negative rate) is the share of the runs you called bad that it also called bad. <strong>Cohen's kappa</strong> is agreement after subtracting the agreement two random guessers would reach at those same base rates, which is why you report it instead of a raw percentage. A low TNR is the normal result the first time round, and it means your judge is lenient and is passing runs you called bad. Go and read those specific disagreements, because roughly half the time the judge is right and your label was sloppy, and the other half your rule was ambiguous and needs one more sentence. Change the rubric wording in <code>judge.py</code>, rerun this file, and stop when kappa is above about 0.6 and you can defend every remaining disagreement out loud. Be aware that this makes one model call per label, so forty labels means forty calls and a minute or two of waiting.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># calibrate.py</span>
+<span class="t-k">import</span> json
+<span class="t-k">from</span> spans <span class="t-k">import</span> read
+<span class="t-k">from</span> judge <span class="t-k">import</span> judge
+
+
+<span class="t-k">def</span> <span class="t-f">scores</span>(pairs):
+    <span class="t-s">&quot;&quot;&quot;pairs = list of (human_pass, judge_pass). Positive class = PASS.&quot;&quot;&quot;</span>
+    tp = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> h, j <span class="t-k">in</span> pairs <span class="t-k">if</span> h <span class="t-k">and</span> j)
+    tn = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> h, j <span class="t-k">in</span> pairs <span class="t-k">if</span> <span class="t-k">not</span> h <span class="t-k">and</span> <span class="t-k">not</span> j)
+    fp = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> h, j <span class="t-k">in</span> pairs <span class="t-k">if</span> <span class="t-k">not</span> h <span class="t-k">and</span> j)
+    fn = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> h, j <span class="t-k">in</span> pairs <span class="t-k">if</span> h <span class="t-k">and</span> <span class="t-k">not</span> j)
+    n = <span class="t-f">len</span>(pairs) <span class="t-k">or</span> <span class="t-s">1</span>
+    tpr = tp / (tp + fn) <span class="t-k">if</span> tp + fn <span class="t-k">else</span> <span class="t-f">float</span>(<span class="t-s">&quot;nan&quot;</span>)
+    tnr = tn / (tn + fp) <span class="t-k">if</span> tn + fp <span class="t-k">else</span> <span class="t-f">float</span>(<span class="t-s">&quot;nan&quot;</span>)
+    po = (tp + tn) / n
+    ph, pj = (tp + fn) / n, (tp + fp) / n
+    pe = ph * pj + (<span class="t-s">1</span> - ph) * (<span class="t-s">1</span> - pj)
+    kappa = (po - pe) / (<span class="t-s">1</span> - pe) <span class="t-k">if</span> pe != <span class="t-s">1</span> <span class="t-k">else</span> <span class="t-f">float</span>(<span class="t-s">&quot;nan&quot;</span>)
+    <span class="t-k">return</span> {<span class="t-s">&quot;n&quot;</span>: n, <span class="t-s">&quot;tp&quot;</span>: tp, <span class="t-s">&quot;tn&quot;</span>: tn, <span class="t-s">&quot;fp&quot;</span>: fp, <span class="t-s">&quot;fn&quot;</span>: fn,
+            <span class="t-s">&quot;tpr&quot;</span>: <span class="t-f">round</span>(tpr, <span class="t-s">3</span>), <span class="t-s">&quot;tnr&quot;</span>: <span class="t-f">round</span>(tnr, <span class="t-s">3</span>),
+            <span class="t-s">&quot;raw_agreement&quot;</span>: <span class="t-f">round</span>(po, <span class="t-s">3</span>), <span class="t-s">&quot;kappa&quot;</span>: <span class="t-f">round</span>(kappa, <span class="t-s">3</span>)}
+
+
+<span class="t-k">if</span> __name__ == <span class="t-s">&quot;__main__&quot;</span>:
+    traces = <span class="t-f">read</span>(<span class="t-s">&quot;traces.jsonl&quot;</span>)
+    labels = [json.<span class="t-f">loads</span>(l) <span class="t-k">for</span> l <span class="t-k">in</span> <span class="t-f">open</span>(<span class="t-s">&quot;labels.jsonl&quot;</span>, encoding=<span class="t-s">&quot;utf-8&quot;</span>)]
+    pairs, disagree = [], []
+    <span class="t-k">for</span> lab <span class="t-k">in</span> labels:
+        rows = traces.<span class="t-f">get</span>(lab[<span class="t-s">&quot;trace_id&quot;</span>])
+        <span class="t-k">if</span> <span class="t-k">not</span> rows:
+            <span class="t-k">continue</span>
+        run = <span class="t-f">next</span>(r <span class="t-k">for</span> r <span class="t-k">in</span> rows <span class="t-k">if</span> r[<span class="t-s">&quot;name&quot;</span>] == <span class="t-s">&quot;agent_run&quot;</span>)
+        evidence = <span class="t-s">&quot;\n&quot;</span>.<span class="t-f">join</span>(<span class="t-f">str</span>(r[<span class="t-s">&quot;attrs&quot;</span>].<span class="t-f">get</span>(<span class="t-s">&quot;result_head&quot;</span>, <span class="t-s">&quot;&quot;</span>))
+                             <span class="t-k">for</span> r <span class="t-k">in</span> rows <span class="t-k">if</span> r[<span class="t-s">&quot;name&quot;</span>] == <span class="t-s">&quot;tool_call&quot;</span>)
+        v, why = <span class="t-f">judge</span>(run[<span class="t-s">&quot;attrs&quot;</span>][<span class="t-s">&quot;question&quot;</span>], evidence, run[<span class="t-s">&quot;attrs&quot;</span>].<span class="t-f">get</span>(<span class="t-s">&quot;final&quot;</span>, <span class="t-s">&quot;&quot;</span>))
+        pairs.<span class="t-f">append</span>((lab[<span class="t-s">&quot;human_pass&quot;</span>], v))
+        <span class="t-k">if</span> lab[<span class="t-s">&quot;human_pass&quot;</span>] != v:
+            disagree.<span class="t-f">append</span>((lab[<span class="t-s">&quot;trace_id&quot;</span>], <span class="t-s">&quot;you said pass&quot;</span> <span class="t-k">if</span> lab[<span class="t-s">&quot;human_pass&quot;</span>]
+                             <span class="t-k">else</span> <span class="t-s">&quot;you said fail&quot;</span>, why))
+    <span class="t-f">print</span>(json.<span class="t-f">dumps</span>(<span class="t-f">scores</span>(pairs), indent=<span class="t-s">2</span>))
+    <span class="t-k">for</span> d <span class="t-k">in</span> disagree:
+        <span class="t-f">print</span>(<span class="t-s">&quot;DISAGREE&quot;</span>, *d)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>tp = sum(1 for h, j in pairs if h and j)</dt><dd>Each of the four counters is one pass over the same list of (your label, judge label) pairs. Writing them out as four separate sums is longer than calling a confusion matrix library, and it means you can read exactly what each number counts without looking anything up.</dd>
+        <dt>tpr = tp / (tp + fn) if tp + fn else float(&quot;nan&quot;)</dt><dd>The guard stops a divide by zero when you labelled nothing as pass, and returns nan (not a number) instead. Seeing nan in the output is useful information in itself, because it tells you that rate was computed from no examples at all.</dd>
+        <dt>pe = ph * pj + (1 - ph) * (1 - pj)</dt><dd>This is the chance you and the judge agree purely by luck, given how often each of you says pass. Both of you landing on pass has probability ph * pj, both landing on fail has probability (1 - ph) * (1 - pj), and kappa subtracts that total from the agreement you actually got.</dd>
+        <dt>evidence = &quot;\n&quot;.join(str(r[&quot;attrs&quot;].get(&quot;result_head&quot;, &quot;&quot;)) for r in rows if r[&quot;name&quot;] == &quot;tool_call&quot;)</dt><dd>The evidence handed to the judge is rebuilt from the trace itself, so the judge sees exactly what the agent saw, capped at the 200 characters you stored in step 3. If a run made no tool calls this comes out as an empty string, and the judge should then fail any answer containing specific facts.</dd>
+        <dt>disagree.append((lab[&quot;trace_id&quot;], &quot;you said pass&quot; if lab[&quot;human_pass&quot;] else &quot;you said fail&quot;, why))</dt><dd>Every disagreement is printed with its trace id and the judge's own one line reason. That reason is the thing you read to decide whether the judge misunderstood your rule or your rule was genuinely vague.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>This step prints five derived numbers. Here is every one of them, with the same worked example carried through.
+
+The four counts, with PASS as the positive class:
+tp = you said pass and the judge said pass
+tn = you said fail and the judge said fail
+fp = you said fail but the judge said pass
+fn = you said pass but the judge said fail
+
+Formulas:
+TPR = tp / (tp + fn)
+TNR = tn / (tn + fp)
+raw agreement, written po = (tp + tn) / n
+ph = (tp + fn) / n, which is how often you said pass
+pj = (tp + fp) / n, which is how often the judge said pass
+pe = ph * pj + (1 - ph) * (1 - pj), the agreement two random guessers would reach at those rates
+kappa = (po - pe) / (1 - pe)
+n is the number of labelled runs.
+
+Worked example A, a realistic first calibration on 40 runs: tp = 24, tn = 10, fp = 3, fn = 3.
+TPR = 24 / (24 + 3) = 24 / 27 = 0.889
+TNR = 10 / (10 + 3) = 10 / 13 = 0.769
+po = (24 + 10) / 40 = 34 / 40 = 0.850
+ph = (24 + 3) / 40 = 27 / 40 = 0.675
+pj = (24 + 3) / 40 = 27 / 40 = 0.675
+pe = 0.675 * 0.675 + 0.325 * 0.325 = 0.4556 + 0.1056 = 0.5613
+kappa = (0.850 - 0.5613) / (1 - 0.5613) = 0.2887 / 0.4387 = 0.658
+That clears 0.6, so this judge is usable.
+
+Worked example B, the trap. Same 40 runs, but the judge says pass to everything: tp = 27, fn = 0, fp = 13, tn = 0.
+TPR = 27 / 27 = 1.000, which looks perfect
+TNR = 0 / 13 = 0.000, which is the truth
+po = 27 / 40 = 0.675
+ph = 27 / 40 = 0.675, and pj = 40 / 40 = 1.000
+pe = 0.675 * 1.000 + 0.325 * 0.000 = 0.675
+kappa = (0.675 - 0.675) / (1 - 0.675) = 0 / 0.325 = 0.000
+So raw agreement of 67.5 percent sounds acceptable while kappa says the judge carries no information whatsoever.
+
+Intuition: kappa asks how much better than lucky guessing you did, so it collapses to zero exactly when a judge is simply betting on whichever class is more common. The usual reading is that above 0.6 is usable and below 0.4 means the rubric is ambiguous, but those cut-offs are a 1977 convention with no statistical backing, so treat them as a nudge and not a law.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If you regenerated traces.jsonl after labelling, every trace id in labels.jsonl now points at nothing, traces.get returns None for all of them, and you get n of 1 with zeros and nan everywhere.</span></div>
+        </li>
+        <li><h3>Turn the calibrated judge into a deploy gate</h3><p>The last step turns your calibrated judge into something a build server can run on its own. Copy your questions into <code>cases.jsonl</code>, one <code>{&quot;question&quot;: &quot;...&quot;}</code> per line, then freeze that file, because a case set that keeps changing cannot tell you whether today is worse than last week. Run the gate once on today's code, then write that pass rate into <code>baseline.json</code> yourself as <code>{&quot;pass_rate&quot;: 0.88}</code>, since this script reads that file but never writes it. From then on the script exits with code 1 whenever the pass rate falls more than ten points below the baseline, and a CI job treats a non-zero exit as a failed build. The <code>os.environ</code> line has to come before the <code>spans</code> and <code>agent</code> imports, because <code>spans.py</code> reads <code>SPAN_LOG</code> once at import time and never looks again. Runs that crash are caught, printed and still counted, which is what you want, because a crashed run is a failed run and its trace has no final answer for the judge to pass. On screen you get one line: the pass rate, the baseline, and how many cases were counted.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># gate.py</span>
+<span class="t-k">import</span> json, os, sys
+os.environ[<span class="t-s">&quot;SPAN_LOG&quot;</span>] = <span class="t-s">&quot;gate_run.jsonl&quot;</span>     <span class="t-c"># before importing spans / agent</span>
+<span class="t-k">if</span> os.path.<span class="t-f">exists</span>(<span class="t-s">&quot;gate_run.jsonl&quot;</span>):
+    os.<span class="t-f">remove</span>(<span class="t-s">&quot;gate_run.jsonl&quot;</span>)
+
+<span class="t-k">from</span> agent <span class="t-k">import</span> run_agent, TOOLS
+<span class="t-k">from</span> judge <span class="t-k">import</span> judge
+<span class="t-k">from</span> spans <span class="t-k">import</span> read
+
+cases = [json.<span class="t-f">loads</span>(l) <span class="t-k">for</span> l <span class="t-k">in</span> <span class="t-f">open</span>(<span class="t-s">&quot;cases.jsonl&quot;</span>, encoding=<span class="t-s">&quot;utf-8&quot;</span>)]
+<span class="t-k">for</span> c <span class="t-k">in</span> cases:
+    <span class="t-k">try</span>:
+        <span class="t-f">run_agent</span>(c[<span class="t-s">&quot;question&quot;</span>], TOOLS)
+    <span class="t-k">except</span> Exception <span class="t-k">as</span> e:
+        <span class="t-f">print</span>(<span class="t-s">&quot;crashed:&quot;</span>, c[<span class="t-s">&quot;question&quot;</span>], e)
+
+traces = <span class="t-f">read</span>(<span class="t-s">&quot;gate_run.jsonl&quot;</span>)
+ok = <span class="t-s">0</span>
+<span class="t-k">for</span> tid, rows <span class="t-k">in</span> traces.<span class="t-f">items</span>():
+    run = <span class="t-f">next</span>(r <span class="t-k">for</span> r <span class="t-k">in</span> rows <span class="t-k">if</span> r[<span class="t-s">&quot;name&quot;</span>] == <span class="t-s">&quot;agent_run&quot;</span>)
+    ev = <span class="t-s">&quot;\n&quot;</span>.<span class="t-f">join</span>(<span class="t-f">str</span>(r[<span class="t-s">&quot;attrs&quot;</span>].<span class="t-f">get</span>(<span class="t-s">&quot;result_head&quot;</span>, <span class="t-s">&quot;&quot;</span>))
+                   <span class="t-k">for</span> r <span class="t-k">in</span> rows <span class="t-k">if</span> r[<span class="t-s">&quot;name&quot;</span>] == <span class="t-s">&quot;tool_call&quot;</span>)
+    v, _ = <span class="t-f">judge</span>(run[<span class="t-s">&quot;attrs&quot;</span>][<span class="t-s">&quot;question&quot;</span>], ev, run[<span class="t-s">&quot;attrs&quot;</span>].<span class="t-f">get</span>(<span class="t-s">&quot;final&quot;</span>, <span class="t-s">&quot;&quot;</span>))
+    ok += <span class="t-f">bool</span>(v)
+
+rate = ok / <span class="t-f">max</span>(<span class="t-f">len</span>(traces), <span class="t-s">1</span>)
+base = json.<span class="t-f">load</span>(<span class="t-f">open</span>(<span class="t-s">&quot;baseline.json&quot;</span>))[<span class="t-s">&quot;pass_rate&quot;</span>] <span class="t-k">if</span> os.path.<span class="t-f">exists</span>(<span class="t-s">&quot;baseline.json&quot;</span>) <span class="t-k">else</span> rate
+<span class="t-f">print</span>(f<span class="t-s">&quot;pass rate {rate:.2f}   baseline {base:.2f}   cases {len(traces)}&quot;</span>)
+sys.<span class="t-f">exit</span>(<span class="t-s">1</span> <span class="t-k">if</span> rate &lt; base - <span class="t-s">0.10</span> <span class="t-k">else</span> <span class="t-s">0</span>)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>os.environ[&quot;SPAN_LOG&quot;] = &quot;gate_run.jsonl&quot;</dt><dd>This must sit above the 'from agent import ...' line, because importing agent imports spans, and spans.py reads SPAN_LOG once at import. Put it lower and the gate would append into traces.jsonl, mixing your gate runs into the labelled runs you calibrated against.</dd>
+        <dt>if os.path.exists(&quot;gate_run.jsonl&quot;): os.remove(&quot;gate_run.jsonl&quot;)</dt><dd>The logger only appends, so the file is deleted first to make sure the pass rate is computed from this run alone. Without it your gate would slowly average today together with every previous day and stop reacting to anything.</dd>
+        <dt>the try / except around run_agent</dt><dd>A crashed case is printed and the loop carries on, so one broken question does not abandon the whole gate. The crashed run still leaves a trace behind with no final answer, so it goes on to be judged and counted as a failure, which is the right result.</dd>
+        <dt>rate = ok / max(len(traces), 1)</dt><dd>The max(..., 1) is a divide by zero guard for the case where nothing ran at all. Note that the denominator is the number of traces found in the log, not the number of cases you fed in, so a case that never produced a span quietly disappears from the score instead of counting against it.</dd>
+        <dt>base = json.load(open(&quot;baseline.json&quot;))[&quot;pass_rate&quot;] if os.path.exists(&quot;baseline.json&quot;) else rate</dt><dd>If baseline.json is missing, the baseline is set to today's rate, so the comparison is against itself and the gate always passes. That is deliberate first run behaviour, and it is also the trap, because nothing in this script ever writes baseline.json for you.</dd>
+        <dt>sys.exit(1 if rate &lt; base - 0.10 else 0)</dt><dd>Exit code 1 means failure to any shell or CI system and exit code 0 means success, which is the entire interface a build server needs. The 0.10 is ten percentage points and not ten percent of the baseline, so a baseline of 0.88 fails only below 0.78.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Two numbers here: the ten point threshold and the token cost.
+
+1) Why ten points and not one.
+Model output varies between runs, so a small drop can be nothing but noise. The wobble on a pass rate is:
+SE = square root of ( p * (1 - p) / n )
+p is your baseline pass rate, n is the number of frozen cases, and a rough 95 percent range is 1.96 * SE either side.
+Worked example with p = 0.88 and n = 50: 0.88 * 0.12 = 0.1056. Divide by 50: 0.002112. Square root: 0.0460. Times 1.96: 0.090.
+So with 50 cases a perfectly healthy agent can swing about 9 points either way without anything actually being wrong, which is where the 10 point threshold comes from.
+Worked example of the gate itself: baseline 44/50 = 0.88. A run scoring 41/50 = 0.82 has dropped 0.06, which is less than 0.10, so sys.exit(0) and the build passes. A run scoring 36/50 = 0.72 has dropped 0.16, so sys.exit(1) and the build fails.
+Intuition: the threshold is set just outside normal noise, so the gate fires on a real regression and not on a bad afternoon.
+
+2) What one gate run costs in tokens.
+Formula: input tokens = cases * (fixed prefix tokens + variable tokens), and cached input costs roughly a tenth of fresh input.
+Worked example. Say each judge prompt is about 1600 input tokens, of which about 1300 are the fixed instructions and RULE at the top and 300 are the question, evidence and answer underneath.
+With no caching: 50 * 1600 = 80,000 input tokens per gate run.
+With prefix caching: 50 * (1300 * 0.1 + 300) = 50 * 430 = 21,500 effective tokens, so about 3.7 times cheaper.
+Caching matches on prefixes, which is exactly why the fixed instructions and the RULE sit at the top of TEMPLATE in step 5 and the changing parts sit below them. Be honest about the limits here: whether caching happens at all depends on your provider, and the shared llm.py does not ask for it, so treat this as the reason for the prompt layout rather than a bill you will definitely see.
+Intuition: keep the unchanging text first and the case specific text last, and a 50 case gate stops being something you avoid running.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Forgetting to create baseline.json means the gate compares today's rate against today's rate and exits 0 forever, so it will never once tell you anything.</span></div>
+        </li>
+        </ol>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> Running <code>python spans.py</code> prints a readable step by step tree for every agent run, with one indented line per model call and tool call and a <code>FAIL</code> line wherever a step raised. Running <code>python calibrate.py</code> prints n, tp, tn, fp, fn, TPR, TNR, raw agreement and Cohen's kappa against at least forty of your own blind labels, with kappa above 0.6. Running <code>python gate.py</code> prints a pass rate next to a baseline you wrote yourself and exits 0. If kappa is below 0.6, you have a written explanation for each remaining disagreement, which counts as finished too.</div></div>
+        </section>
+        <section class="section section--mini"><h2 class="section__h" data-stamp="hands on"><span>Mini-project: your turn</span></h2>
+        <p class="prose">Break your agent three ways on purpose and record whether your gate notices. The result is regression_report.json, which check.py reads and cross-checks against the gate output you saved.</p>
+        <p class="small muted">No code given. Produce the file, then run the checker.</p>
+        <ol class="steps">
+        <li><p>Freeze the case set: 50 lines of {&quot;question&quot;: &quot;...&quot;} in cases.jsonl, then stop editing it. Run gate.py once against today's agent, write that rate into baseline.json as {&quot;pass_rate&quot;: 0.88}, and note the kappa calibrate.py printed.</p></li>
+        <li><p>Make three copies of agent.py with exactly one defect each, named truncate_100 (tool results cut to the first 100 characters), no_retrieval (the search tool removed from the tools dict), and cheap_model (the cheapest model tier you have access to).</p></li>
+        <li><p>Run gate.py against each copy without touching judge.py or cases.jsonl. Save each run's stdout to runs/&lt;name&gt;.txt, so runs/truncate_100.txt holds a line like &quot;pass rate 0.62   baseline 0.88   cases 50&quot;, and note each exit code.</p></li>
+        <li><p>Write regression_report.json with this shape: {&quot;baseline&quot;: {&quot;pass_rate&quot;: 0.88, &quot;kappa&quot;: 0.66, &quot;n_cases&quot;: 50, &quot;n_labels&quot;: 41}, &quot;threshold&quot;: 0.10, &quot;variants&quot;: [{&quot;name&quot;: &quot;truncate_100&quot;, &quot;defect&quot;: &quot;tool results cut to 100 chars&quot;, &quot;pass_rate&quot;: 0.62, &quot;gate_exit_code&quot;: 1, &quot;detected&quot;: true}, ...], &quot;blind_spots&quot;: [&quot;...&quot;]}. Set detected true only when that variant's rate falls more than 0.10 below the baseline.</p></li>
+        <li><p>For every variant where detected is false, read that copy's traces until you find the failure by hand. Then either sharpen the rubric in judge.py, recalibrate and rerun, or write one sentence in blind_spots saying what your eval cannot see.</p></li>
+        <li><p>Run python check.py from inside my-work/labs/lab16.</p></li>
+        </ol>
+        <div class="checker"><div class="checker__h">Check it yourself, automatically</div>
+        <p>Save this as <code>check.py</code> next to your work, then run <code>cd my-work/labs/lab16 &amp;&amp; python check.py</code>. It reads what you produced, tests it, and prints a line per check.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>check.py</span></div>
+<pre><span class="t-s">&quot;&quot;&quot;check.py - verifies your Module 16 regression report. Standard library only.&quot;&quot;&quot;</span>
+<span class="t-k">import</span> json, re, sys
+<span class="t-k">from</span> pathlib <span class="t-k">import</span> Path
+
+HERE = <span class="t-f">Path</span>(__file__).parent
+REPORT = HERE / <span class="t-s">&quot;regression_report.json&quot;</span>
+fails = []
+
+<span class="t-k">def</span> <span class="t-f">check</span>(ok, msg):
+    <span class="t-f">print</span>((<span class="t-s">&quot;PASS &quot;</span> <span class="t-k">if</span> ok <span class="t-k">else</span> <span class="t-s">&quot;FAIL &quot;</span>) + msg)
+    <span class="t-k">if</span> <span class="t-k">not</span> ok:
+        fails.<span class="t-f">append</span>(msg)
+
+<span class="t-c"># 1. the artefact must exist and parse before anything else can be checked</span>
+<span class="t-k">if</span> <span class="t-k">not</span> REPORT.<span class="t-f">exists</span>():
+    <span class="t-f">print</span>(<span class="t-s">&quot;FAIL regression_report.json not found next to check.py. Write it (step 4) and rerun.&quot;</span>)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-k">try</span>:
+    rep = json.<span class="t-f">loads</span>(REPORT.<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>))
+<span class="t-k">except</span> json.JSONDecodeError <span class="t-k">as</span> e:
+    <span class="t-f">print</span>(f<span class="t-s">&quot;FAIL regression_report.json is not valid JSON: {e}&quot;</span>)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+
+base, variants = rep.<span class="t-f">get</span>(<span class="t-s">&quot;baseline&quot;</span>, {}), rep.<span class="t-f">get</span>(<span class="t-s">&quot;variants&quot;</span>, [])
+bpr = base.<span class="t-f">get</span>(<span class="t-s">&quot;pass_rate&quot;</span>)
+
+<span class="t-f">check</span>(<span class="t-f">isinstance</span>(bpr, (int, float)) <span class="t-k">and</span> <span class="t-s">0</span> &lt;= bpr &lt;= <span class="t-s">1</span>, <span class="t-s">&quot;baseline.pass_rate is a number from 0 to 1&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">isinstance</span>(base.<span class="t-f">get</span>(<span class="t-s">&quot;kappa&quot;</span>), (int, float)) <span class="t-k">and</span> base.<span class="t-f">get</span>(<span class="t-s">&quot;kappa&quot;</span>, -<span class="t-s">9</span>) &gt;= <span class="t-s">0.4</span>,
+      <span class="t-s">&quot;baseline.kappa is recorded and at least 0.4 (below that the rubric is too vague to use)&quot;</span>)
+<span class="t-f">check</span>(rep.<span class="t-f">get</span>(<span class="t-s">&quot;threshold&quot;</span>) == <span class="t-s">0.10</span>, <span class="t-s">&quot;threshold is 0.10, the same ten points gate.py uses&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">len</span>(variants) == <span class="t-s">3</span>, f<span class="t-s">&quot;exactly 3 variants recorded, found {len(variants)}&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">len</span>({v.<span class="t-f">get</span>(<span class="t-s">&quot;name&quot;</span>) <span class="t-k">for</span> v <span class="t-k">in</span> variants}) == <span class="t-f">len</span>(variants), <span class="t-s">&quot;variant names are unique&quot;</span>)
+
+<span class="t-c"># 2. the baseline counts must match the files they came from, not be typed by hand</span>
+cases, labels = HERE / <span class="t-s">&quot;cases.jsonl&quot;</span>, HERE / <span class="t-s">&quot;labels.jsonl&quot;</span>
+<span class="t-k">if</span> cases.<span class="t-f">exists</span>():
+    n = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> l <span class="t-k">in</span> cases.<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>).<span class="t-f">splitlines</span>() <span class="t-k">if</span> l.<span class="t-f">strip</span>())
+    <span class="t-f">check</span>(n == base.<span class="t-f">get</span>(<span class="t-s">&quot;n_cases&quot;</span>), f<span class="t-s">&quot;baseline.n_cases matches cases.jsonl, which has {n} lines&quot;</span>)
+    <span class="t-f">check</span>(n &gt;= <span class="t-s">50</span>, f<span class="t-s">&quot;cases.jsonl holds at least 50 frozen cases, found {n}&quot;</span>)
+<span class="t-k">else</span>:
+    <span class="t-f">check</span>(<span class="t-k">False</span>, <span class="t-s">&quot;cases.jsonl not found; the case set has to be frozen on disk&quot;</span>)
+<span class="t-k">if</span> labels.<span class="t-f">exists</span>():
+    ids = {json.<span class="t-f">loads</span>(l)[<span class="t-s">&quot;trace_id&quot;</span>]
+           <span class="t-k">for</span> l <span class="t-k">in</span> labels.<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>).<span class="t-f">splitlines</span>() <span class="t-k">if</span> l.<span class="t-f">strip</span>()}
+    <span class="t-f">check</span>(<span class="t-f">len</span>(ids) == base.<span class="t-f">get</span>(<span class="t-s">&quot;n_labels&quot;</span>), f<span class="t-s">&quot;baseline.n_labels matches labels.jsonl, {len(ids)} unique&quot;</span>)
+    <span class="t-f">check</span>(<span class="t-f">len</span>(ids) &gt;= <span class="t-s">40</span>, f<span class="t-s">&quot;at least 40 blind labels behind kappa, found {len(ids)}&quot;</span>)
+<span class="t-k">else</span>:
+    <span class="t-f">check</span>(<span class="t-k">False</span>, <span class="t-s">&quot;labels.jsonl not found; kappa has to come from labels you made yourself&quot;</span>)
+
+<span class="t-c"># 3. per variant: the verdict must follow from the numbers, and the numbers from the saved run</span>
+missed = <span class="t-s">0</span>
+<span class="t-k">for</span> v <span class="t-k">in</span> variants:
+    name = <span class="t-f">str</span>(v.<span class="t-f">get</span>(<span class="t-s">&quot;name&quot;</span>, <span class="t-s">&quot;?&quot;</span>))
+    pr, code, det = v.<span class="t-f">get</span>(<span class="t-s">&quot;pass_rate&quot;</span>), v.<span class="t-f">get</span>(<span class="t-s">&quot;gate_exit_code&quot;</span>), v.<span class="t-f">get</span>(<span class="t-s">&quot;detected&quot;</span>)
+    ok_pr = <span class="t-f">isinstance</span>(pr, (int, float)) <span class="t-k">and</span> <span class="t-s">0</span> &lt;= pr &lt;= <span class="t-s">1</span>
+    <span class="t-f">check</span>(ok_pr, f<span class="t-s">&quot;{name}: pass_rate is a number from 0 to 1&quot;</span>)
+    <span class="t-f">check</span>(<span class="t-f">len</span>(<span class="t-f">str</span>(v.<span class="t-f">get</span>(<span class="t-s">&quot;defect&quot;</span>, <span class="t-s">&quot;&quot;</span>)).<span class="t-f">strip</span>()) &gt; <span class="t-s">10</span>, f<span class="t-s">&quot;{name}: defect is described in one line&quot;</span>)
+    caught = ok_pr <span class="t-k">and</span> <span class="t-f">isinstance</span>(bpr, (int, float)) <span class="t-k">and</span> pr &lt; bpr - <span class="t-s">0.10</span>
+    <span class="t-f">check</span>(det <span class="t-k">is</span> caught,
+          f<span class="t-s">&quot;{name}: detected={det} should be {caught}, from {pr} against baseline {bpr} minus 0.10&quot;</span>)
+    <span class="t-f">check</span>(code == (<span class="t-s">1</span> <span class="t-k">if</span> caught <span class="t-k">else</span> <span class="t-s">0</span>),
+          f<span class="t-s">&quot;{name}: gate_exit_code {code} should be {1 if caught else 0} for a defect the gate &quot;</span>
+          f<span class="t-s">&quot;{'caught' if caught else 'missed'}&quot;</span>)
+    log = HERE / <span class="t-s">&quot;runs&quot;</span> / f<span class="t-s">&quot;{name}.txt&quot;</span>
+    <span class="t-k">if</span> log.<span class="t-f">exists</span>():
+        m = re.<span class="t-f">search</span>(r<span class="t-s">&quot;pass rate\s+([0-9.]+)&quot;</span>, log.<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>))
+        <span class="t-f">check</span>(<span class="t-f">bool</span>(m) <span class="t-k">and</span> ok_pr <span class="t-k">and</span> <span class="t-f">abs</span>(<span class="t-f">float</span>(m.<span class="t-f">group</span>(<span class="t-s">1</span>)) - pr) &lt; <span class="t-s">0.011</span>,
+              f<span class="t-s">&quot;{name}: pass_rate matches the 'pass rate' line in runs/{name}.txt&quot;</span>)
+    <span class="t-k">else</span>:
+        <span class="t-f">check</span>(<span class="t-k">False</span>, f<span class="t-s">&quot;{name}: runs/{name}.txt missing; save each variant's gate output there&quot;</span>)
+    <span class="t-k">if</span> <span class="t-k">not</span> caught:
+        missed += <span class="t-s">1</span>
+
+<span class="t-c"># 4. every defect the gate missed needs a written blind spot</span>
+spots = [s <span class="t-k">for</span> s <span class="t-k">in</span> rep.<span class="t-f">get</span>(<span class="t-s">&quot;blind_spots&quot;</span>, []) <span class="t-k">if</span> <span class="t-f">isinstance</span>(s, str) <span class="t-k">and</span> <span class="t-f">len</span>(s.<span class="t-f">strip</span>()) &gt; <span class="t-s">20</span>]
+<span class="t-f">check</span>(<span class="t-f">len</span>(spots) &gt;= missed,
+      f<span class="t-s">&quot;blind_spots has a sentence for each of the {missed} defect(s) the gate did not catch&quot;</span>)
+
+<span class="t-f">print</span>(<span class="t-s">&quot;\nNot checked automatically: whether your blind_spots sentences are true, and whether &quot;</span>
+      <span class="t-s">&quot;your 50 cases resemble what users actually ask.&quot;</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;ALL CHECKS PASSED&quot;</span> <span class="t-k">if</span> <span class="t-k">not</span> fails <span class="t-k">else</span> f<span class="t-s">&quot;{len(fails)} CHECK(S) FAILED&quot;</span>)
+sys.<span class="t-f">exit</span>(<span class="t-s">0</span> <span class="t-k">if</span> <span class="t-k">not</span> fails <span class="t-k">else</span> <span class="t-s">1</span>)
+</pre></div>
+        </div>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> check.py prints one PASS line per check and ends with ALL CHECKS PASSED and exit code 0. It fails when a detected flag disagrees with the numbers, when a pass_rate does not match runs/&lt;name&gt;.txt, when n_cases or n_labels do not match the files on disk, or when a missed defect has no blind_spots sentence. It prints a line saying that whether your blind_spots sentences are true is not checked automatically.</div></div>
+        <div class="note" style="margin-top:12px"><div class="note__t">If you want more</div><p>Add a second binary check that grades the trajectory instead of the answer, such as &quot;did the agent call search_docs at least once before answering?&quot;. Build a fourth defect that only the trajectory check catches while the answer check still says pass, and add it to the report. check.py expects exactly 3 variants, so change that number to 4 when you do.</p></div>
+        </section>
+        <section class="section section--quiz"><h2 class="section__h" data-stamp="on record"><span>Check yourself</span></h2>
+        <p class="small muted">Explained either way.</p>
+        <div class="quiz" data-quiz>
+        <div class="q" data-answer="0"><p class="q__q">Your judge agrees with your labels on 85 out of 100 examples. You labelled 85 of those 100 as pass. What can you conclude?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Almost nothing, because a judge that says pass to everything would also score 85% here</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>The judge is good enough to ship, since 85% agreement is high</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>The judge has a verbosity bias and prefers longer answers</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>You need a 1 to 5 scale to capture the nuance the judge is missing</span></button>
+        </div><div class="q__why" hidden>Raw agreement is inflated whenever one class dominates, and here an always-pass judge scores the same 85% with a Cohen's kappa of exactly 0.00 and a true negative rate of 0%. That is why you report TPR and TNR, or kappa, which subtracts the agreement two random guessers would reach at those base rates. Verbosity bias is real but nothing in these numbers points to it, and moving to a 1 to 5 scale would make the measurement worse, not better.</div></div>
+        <div class="q" data-answer="2"><p class="q__q">What is the right order for building an evaluation for an agent?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Pick a metric like helpfulness, write the judge, and look at traces only if the score comes out low</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Write a detailed 1 to 5 rubric, get three annotators, and average their scores</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Read a sample of real traces, group the failures you find, then write a judge for the biggest group</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Ship it, wait for user complaints, and fix whatever gets reported</span></button>
+        </div><div class="q__why" hidden>Error analysis first means your checker targets failures that actually happen in your system, rather than a generic quality idea nobody complained about. A metric like helpfulness gives you a number that moves without telling you what to fix, and averaging three annotators on a five point scale mostly averages their clustering around three and four. Waiting for complaints does find real bugs, but only after users hit them, and most users never report anything.</div></div>
+        <div class="q" data-answer="3"><p class="q__q">Your agent produced a confident, wrong final answer, and the trace has nine spans. Where do you look, and what does that say about grading?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Only the final span, since it is the one that produced the answer</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Nowhere useful, since the trace cannot explain a wrong answer; rerun on a larger model</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>The system prompt, since prompt wording is the cause of essentially all agent failures</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>The intermediate spans, because agents usually go wrong at one middle step and then build fluently on it, so you grade the trajectory and not just the output</span></button>
+        </div><div class="q__why" hidden>Agents fail in the middle: one bad tool choice or one misread tool result at step 4, and the remaining steps produce a smooth answer on top of it. Grading only the final output tells you a run failed but never where, which is why you record every step and grade the sequence. Swapping to a bigger model sometimes hides the symptom, but you still would not know which step was broken, and prompt wording is only one of several causes.</div></div>
+        </div></section>
+        <section class="section section--notes notes" data-notes><h2 class="section__h" data-stamp="on record"><span>Your notes</span></h2>
+        <p class="small muted">Saves as you type, in this browser.</p>
+        <label class="sr" for="n16">Notes for this module</label>
+        <textarea id="n16" placeholder="What clicked? What is still fuzzy? What do you want to come back to?"></textarea><div class="notes__status"></div></section>
+        <section class="section section--done"><h2 class="section__h" data-stamp="on record"><span>Mark it done</span></h2>
+        <div class="marks"><button class="mark" data-mark="read" aria-pressed="false"><span>Read the notes</span></button><button class="mark" data-mark="lab" aria-pressed="false"><span>Finished the lab</span></button><button class="mark" data-mark="mini" aria-pressed="false"><span>Finished the mini-project</span></button></div></section>
+        <section class="section section--docs"><h2 class="section__h" data-stamp="reference"><span>Go to the source</span></h2>
+        <p class="small muted">If this course and the docs disagree, the docs are newer.</p><ul class="prose">
+        <li><a href="https://hamel.dev/blog/posts/field-guide/" target="_blank" rel="noopener">Hamel Husain, A Field Guide to Rapidly Improving AI Products (error analysis first)</a></li>
+        <li><a href="https://hamel.dev/blog/posts/evals/" target="_blank" rel="noopener">Hamel Husain, Your AI Product Needs Evals</a></li>
+        <li><a href="https://github.com/open-telemetry/semantic-conventions-genai" target="_blank" rel="noopener">OpenTelemetry GenAI semantic conventions (own repo, still not stable)</a></li>
+        <li><a href="https://langfuse.com/docs" target="_blank" rel="noopener">Langfuse documentation (tracing and evals)</a></li>
+        <li><a href="https://github.com/Arize-ai/phoenix" target="_blank" rel="noopener">Arize Phoenix (source-available, Elastic License 2.0)</a></li>
+        <li><a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.cohen_kappa_score.html" target="_blank" rel="noopener">Cohen's kappa, definition and formula (scikit-learn reference)</a></li>
+        </ul></section>
+    </div>
+    <nav data-chrome="pager"></nav>
+  </main>
+</div>
+
+<script src="../assets/data.js"></script>
+<script src="../assets/widgets.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>21. B3 · Train your own GPT</title>
+<meta name="description" content="Take the model you wrote and train it from random numbers until it writes readable English.">
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+</head>
+<body data-module="m21" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="7">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+        <div data-chrome="modhead"></div>
+        <p class="prose">In B2 you built a transformer that produces noise, because all 824,897 of its numbers are random. Here you train those numbers on text you choose until the model writes recognisable English, and you learn to read the one number that tells you whether it is working.</p>
+        <section class="section section--watch"><h2 class="section__h" data-stamp="take in"><span>Watch this first</span></h2>
+        <div data-videos="core"></div></section>
+        <section class="section section--ideas"><h2 class="section__h" data-stamp="take in"><span>The ideas, in plain English</span></h2>
+        <p class="small muted">Each idea, then a worked example of it.</p>
+        <div class="concepts">
+        <div class="concept"><div class="concept__n" aria-hidden="true">1</div><h3 class="concept__t">Next-token prediction is the whole objective</h3><p class="concept__b">Training has exactly one task: given the characters so far, name the next one. <code>get_batch</code> cuts a window of 128 characters as <code>x</code> and the same window shifted one place as <code>y</code>. Every position in the window is scored separately, so one window is 128 training examples, not one. There is no other objective anywhere in the file.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">train_gpt.py, the batch maker</p><pre><span class="t-k">def</span> <span class="t-f">get_batch</span>(which: str):
+    d = train_data <span class="t-k">if</span> which == <span class="t-s">&quot;train&quot;</span> <span class="t-k">else</span> val_data
+    ix = torch.<span class="t-f">randint</span>(<span class="t-f">len</span>(d) - cfg.block_size - <span class="t-s">1</span>, (BATCH,))
+    x = torch.<span class="t-f">stack</span>([d[i:i + cfg.block_size] <span class="t-k">for</span> i <span class="t-k">in</span> ix])
+    y = torch.<span class="t-f">stack</span>([d[i + <span class="t-s">1</span>:i + cfg.block_size + <span class="t-s">1</span>] <span class="t-k">for</span> i <span class="t-k">in</span> ix])
+    <span class="t-k">return</span> x, y</pre><p class="eg__say">what that shift means, for the first 8 characters of the sample corpus:</p><pre>  given            'F'  -&gt;  predict 'i'
+  given           'Fi'  -&gt;  predict 'r'
+  given          'Fir'  -&gt;  predict 's'
+  given         'Firs'  -&gt;  predict 't'
+  given        'First'  -&gt;  predict ' '
+  given       'First '  -&gt;  predict 'C'
+  given      'First C'  -&gt;  predict 'i'
+  given     'First Ci'  -&gt;  predict 't'</pre><div class="eg__cap">y is x slid one place to the left. Those two slices are the entire training signal.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">2</div><h3 class="concept__t">What the loss number means</h3><p class="concept__b"><code>F.cross_entropy</code> returns the natural log of how surprised the model was by the correct character, averaged over every predicted position. Raise <code>e</code> to that number and you get how many characters it was effectively choosing between. Guessing uniformly over a vocabulary of size V scores <code>log(V)</code>, which is 4.174 for the 65 distinct characters in the sample corpus, so any score at or above 4.174 means nothing was learned.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>loss</th><th>e to the loss</th><th>what it is</th></tr></thead><tbody><tr><td>4.495</td><td>89.6</td><td>the untrained model on random data, worse than guessing</td></tr><tr><td>4.174</td><td>65.0</td><td>guessing uniformly over 65 characters, the baseline</td></tr><tr><td>2.193</td><td>9.0</td><td>after 200 training steps</td></tr><tr><td>1.674</td><td>5.3</td><td>after 1,223 steps, 241 seconds</td></tr><tr><td>1.550</td><td>4.7</td><td>after the full 8 minute budget, roughly 3,600 steps</td></tr></tbody></table><div class="eg__cap">Measured on a laptop processor with no graphics card, on a 1,115,394 character corpus. Untrained is slightly worse than uniform because random weights give a lumpy output, not a flat one.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">3</div><h3 class="concept__t">Train and validation split</h3><p class="concept__b"><code>split = int(0.9 * len(data))</code> holds back the last tenth of your text, and <code>val_loss()</code> averages 20 batches drawn only from that tenth. It is the only number that measures prediction on text the model has never seen. Train loss falling while validation loss rises is memorising, not learning, and the train column alone will never show you that.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>step</th><th>train loss</th><th>validation loss</th></tr></thead><tbody><tr><td>200</td><td>1.994</td><td>2.168</td></tr><tr><td>400</td><td>1.456</td><td>2.018</td></tr><tr><td>600</td><td>0.901</td><td>2.474</td></tr></tbody></table><div class="eg__cap">A measured run on a 40,000 character corpus. Train loss more than halves while validation turns upward at step 600. Judged on the train column this run looks great. It is not.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">4</div><h3 class="concept__t">Batch and context size</h3><p class="concept__b">Your batch size and your context length are numbers you pick in <code>model_config.json</code>, the small file of choices that the Build track reads. The starter file gives you a batch of 32 windows per step and a <code>block_size</code> of 128 characters per window. One step therefore scores 32 x 128 = 4,096 predictions, and the gradient is their average. The measured 1,223 step run made 1,223 x 4,096 = 5,009,408 predictions in 241 seconds. A bigger batch gives a steadier direction per step but fewer steps per minute, and at this scale steps matter more. 128 is also the hard ceiling on how far back the model can look, fixed by the size of the position embedding table.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">train_gpt.py, reading the choices you made in model_config.json</p><pre>MY = myconfig.<span class="t-f">load</span>()
+BATCH, LR = <span class="t-f">int</span>(MY[<span class="t-s">&quot;batch_size&quot;</span>]), <span class="t-f">float</span>(MY[<span class="t-s">&quot;learning_rate&quot;</span>])</pre><p class="eg__say">_shared/tinygpt.py, class Config, whose defaults your model_config.json replaces</p><pre>block_size: int = <span class="t-s">128</span>     <span class="t-c"># how many tokens of context it can see at once</span>
+n_embd: int = <span class="t-s">128</span>         <span class="t-c"># width of the vector carried per token</span>
+n_head: int = <span class="t-s">4</span>           <span class="t-c"># how many attention heads per block</span>
+n_layer: int = <span class="t-s">4</span>          <span class="t-c"># how many blocks stacked</span></pre><div class="eg__cap">The context limit shows up again in generate(): idx[:, -self.block_size:] throws away everything older than the last 128 characters.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">5</div><h3 class="concept__t">Learning rate</h3><p class="concept__b"><code>LR</code>, the learning rate, is how hard each step nudges the numbers, and the starter <code>model_config.json</code> sets it to 3e-3. Too small and the loss crawls, too large and it bounces or turns into NaN and never recovers. 3e-3 is high for a transformer and only works because this model is tiny and <code>AdamW</code> rescales the step for each parameter individually, so 0.003 is not the literal distance any single weight moves.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre>opt = torch.optim.<span class="t-f">AdamW</span>(model.<span class="t-f">parameters</span>(), lr=LR)   <span class="t-c"># LR is yours, from model_config.json</span></pre><pre>_, loss = <span class="t-f">model</span>(x, y)
+opt.<span class="t-f">zero_grad</span>(set_to_none=<span class="t-k">True</span>)
+loss.<span class="t-f">backward</span>()        <span class="t-c"># which way should every number move</span>
+opt.<span class="t-f">step</span>()             <span class="t-c"># move them a little</span></pre><div class="eg__cap">backward() computes a direction for all 824,897 numbers. step() applies it. If your loss prints nan, the learning rate is the first thing to halve.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">6</div><h3 class="concept__t">Reading a training curve</h3><p class="concept__b">Every 200 steps the script measures validation loss and appends it to <code>history</code>, which is saved inside the checkpoint. A steep early drop followed by slow flattening is the normal shape. Flat means you are near the limit of this model on this text, and rising means you have trained past the point where it stopped generalising.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>step</th><th>validation loss</th><th>seconds</th></tr></thead><tbody><tr><td>200</td><td>2.193</td><td>58</td></tr><tr><td>400</td><td>1.934</td><td>73</td></tr><tr><td>600</td><td>1.793</td><td>113</td></tr><tr><td>800</td><td>1.753</td><td>152</td></tr><tr><td>1000</td><td>1.691</td><td>189</td></tr><tr><td>1200</td><td>1.658</td><td>233</td></tr></tbody></table><div class="eg__cap">The real history stored in tinygpt.pt. Over half the total drop happened in the first 600 steps. The seconds column is uneven because the machine had other work to do, which is normal on a laptop processor.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">7</div><h3 class="concept__t">Temperature, and why it is nonsense</h3><p class="concept__b"><code>generate</code> divides the scores by temperature before softmax, then draws a character at random from the result. Below 1.0 sharpens the distribution towards the safest character, above 1.0 flattens it and lets unlikely characters through. Whatever you choose, a model this small trained for minutes has learned which characters follow which, so you get real words, real line breaks and real-looking speaker names with no meaning behind any of them. Both halves are the lesson.</p>
+        <div class="eg"><div class="eg__h">Example</div><p>--- temperature 0.5 ---
+She that thou come to the man in the body of her.
+
+CLARENCE:
+What is shall the sears of all what the cause put of could
+And the thrust have to see the son which the bear.
+
+--- temperature 1.2 ---
+That vouchmers all of begell'd when be dry.
+Greaty's yield th, yet, how! thank contey, stay'd
+summer'd, anown, not agains
+thine; yeapulaiest the wall dog pleats heir jectain,</p><div class="eg__cap">Same checkpoint, two temperatures. Low gives cleaner words and duller repetition, high invents more and breaks more words. Neither one says anything.</div></div>
+        </div>
+        </div></section>
+        <section class="section section--try"><h2 class="section__h" data-stamp="hands on"><span>Try it yourself</span></h2>
+        <p class="small muted" style="margin-bottom:6px">Choose how big your own model is</p>
+        <div data-widget="modelsize"></div>
+        </section>
+        <div class="note note--gap"><div class="note__t">Worth knowing</div><p>This model has 824,897 parameters and sees 128 characters of context. It learns which characters follow which, and that is genuinely all: no facts, no meaning, and no amount of extra training will make it truthful. A validation loss of 1.55 is a real result for this size and still a long way from anything useful. Two honest limits sit in the code itself. The train/validation split is contiguous rather than random, so your validation set is literally the last tenth of your file and will mislead you if your text changes style near the end. And the seed is fixed at 1337, so you are looking at one run, not an average of several. Timings vary widely between machines, and because the budget is a clock rather than a step count, the same command does different amounts of training on different laptops.</p></div>
+        <section class="section section--lab"><h2 class="section__h" data-stamp="hands on"><span>Lab: follow along</span></h2>
+        <div data-setupbanner></div>
+        <div class="note note--warn" data-path="offline free key" hidden><div class="note__t">Train YOUR model, not the template</div><p><code>train_gpt.py</code> reads <code>model_config.json</code> and refuses to run without it, because picking the size is the decision this module is about. When you have trained something, run <code>python ../_shared/check_decisions.py</code>: it verifies you changed the numbers from the template, wrote a real reason for each, and that the checkpoint you produced actually has the parameter count your config predicts. Train a second configuration afterwards and compare. That comparison is worth more than either run.</p></div>
+        <p class="prose">train_gpt.py is 126 lines and does the whole job: builds a vocabulary from your text, splits it, trains, saves a checkpoint, and samples from it. Work through it once on the sample corpus before you point it at your own writing.</p>
+        <p class="small muted">Code given, every line explained.</p>
+        <ol class="steps">
+        <li><h3>Check the model before you train it</h3><p>tinygpt.py has a shape check at the bottom that runs the model on random data and prints its size. Run it first, because if this fails nothing else in the Build track will work. It reports 824,897 parameters and a loss of 4.495 on random input, against 4.174 for guessing uniformly over 65 options. Slightly worse than uniform is exactly right for random weights: random numbers give a lumpy output distribution, not a flat one. Write 4.174 down, because every number for the rest of this module is measured against it.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>cd my-work/labs/_shared
+python tinygpt.py
+
+parameters      <span class="t-s">824</span>,<span class="t-s">897</span>
+<span class="t-f">input</span>  (<span class="t-s">2</span>, <span class="t-s">16</span>)  -&gt;  <span class="t-f">logits</span> (<span class="t-s">2</span>, <span class="t-s">16</span>, <span class="t-s">65</span>)
+loss on random data <span class="t-s">4.495</span> (a fair coin over <span class="t-s">65</span> options would be <span class="t-s">4.174</span>)
+generated <span class="t-s">20</span> tokens <span class="t-k">from</span> an empty prompt</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>824,897 parameters</dt><dd>4 blocks, 4 heads each, width 128, context 128. All of it is random numbers until you train it.</dd>
+        <dt>logits (2, 16, 65)</dt><dd>one score per vocabulary entry, at every one of the 16 positions, for both sequences in the batch. Sixteen separate predictions from one forward pass.</dd>
+        <dt>loss 4.495</dt><dd>your starting point. Anything that stays near this after training means the model did not learn.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Guessing uniformly over V options scores ln(V). ln(65) = 4.174. For comparison, ln(2) = 0.693, so a model that had narrowed every single choice down to a coin flip would score 0.693.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If this fails with ModuleNotFoundError: No module named 'torch', install torch before going further. B3, B4 and B5 all need it.</span></div>
+        </li>
+        <li><h3>Start the run, then read while it trains</h3><p>Run train_gpt.py with no arguments. If corpus.txt is not there it downloads a small public domain sample and tells you so, then trains for 480 seconds by default. The header confirms three things before any training happens: how big your text is, how many parameters you have, and what random guessing would score. Every 200 steps it prints train loss, validation loss and elapsed time, which you read in step 5. Leave it running and work through steps 3 and 4 while it goes; Ctrl+C stops it early and still saves everything.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>cd my-work/labs/lab21
+python train_gpt.py
+
+corpus     <span class="t-s">1</span>,<span class="t-s">115</span>,<span class="t-s">394</span> characters, <span class="t-s">65</span> distinct
+model      <span class="t-s">824</span>,<span class="t-s">897</span> parameters
+baseline   loss <span class="t-s">4.174</span> <span class="t-k">if</span> it only ever guessed at random
+
+training <span class="t-k">for</span> <span class="t-s">480s</span>. Stop it early <span class="t-k">with</span> Ctrl+C <span class="t-k">and</span> it still saves.
+
+  (one line every <span class="t-s">200</span> steps, read <span class="t-k">in</span> step <span class="t-s">5</span>)
+
+<span class="t-s">1223</span> steps <span class="t-k">in</span> <span class="t-s">241s</span>. Final validation loss <span class="t-s">1.674</span> (random guessing would be <span class="t-s">4.174</span>).
+saved tinygpt.<span class="t-f">pt</span>  (<span class="t-s">4</span>,<span class="t-s">387</span>,<span class="t-s">939</span> bytes)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>65 distinct</dt><dd>the vocabulary is every distinct character in YOUR file, built by sorted(set(text)). Nothing is pretrained here, not even the alphabet.</dd>
+        <dt>Ctrl+C</dt><dd>the loop sits inside try/except KeyboardInterrupt, so stopping early prints 'stopped early, saving what you have' and still writes the checkpoint. The run above was stopped at 241 seconds.</dd>
+        <dt>1223 steps in 241s</dt><dd>left for the full 8 minute budget it reaches roughly 3,600 steps and a validation loss near 1.55, measured on a laptop processor with no graphics card.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Loss 1.674 means the average correct character was given probability e to the minus 1.674, which is 0.188, roughly 1 in 5.3. Random guessing gives 1/65 = 0.0154, and minus ln(0.0154) = 4.174.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>The stopping condition is a clock, not a step count: while time.time() - t0 &lt; BUDGET_S. Two people running the same command on different machines do different amounts of training and get different losses. That is expected.</span></div>
+        </li>
+        <li><h3>See what one training example actually is</h3><p>The most useful thing to understand about training a language model is what a single example looks like, and it is smaller than people expect. Run this snippet in my-work/labs/lab21 once corpus.txt exists. It builds the same character vocabulary train_gpt.py builds, encodes the first 200 characters, and prints x beside y. x and y are the same numbers, offset by one. The last line of the listing is the interesting one: given 'First Ci' the model must produce 't', and it gets no other information at all.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>cd my-work/labs/lab21
+python -c &quot;
+<span class="t-k">import</span> torch
+text = <span class="t-f">open</span>(<span class="t-s">'corpus.txt'</span>, encoding=<span class="t-s">'utf-8'</span>).<span class="t-f">read</span>()
+chars = <span class="t-f">sorted</span>(<span class="t-f">set</span>(text))
+stoi = {c: i <span class="t-k">for</span> i, c <span class="t-k">in</span> <span class="t-f">enumerate</span>(chars)}
+itos = {i: c <span class="t-k">for</span> c, i <span class="t-k">in</span> stoi.<span class="t-f">items</span>()}
+data = torch.<span class="t-f">tensor</span>([stoi[c] <span class="t-k">for</span> c <span class="t-k">in</span> text[:<span class="t-s">200</span>]])
+x, y = data[:<span class="t-s">8</span>], data[<span class="t-s">1</span>:<span class="t-s">9</span>]
+<span class="t-f">print</span>(<span class="t-s">'x'</span>, x.<span class="t-f">tolist</span>())
+<span class="t-f">print</span>(<span class="t-s">'y'</span>, y.<span class="t-f">tolist</span>())
+<span class="t-k">for</span> i <span class="t-k">in</span> <span class="t-f">range</span>(<span class="t-s">8</span>):
+    ctx = <span class="t-s">''</span>.<span class="t-f">join</span>(itos[t] <span class="t-k">for</span> t <span class="t-k">in</span> x[:i+<span class="t-s">1</span>].<span class="t-f">tolist</span>())
+    <span class="t-f">print</span>(f<span class="t-s">'  given {ctx!r:&gt;14}  -&gt;  predict {itos[y[i].item()]!r}'</span>)
+&quot;
+
+x [<span class="t-s">18</span>, <span class="t-s">47</span>, <span class="t-s">56</span>, <span class="t-s">57</span>, <span class="t-s">58</span>, <span class="t-s">1</span>, <span class="t-s">15</span>, <span class="t-s">47</span>]
+y [<span class="t-s">47</span>, <span class="t-s">56</span>, <span class="t-s">57</span>, <span class="t-s">58</span>, <span class="t-s">1</span>, <span class="t-s">15</span>, <span class="t-s">47</span>, <span class="t-s">58</span>]
+  given            <span class="t-s">'F'</span>  -&gt;  predict <span class="t-s">'i'</span>
+  given           <span class="t-s">'Fi'</span>  -&gt;  predict <span class="t-s">'r'</span>
+  given          <span class="t-s">'Fir'</span>  -&gt;  predict <span class="t-s">'s'</span>
+  given         <span class="t-s">'Firs'</span>  -&gt;  predict <span class="t-s">'t'</span>
+  given        <span class="t-s">'First'</span>  -&gt;  predict <span class="t-s">' '</span>
+  given       <span class="t-s">'First '</span>  -&gt;  predict <span class="t-s">'C'</span>
+  given      <span class="t-s">'First C'</span>  -&gt;  predict <span class="t-s">'i'</span>
+  given     <span class="t-s">'First Ci'</span>  -&gt;  predict <span class="t-s">'t'</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>sorted(set(text))</dt><dd>the vocabulary. Sorted so the mapping is reproducible: the same text always gives the same character-to-number table.</dd>
+        <dt>y = data[1:9]</dt><dd>the shift. Position i of y is the answer for position i of x.</dd>
+        <dt>8 lines from 8 characters</dt><dd>the causal mask you verified in B2 is what makes this legal. Position 3 predicting 't' cannot see position 4, so all 8 predictions can be scored from one forward pass.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>One batch is 32 windows of 128 characters, and every position in every window is predicted, so a single step scores 32 x 128 = 4,096 characters. The 1,223 step run above made 1,223 x 4,096 = 5,009,408 predictions.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>corpus.txt only exists after you have started train_gpt.py at least once, because that is what downloads it. Point the snippet at your own .txt file instead if you prefer.</span></div>
+        </li>
+        <li><h3>The four lines that do the learning</h3><p>Everything else in the file is setup. This is the loop, and it is the same loop that trains models a hundred thousand times bigger. get_batch pulls 32 random windows. Calling the model with targets runs the forward pass and returns the cross-entropy against y in one go. zero_grad clears the previous step's gradients, backward works out which direction every one of the 824,897 numbers should move to make this batch less surprising, and step moves them. Repeat a few thousand times and you have a language model.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-k">while</span> time.<span class="t-f">time</span>() - t0 &lt; BUDGET_S:
+    x, y = <span class="t-f">get_batch</span>(<span class="t-s">&quot;train&quot;</span>)
+    _, loss = <span class="t-f">model</span>(x, y)
+    opt.<span class="t-f">zero_grad</span>(set_to_none=<span class="t-k">True</span>)
+    loss.<span class="t-f">backward</span>()        <span class="t-c"># which way should every number move</span>
+    opt.<span class="t-f">step</span>()             <span class="t-c"># move them a little</span>
+    step += <span class="t-s">1</span>
+
+<span class="t-c"># and inside TinyGPT.forward, the line that defines the objective:</span>
+loss = F.<span class="t-f">cross_entropy</span>(logits.<span class="t-f">view</span>(B * T, -<span class="t-s">1</span>), targets.<span class="t-f">view</span>(B * T))</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>model(x, y)</dt><dd>forward pass and loss in one call. The view() calls flatten 32 x 128 positions into 4,096 rows so cross_entropy scores them all together.</dd>
+        <dt>opt.zero_grad(set_to_none=True)</dt><dd>PyTorch accumulates gradients. Leave this out and step N moves in a direction contaminated by step N-1, and the loss goes sideways.</dd>
+        <dt>loss.backward()</dt><dd>the backward pass. This is where the cost is: roughly twice the work of the forward pass, and the reason a step takes a fraction of a second on a laptop processor.</dd>
+        <dt>opt.step()</dt><dd>AdamW applies the move, scaled per parameter using a running estimate of each gradient's size.</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>val_loss() is decorated with @torch.no_grad() and flips the model to eval() and back. Measuring without no_grad would build a gradient graph you never use and slow the run down for nothing.</span></div>
+        </li>
+        <li><h3>Read your curve</h3><p>The checkpoint stores the whole validation history, so you can read the curve afterwards without rerunning anything. Load it and print history. Look for the shape, not the exact numbers: steep early, flattening later. In the run below over half the total improvement arrives in the first 600 steps, and the last 600 steps buy 0.135. If your curve is still dropping when the budget ends, train longer. If it has flattened, more time will not help and you need more text or a bigger model.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>cd my-work/labs/lab21
+python -c &quot;
+<span class="t-k">import</span> sys, pathlib, torch
+sys.path.<span class="t-f">append</span>(<span class="t-f">str</span>(pathlib.<span class="t-f">Path</span>(<span class="t-s">'.'</span>).<span class="t-f">resolve</span>().parents[<span class="t-s">0</span>] / <span class="t-s">'_shared'</span>))
+b = torch.<span class="t-f">load</span>(<span class="t-s">'tinygpt.pt'</span>, map_location=<span class="t-s">'cpu'</span>, weights_only=<span class="t-k">False</span>)
+<span class="t-k">for</span> h <span class="t-k">in</span> b[<span class="t-s">'history'</span>]: <span class="t-f">print</span>(h)
+<span class="t-f">print</span>(<span class="t-s">'final'</span>, <span class="t-f">round</span>(b[<span class="t-s">'val_loss'</span>], <span class="t-s">4</span>), <span class="t-s">'steps'</span>, b[<span class="t-s">'steps'</span>])
+&quot;
+
+{<span class="t-s">'step'</span>: <span class="t-s">200</span>, <span class="t-s">'val_loss'</span>: <span class="t-s">2.1927</span>, <span class="t-s">'seconds'</span>: <span class="t-s">58.1</span>}
+{<span class="t-s">'step'</span>: <span class="t-s">400</span>, <span class="t-s">'val_loss'</span>: <span class="t-s">1.9344</span>, <span class="t-s">'seconds'</span>: <span class="t-s">73.1</span>}
+{<span class="t-s">'step'</span>: <span class="t-s">600</span>, <span class="t-s">'val_loss'</span>: <span class="t-s">1.7931</span>, <span class="t-s">'seconds'</span>: <span class="t-s">113.2</span>}
+{<span class="t-s">'step'</span>: <span class="t-s">800</span>, <span class="t-s">'val_loss'</span>: <span class="t-s">1.7529</span>, <span class="t-s">'seconds'</span>: <span class="t-s">152.3</span>}
+{<span class="t-s">'step'</span>: <span class="t-s">1000</span>, <span class="t-s">'val_loss'</span>: <span class="t-s">1.6914</span>, <span class="t-s">'seconds'</span>: <span class="t-s">188.5</span>}
+{<span class="t-s">'step'</span>: <span class="t-s">1200</span>, <span class="t-s">'val_loss'</span>: <span class="t-s">1.6582</span>, <span class="t-s">'seconds'</span>: <span class="t-s">233.0</span>}
+final <span class="t-s">1.6736</span> steps <span class="t-s">1223</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>weights_only=False</dt><dd>the checkpoint contains a Config dataclass, not just tensors, so torch refuses to load it in its default safe mode.</dd>
+        <dt>sys.path.append(... '_shared')</dt><dd>unpickling Config needs to import the tinygpt module. Without this line torch.load raises ModuleNotFoundError: No module named 'tinygpt', which is confusing until you know why.</dd>
+        <dt>final 1.6736 against step 1200 at 1.6582</dt><dd>the final number is a fresh measurement over 20 different random validation batches, so it wobbles by a few hundredths. Do not read meaning into small differences.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>The drop from 2.193 to 1.658 is 0.535 in log terms, which is e to the 2.193 = 9.0 effective choices down to e to the 1.658 = 5.2. The 1.658 that remains is not noise. It is how much of this text the model simply cannot predict.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>A rising validation number is the signal to stop. It does not mean training is broken, it means the model has started memorising the training tenths instead of learning patterns that transfer.</span></div>
+        </li>
+        <li><h3>Sample at three temperatures</h3><p>train_gpt.py already prints 600 characters and writes sample.txt, but the interesting experiment is changing temperature on the same checkpoint. generate divides the logits by the temperature before softmax, so low values make the distribution sharper and high values flatten it. Run the two extremes side by side. At 0.5 you get cleaner, safer, more repetitive text; at 1.2 you get more invention and more broken words. Read both carefully: the words are real English, the line breaks are in sensible places, the speaker names have colons, and the content means nothing.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>cd my-work/labs/lab21
+python -c &quot;
+<span class="t-k">import</span> sys, pathlib, torch
+sys.path.<span class="t-f">append</span>(<span class="t-f">str</span>(pathlib.<span class="t-f">Path</span>(<span class="t-s">'.'</span>).<span class="t-f">resolve</span>().parents[<span class="t-s">0</span>] / <span class="t-s">'_shared'</span>))
+<span class="t-k">from</span> tinygpt <span class="t-k">import</span> TinyGPT
+b = torch.<span class="t-f">load</span>(<span class="t-s">'tinygpt.pt'</span>, map_location=<span class="t-s">'cpu'</span>, weights_only=<span class="t-k">False</span>)
+m = <span class="t-f">TinyGPT</span>(<span class="t-f">len</span>(b[<span class="t-s">'stoi'</span>]), b[<span class="t-s">'config'</span>]); m.<span class="t-f">load_state_dict</span>(b[<span class="t-s">'state'</span>]); m.<span class="t-f">eval</span>()
+<span class="t-k">for</span> t <span class="t-k">in</span> (<span class="t-s">0.5</span>, <span class="t-s">1.2</span>):
+    ids = m.<span class="t-f">generate</span>(torch.<span class="t-f">zeros</span>((<span class="t-s">1</span>, <span class="t-s">1</span>), dtype=torch.long), <span class="t-s">200</span>, temperature=t)
+    <span class="t-f">print</span>(f<span class="t-s">'--- temperature {t} ---'</span>)
+    <span class="t-f">print</span>(<span class="t-s">''</span>.<span class="t-f">join</span>(b[<span class="t-s">'itos'</span>][i] <span class="t-k">for</span> i <span class="t-k">in</span> ids[<span class="t-s">0</span>].<span class="t-f">tolist</span>()))
+&quot;
+
+--- temperature <span class="t-s">0.5</span> ---
+She that thou come to the man <span class="t-k">in</span> the body of her.
+
+CLARENCE:
+What <span class="t-k">is</span> shall the sears of all what the cause put of could
+And the thrust have to see the son which the bear.
+
+--- temperature <span class="t-s">1.2</span> ---
+That vouchmers all of begell'd when be dry.
+Greaty<span class="t-s">'s yield th, yet, how! thank contey, stay'</span>d
+summer'd, anown, <span class="t-k">not</span> agains
+thine; yeapulaiest the wall dog pleats heir jectain,</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>torch.zeros((1, 1), dtype=torch.long)</dt><dd>the prompt is one token, index 0, which is a newline in this vocabulary. There is no prompting here. It just starts.</dd>
+        <dt>logits[:, -1, :] / max(temperature, 1e-6)</dt><dd>only the last position matters when generating. The max() guard stops a temperature of 0 from dividing by zero.</dd>
+        <dt>torch.multinomial(probs, 1)</dt><dd>it draws a character at random, weighted by probability. Run the same command twice and you get different text. That is the design, not a bug.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Temperature T replaces each score s with s/T before softmax. With two options scoring 2.0 and 1.0: at T=1.0 the probabilities are 0.73 and 0.27; at T=0.5 the scores become 4.0 and 2.0 and the probabilities 0.88 and 0.12; at T=2.0 they become 1.0 and 0.5 and the probabilities 0.62 and 0.38.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Be honest about what you are looking at. 'CLARENCE:' is not the model knowing who Clarence is. It has learned that a run of capitals near a line start is usually followed by a colon and a newline. Character statistics, nothing more.</span></div>
+        </li>
+        <li><h3>Write report.py</h3><p>The checkpoint holds everything you need to prove the run happened, so the report script does no training. Save this as my-work/labs/lab21/report.py. It loads tinygpt.pt, rebuilds the model, generates 300 characters at three temperatures, and writes train_report.json with the vocabulary, the baseline, the final validation loss, the full history and the samples. Note that it takes the samples from the model rather than from a file, which is what lets the checker prove they came from this checkpoint. You run it in the mini-project.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-s">&quot;&quot;&quot;Turn the checkpoint into train_report.json. Run after train_gpt.py.&quot;&quot;&quot;</span>
+<span class="t-k">import</span> json, math, pathlib, sys
+
+sys.path.<span class="t-f">append</span>(<span class="t-f">str</span>(pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parents[<span class="t-s">1</span>] / <span class="t-s">&quot;_shared&quot;</span>))
+<span class="t-k">import</span> torch
+<span class="t-k">from</span> tinygpt <span class="t-k">import</span> TinyGPT
+
+CORPUS = sys.argv[<span class="t-s">1</span>] <span class="t-k">if</span> <span class="t-f">len</span>(sys.argv) &gt; <span class="t-s">1</span> <span class="t-k">else</span> <span class="t-s">&quot;mytext.txt&quot;</span>
+blob = torch.<span class="t-f">load</span>(<span class="t-s">&quot;tinygpt.pt&quot;</span>, map_location=<span class="t-s">&quot;cpu&quot;</span>, weights_only=<span class="t-k">False</span>)
+model = <span class="t-f">TinyGPT</span>(<span class="t-f">len</span>(blob[<span class="t-s">&quot;stoi&quot;</span>]), blob[<span class="t-s">&quot;config&quot;</span>])
+model.<span class="t-f">load_state_dict</span>(blob[<span class="t-s">&quot;state&quot;</span>])
+model.<span class="t-f">eval</span>()
+
+itos, samples = blob[<span class="t-s">&quot;itos&quot;</span>], []
+<span class="t-k">for</span> temp <span class="t-k">in</span> (<span class="t-s">0.5</span>, <span class="t-s">0.8</span>, <span class="t-s">1.2</span>):
+    ids = model.<span class="t-f">generate</span>(torch.<span class="t-f">zeros</span>((<span class="t-s">1</span>, <span class="t-s">1</span>), dtype=torch.long), <span class="t-s">300</span>, temperature=temp)
+    samples.<span class="t-f">append</span>(<span class="t-s">&quot;&quot;</span>.<span class="t-f">join</span>(itos[i] <span class="t-k">for</span> i <span class="t-k">in</span> ids[<span class="t-s">0</span>].<span class="t-f">tolist</span>()))
+
+report = {
+    <span class="t-s">&quot;corpus_file&quot;</span>: CORPUS,
+    <span class="t-s">&quot;corpus_chars&quot;</span>: blob[<span class="t-s">&quot;corpus_chars&quot;</span>],
+    <span class="t-s">&quot;vocab&quot;</span>: <span class="t-s">&quot;&quot;</span>.<span class="t-f">join</span>(<span class="t-f">sorted</span>(blob[<span class="t-s">&quot;stoi&quot;</span>])),
+    <span class="t-s">&quot;vocab_size&quot;</span>: <span class="t-f">len</span>(blob[<span class="t-s">&quot;stoi&quot;</span>]),
+    <span class="t-s">&quot;baseline_loss&quot;</span>: <span class="t-f">round</span>(math.<span class="t-f">log</span>(<span class="t-f">len</span>(blob[<span class="t-s">&quot;stoi&quot;</span>])), <span class="t-s">4</span>),
+    <span class="t-s">&quot;final_val_loss&quot;</span>: <span class="t-f">round</span>(blob[<span class="t-s">&quot;val_loss&quot;</span>], <span class="t-s">4</span>),
+    <span class="t-s">&quot;steps&quot;</span>: blob[<span class="t-s">&quot;steps&quot;</span>],
+    <span class="t-s">&quot;history&quot;</span>: blob[<span class="t-s">&quot;history&quot;</span>],
+    <span class="t-s">&quot;samples&quot;</span>: samples,
+    <span class="t-s">&quot;checkpoint&quot;</span>: <span class="t-s">&quot;tinygpt.pt&quot;</span>,
+}
+pathlib.<span class="t-f">Path</span>(<span class="t-s">&quot;train_report.json&quot;</span>).<span class="t-f">write_text</span>(
+    json.<span class="t-f">dumps</span>(report, indent=<span class="t-s">2</span>), encoding=<span class="t-s">&quot;utf-8&quot;</span>)
+<span class="t-f">print</span>(f<span class="t-s">&quot;wrote train_report.json  final val loss {report['final_val_loss']} &quot;</span>
+      f<span class="t-s">&quot;vs baseline {report['baseline_loss']}&quot;</span>)
+
+<span class="t-c"># wrote train_report.json  final val loss 1.6736 vs baseline 4.1744</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>sys.path.append before import torch</dt><dd>the path has to be set before torch.load unpickles Config, and putting it above the torch import guarantees that.</dd>
+        <dt>model.eval()</dt><dd>turns off dropout. Config has dropout 0.0 by default so it changes nothing here, but leaving it out is a habit that costs you later.</dd>
+        <dt>&quot;vocab&quot;: &quot;&quot;.join(sorted(blob[&quot;stoi&quot;]))</dt><dd>the exact character set the model was built for, in a form you can eyeball. For the sample corpus it starts with a newline, a space, then ! $ &amp; ' , - . 3 : ; ?</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>report.py reads tinygpt.pt from the current directory, so run it from my-work/labs/lab21. If you train more than once the second run overwrites the first checkpoint, so copy it aside if you want to keep it.</span></div>
+        </li>
+        </ol>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> You have tinygpt.pt in my-work/labs/lab21 with a validation loss well under log(vocabulary size), you can read the curve stored inside it, and you can sample from it at any temperature you like.</div></div>
+        </section>
+        <section class="section section--mini"><h2 class="section__h" data-stamp="hands on"><span>Mini-project: your turn</span></h2>
+        <p class="prose">Train the same model on your own writing, then prove it learned rather than memorised.</p>
+        <p class="small muted">No code given. Produce the file, then run the checker.</p>
+        <ol class="steps">
+        <li><p>Put at least 20,000 characters of your own text in my-work/labs/lab21/mytext.txt. Plain text, one file: old notes, blog posts, your own code, emails you wrote, any book you have the right to use. Aim for 100,000 characters or more if you can, and read the next step before you decide.</p></li>
+        <li><p>Train with python train_gpt.py mytext.txt 480 and watch the val column, not the train column. Press Ctrl+C once val has failed to improve for two readings in a row; the script still saves. Measured on a laptop processor with no graphics card: a 40,000 character corpus hit its best validation loss of 2.018 at step 400, then rose to 2.474 by step 600 and 2.743 by step 665, while a 200,000 character corpus fell steadily to 1.742 over 1,268 steps. Less text means stop sooner.</p></li>
+        <li><p>Run python report.py mytext.txt from my-work/labs/lab21, using the script from lab step 7. It loads tinygpt.pt, generates 300 characters at temperature 0.5, 0.8 and 1.2, and writes train_report.json next to it.</p></li>
+        <li><p>Save check_b3.py in my-work/labs/lab21 and run python check_b3.py. Fix whatever it flags. The most likely failure is 'validation loss went down overall', which means you trained past the bottom of your curve: retrain with a shorter budget, or add more text.</p></li>
+        <li><p>Leave tinygpt.pt where it is. B5 serves this exact file behind an OpenAI-shaped API, and every lab in the main course can then be pointed at it.</p></li>
+        </ol>
+        <div class="checker"><div class="checker__h">Check it yourself, automatically</div>
+        <p>Save this as <code>check_b3.py</code> next to your work, then run <code>Save it as my-work/labs/lab21/check_b3.py, in the same folder as train_report.json, tinygpt.pt and your text file. Run python check_b3.py from that folder. It prints PASS or FAIL for each check and exits 0 only when all eight pass.</code>. It reads what you produced, tests it, and prints a line per check.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>check_b3.py</span></div>
+<pre><span class="t-s">&quot;&quot;&quot;check_b3.py - verifies the B3 mini-project. Put it in lab21 and run it.&quot;&quot;&quot;</span>
+<span class="t-k">import</span> json, math, pathlib, sys
+
+HERE = pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parent
+sys.path.<span class="t-f">append</span>(<span class="t-f">str</span>(HERE.parent / <span class="t-s">&quot;_shared&quot;</span>))
+FAILED = []
+
+
+<span class="t-k">def</span> <span class="t-f">check</span>(name, passed, detail=<span class="t-s">&quot;&quot;</span>):
+    <span class="t-f">print</span>(f<span class="t-s">&quot;{'PASS' if passed else 'FAIL'}  {name}&quot;</span> + (f<span class="t-s">&quot;   [{detail}]&quot;</span> <span class="t-k">if</span> detail <span class="t-k">else</span> <span class="t-s">&quot;&quot;</span>))
+    <span class="t-k">if</span> <span class="t-k">not</span> passed:
+        FAILED.<span class="t-f">append</span>(name)
+
+
+<span class="t-k">def</span> <span class="t-f">die</span>(msg):
+    <span class="t-f">print</span>(f<span class="t-s">&quot;FAIL  {msg}&quot;</span>)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+
+
+rep_file = HERE / <span class="t-s">&quot;train_report.json&quot;</span>
+<span class="t-k">if</span> <span class="t-k">not</span> rep_file.<span class="t-f">exists</span>():
+    <span class="t-f">die</span>(<span class="t-s">&quot;train_report.json not found. Train, then run report.py.&quot;</span>)
+<span class="t-k">try</span>:
+    rep = json.<span class="t-f">loads</span>(rep_file.<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>))
+<span class="t-k">except</span> json.JSONDecodeError <span class="t-k">as</span> e:
+    <span class="t-f">die</span>(f<span class="t-s">&quot;train_report.json is not valid JSON ({e})&quot;</span>)
+missing = [k <span class="t-k">for</span> k <span class="t-k">in</span> (<span class="t-s">&quot;corpus_file&quot;</span>, <span class="t-s">&quot;checkpoint&quot;</span>, <span class="t-s">&quot;final_val_loss&quot;</span>, <span class="t-s">&quot;history&quot;</span>,
+                       <span class="t-s">&quot;samples&quot;</span>) <span class="t-k">if</span> k <span class="t-k">not</span> <span class="t-k">in</span> rep]
+<span class="t-k">if</span> missing:
+    <span class="t-f">die</span>(f<span class="t-s">&quot;train_report.json is missing keys: {missing}&quot;</span>)
+
+corpus, ckpt = HERE / rep[<span class="t-s">&quot;corpus_file&quot;</span>], HERE / rep[<span class="t-s">&quot;checkpoint&quot;</span>]
+<span class="t-k">if</span> <span class="t-k">not</span> corpus.<span class="t-f">exists</span>():
+    <span class="t-f">die</span>(f<span class="t-s">&quot;corpus {rep['corpus_file']} not found next to this checker&quot;</span>)
+<span class="t-k">if</span> <span class="t-k">not</span> ckpt.<span class="t-f">exists</span>():
+    <span class="t-f">die</span>(f<span class="t-s">&quot;checkpoint {rep['checkpoint']} not found next to this checker&quot;</span>)
+text = corpus.<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>, errors=<span class="t-s">&quot;replace&quot;</span>)
+<span class="t-f">check</span>(<span class="t-s">&quot;corpus is 20,000+ characters&quot;</span>, <span class="t-f">len</span>(text) &gt;= <span class="t-s">20_000</span>, f<span class="t-s">&quot;{len(text):,} chars&quot;</span>)
+
+blob = <span class="t-k">None</span>
+<span class="t-k">try</span>:
+    <span class="t-k">import</span> torch
+    <span class="t-k">from</span> tinygpt <span class="t-k">import</span> TinyGPT
+    blob = torch.<span class="t-f">load</span>(ckpt, map_location=<span class="t-s">&quot;cpu&quot;</span>, weights_only=<span class="t-k">False</span>)
+    model = <span class="t-f">TinyGPT</span>(<span class="t-f">len</span>(blob[<span class="t-s">&quot;stoi&quot;</span>]), blob[<span class="t-s">&quot;config&quot;</span>])
+    model.<span class="t-f">load_state_dict</span>(blob[<span class="t-s">&quot;state&quot;</span>])
+    model.<span class="t-f">eval</span>()
+    <span class="t-k">with</span> torch.<span class="t-f">no_grad</span>():
+        <span class="t-f">model</span>(torch.<span class="t-f">zeros</span>((<span class="t-s">1</span>, <span class="t-s">8</span>), dtype=torch.long))
+    <span class="t-f">check</span>(<span class="t-s">&quot;checkpoint loads and runs&quot;</span>, <span class="t-k">True</span>, f<span class="t-s">&quot;{model.n_params():,} parameters&quot;</span>)
+<span class="t-k">except</span> Exception <span class="t-k">as</span> e:
+    <span class="t-f">check</span>(<span class="t-s">&quot;checkpoint loads and runs&quot;</span>, <span class="t-k">False</span>, f<span class="t-s">&quot;{type(e).__name__}: {e}&quot;</span>[:<span class="t-s">80</span>])
+
+<span class="t-k">if</span> blob:
+    vocab = <span class="t-f">sorted</span>(blob[<span class="t-s">&quot;stoi&quot;</span>])
+    <span class="t-f">check</span>(<span class="t-s">&quot;vocabulary matches the corpus&quot;</span>, vocab == <span class="t-f">sorted</span>(<span class="t-f">set</span>(text)),
+          f<span class="t-s">&quot;{len(vocab)} distinct characters&quot;</span>)
+    base, final = math.<span class="t-f">log</span>(<span class="t-f">len</span>(vocab)), <span class="t-f">float</span>(rep[<span class="t-s">&quot;final_val_loss&quot;</span>])
+    <span class="t-f">check</span>(<span class="t-s">&quot;report matches the checkpoint&quot;</span>, <span class="t-f">abs</span>(final - blob[<span class="t-s">&quot;val_loss&quot;</span>]) &lt; <span class="t-s">0.02</span>,
+          f<span class="t-s">&quot;report {final:.3f}, checkpoint {blob['val_loss']:.3f}&quot;</span>)
+    <span class="t-f">check</span>(<span class="t-s">&quot;beats the random-guess baseline by 1.0+&quot;</span>,
+          final &lt;= base - <span class="t-s">1.0</span>, f<span class="t-s">&quot;{final:.3f} vs baseline {base:.3f}&quot;</span>)
+    stray = <span class="t-f">sorted</span>(<span class="t-f">set</span>(<span class="t-s">&quot;&quot;</span>.<span class="t-f">join</span>(rep[<span class="t-s">&quot;samples&quot;</span>])) - <span class="t-f">set</span>(vocab))
+    <span class="t-f">check</span>(<span class="t-s">&quot;samples use only your vocabulary&quot;</span>, <span class="t-f">bool</span>(rep[<span class="t-s">&quot;samples&quot;</span>]) <span class="t-k">and</span> <span class="t-k">not</span> stray,
+          f<span class="t-s">&quot;{len(rep['samples'])} samples&quot;</span> <span class="t-k">if</span> <span class="t-k">not</span> stray <span class="t-k">else</span> f<span class="t-s">&quot;stray {stray[:5]}&quot;</span>)
+
+<span class="t-k">try</span>:
+    h = [<span class="t-f">float</span>(p[<span class="t-s">&quot;val_loss&quot;</span>]) <span class="t-k">for</span> p <span class="t-k">in</span> rep[<span class="t-s">&quot;history&quot;</span>]]
+<span class="t-k">except</span> (TypeError, KeyError, ValueError):
+    h = []
+mid = <span class="t-f">len</span>(h) // <span class="t-s">2</span>
+<span class="t-f">check</span>(<span class="t-s">&quot;history has 3+ measured points&quot;</span>, <span class="t-f">len</span>(h) &gt;= <span class="t-s">3</span>, f<span class="t-s">&quot;{len(h)} points&quot;</span>)
+<span class="t-f">check</span>(<span class="t-s">&quot;validation loss went down overall&quot;</span>,
+      <span class="t-f">len</span>(h) &gt;= <span class="t-s">3</span> <span class="t-k">and</span> h[-<span class="t-s">1</span>] &lt; h[<span class="t-s">0</span>]
+      <span class="t-k">and</span> <span class="t-f">sum</span>(h[mid:]) / <span class="t-f">len</span>(h[mid:]) &lt; <span class="t-f">sum</span>(h[:mid]) / <span class="t-f">len</span>(h[:mid]),
+      f<span class="t-s">&quot;{h[0]:.3f} -&gt; {h[-1]:.3f}&quot;</span> <span class="t-k">if</span> h <span class="t-k">else</span> <span class="t-s">&quot;no history&quot;</span>)
+
+<span class="t-f">print</span>()
+<span class="t-k">if</span> FAILED:
+    <span class="t-f">print</span>(f<span class="t-s">&quot;{len(FAILED)} check(s) failed: {', '.join(FAILED)}&quot;</span>)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;All checks passed. You trained a language model from random numbers.&quot;</span>)</pre></div>
+        </div>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> check_b3.py prints eight PASS lines and exits 0. You have train_report.json and tinygpt.pt in my-work/labs/lab21, your model's vocabulary is exactly the character set of your own text, and every character in the generated samples came from that vocabulary.</div></div>
+        <div class="note" style="margin-top:12px"><div class="note__t">If you want more</div><p>Open my-work/labs/_shared/tinygpt.py and change n_layer from 4 to 6, or block_size from 128 to 256. Retrain with the same time budget and compare the final validation loss. Predict which way it goes before you run it: a bigger model learns more per step, but it also does fewer steps in the same eight minutes. Write down which effect won on your machine.</p></div>
+        </section>
+        <section class="section section--quiz"><h2 class="section__h" data-stamp="on record"><span>Check yourself</span></h2>
+        <p class="small muted">Explained either way.</p>
+        <div class="quiz" data-quiz>
+        <div class="q" data-answer="1"><p class="q__q">Your text has 92 distinct characters. After training, your model reports a final validation loss of 4.60. What happened?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>It learned well, since 4.60 is a low number for a character model</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>It is doing worse than guessing at random, so something is broken</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>It overfitted the training split</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>That is normal for a model this small</span></button>
+        </div><div class="q__why" hidden>The random-guess baseline is log(vocabulary size). ln(92) = 4.522, and 4.60 is above it, so the model scores worse than picking characters out of a hat. Overfitting shows as a low train loss with a rising validation loss, not a validation loss above the baseline. Check the learning rate first, then whether the loss ever printed nan.</div></div>
+        <div class="q" data-answer="3"><p class="q__q">Your train loss is still falling nicely but validation loss has risen for three readings in a row. What should you do?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Train longer, the validation number always catches up</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Raise the learning rate to escape the plateau</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Increase the batch size so each step is more accurate</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Stop, and either use fewer steps next time or add more text</span></button>
+        </div><div class="q__why" hidden>That gap is memorisation. The model is fitting the training portion in ways that do not transfer to the held-back tenth. Measured on a 40,000 character corpus, validation bottomed out at 2.018 around step 400 and reached 2.743 by step 665 while train loss fell to 0.901. More steps make it worse, not better.</div></div>
+        <div class="q" data-answer="2"><p class="q__q">What does sampling at temperature 0.2 instead of 1.0 do?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Makes the model more accurate, because it thinks harder</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Adds randomness, so the output is more surprising</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Sharpens the distribution, so it repeats the safest common patterns more</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Changes the loss, so you should retrain after picking one</span></button>
+        </div><div class="q__why" hidden>generate divides the logits by the temperature before softmax, so dividing by 0.2 multiplies the gaps between scores by five and the highest-scoring character takes almost all the probability. Nothing about the trained weights changes, and the loss is a property of the checkpoint, not of how you sample from it.</div></div>
+        </div></section>
+        <section class="section section--notes notes" data-notes><h2 class="section__h" data-stamp="on record"><span>Your notes</span></h2>
+        <p class="small muted">Saves as you type, in this browser.</p>
+        <label class="sr" for="n21">Notes for this module</label>
+        <textarea id="n21" placeholder="What clicked? What is still fuzzy? What do you want to come back to?"></textarea><div class="notes__status"></div></section>
+        <section class="section section--done"><h2 class="section__h" data-stamp="on record"><span>Mark it done</span></h2>
+        <div class="marks"><button class="mark" data-mark="read" aria-pressed="false"><span>Read the notes</span></button><button class="mark" data-mark="lab" aria-pressed="false"><span>Finished the lab</span></button><button class="mark" data-mark="mini" aria-pressed="false"><span>Finished the mini-project</span></button></div></section>
+        <section class="section section--docs"><h2 class="section__h" data-stamp="reference"><span>Go to the source</span></h2>
+        <p class="small muted">If this course and the docs disagree, the docs are newer.</p><ul class="prose">
+        <li><a href="https://pytorch.org/docs/stable/generated/torch.nn.functional.cross_entropy.html" target="_blank" rel="noopener">PyTorch: torch.nn.functional.cross_entropy</a></li>
+        <li><a href="https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html" target="_blank" rel="noopener">PyTorch: torch.optim.AdamW</a></li>
+        <li><a href="https://pytorch.org/tutorials/beginner/saving_loading_models.html" target="_blank" rel="noopener">PyTorch: saving and loading models</a></li>
+        <li><a href="https://pytorch.org/docs/stable/generated/torch.multinomial.html" target="_blank" rel="noopener">PyTorch: torch.multinomial, the sampling step inside generate()</a></li>
+        <li><a href="https://github.com/karpathy/nanoGPT" target="_blank" rel="noopener">nanoGPT, the same loop at a scale that trains real models</a></li>
+        </ul></section>
+    </div>
+    <nav data-chrome="pager"></nav>
+  </main>
+</div>
+
+<script src="../assets/data.js"></script>
+<script src="../assets/widgets.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

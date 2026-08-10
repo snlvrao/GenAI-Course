@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>20. B2 · Build the transformer</title>
+<meta name="description" content="Write attention, heads and blocks yourself in about 150 lines, then prove the causal mask works.">
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+</head>
+<body data-module="m20" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="7">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+        <div data-chrome="modhead"></div>
+        <p class="prose">You write attention, heads, blocks and the whole model, then prove it works before it has learned anything. The file you build against is my-work/labs/_shared/tinygpt.py: 824,897 parameters, 4 layers, 4 heads, 128 tokens of context, and no library doing the interesting part.</p>
+        <section class="section section--watch"><h2 class="section__h" data-stamp="take in"><span>Watch this first</span></h2>
+        <div data-videos="core"></div></section>
+        <section class="section section--ideas"><h2 class="section__h" data-stamp="take in"><span>The ideas, in plain English</span></h2>
+        <p class="small muted">Each idea, then a worked example of it.</p>
+        <div class="concepts">
+        <div class="concept"><div class="concept__n" aria-hidden="true">1</div><h3 class="concept__t">Query, key and value</h3><p class="concept__b">Every token carries one vector of 128 numbers. Attention makes three different views of it with three separate weight matrices: <strong>query</strong> is what this token is looking for, <strong>key</strong> is what it advertises, <strong>value</strong> is what it hands over if it gets picked. Each query is compared against every key to get a score, the scores become weights, and the output is a blend of values. Note <code>bias=False</code> on all three: each view is a plain weighted mix of the 128 numbers with nothing added on top, so a token of all zeros stays all zeros.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">my-work/labs/_shared/tinygpt.py, class Head</p><pre><span class="t-k">self</span>.key   = nn.<span class="t-f">Linear</span>(cfg.n_embd, head_size, bias=<span class="t-k">False</span>)
+<span class="t-k">self</span>.query = nn.<span class="t-f">Linear</span>(cfg.n_embd, head_size, bias=<span class="t-k">False</span>)
+<span class="t-k">self</span>.value = nn.<span class="t-f">Linear</span>(cfg.n_embd, head_size, bias=<span class="t-k">False</span>)
+...
+k, q, v = <span class="t-k">self</span>.<span class="t-f">key</span>(x), <span class="t-k">self</span>.<span class="t-f">query</span>(x), <span class="t-k">self</span>.<span class="t-f">value</span>(x)</pre><p class="eg__say">with n_embd 128 and head_size 32:</p><pre class="eg__out"><span class="t-o">x (1, 6, 128)  -&gt;  q (1, 6, 32)  k (1, 6, 32)  v (1, 6, 32)</span>
+<span class="t-o">q @ k.transpose(-2, -1)  -&gt;  att (1, 6, 6), one score per pair of tokens</span></pre><div class="eg__cap">Three views of the same 128 numbers, squeezed to 32 each. The score matrix is tokens by tokens, not tokens by width.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">2</div><h3 class="concept__t">Dividing by the square root of head size</h3><p class="concept__b">A dot product of two 32-number vectors is a sum of 32 products, so its spread grows with the head size (standard deviation near <code>sqrt(32) = 5.66</code>). Softmax on numbers that big returns almost 1 for the winner and almost 0 for everything else, so the model reads one token and ignores the rest, and the gradient nearly vanishes. Multiplying by <code>k.shape[-1] ** -0.5</code> pulls the spread back to about 1 and keeps the weights soft enough to learn from.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>measure</th><th>raw q @ k.T</th><th>scaled by 32 ** -0.5</th></tr></thead><tbody><tr><td>standard deviation of the scores</td><td>5.14</td><td>0.91</td></tr><tr><td>largest weight in row 0 after softmax</td><td>0.996</td><td>0.424</td></tr><tr><td>second largest weight</td><td>0.004</td><td>0.160</td></tr><tr><td>weight left for the other six tokens</td><td>0.000</td><td>0.415</td></tr></tbody></table><div class="eg__cap">Random 8-by-32 query and key matrices, one softmax row. Without the scale the head is a hard pick of one token.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">3</div><h3 class="concept__t">The causal mask</h3><p class="concept__b"><code>tril</code> is a lower-triangular matrix of ones registered as a buffer, not a parameter, so it is saved with the model but never trained. Before softmax, every score above the diagonal is set to negative infinity, which softmax turns into exactly zero weight. Without it, predicting token 6 could just copy token 6 from the input, loss would drop to near zero, and the model would learn nothing that survives real generation, where the future does not exist yet.</p>
+        <div class="eg"><div class="eg__h">Example</div><p>tril[:4, :4]      row 2 of the scores        after softmax
+1 0 0 0           -0.16  0.07 -0.24          0.313 0.396 0.291
+1 1 0 0            -inf  -inf  -inf          0.000 0.000 0.000
+1 1 1 0
+1 1 1 1           positions 3, 4 and 5 are masked out; the three visible weights sum to 1.000</p><div class="eg__cap">Position 2 sees positions 0, 1 and 2, and nothing else. The weights it does have still add up to 1.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">4</div><h3 class="concept__t">Multiple heads</h3><p class="concept__b">One head can track one kind of relationship at a time. <code>Block</code> runs <code>n_head</code> heads of size <code>n_embd // n_head</code> in parallel, concatenates their outputs back to the full width, then mixes them with a linear layer (<code>self.proj</code>). Four heads of 32 cost the same as one head of 128 but give four separate attention patterns instead of one.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre>hs = cfg.n_embd // cfg.n_head                    <span class="t-c"># 128 // 4 = 32</span>
+<span class="t-k">self</span>.heads = nn.<span class="t-f">ModuleList</span>([<span class="t-f">Head</span>(cfg, hs) <span class="t-k">for</span> _ <span class="t-k">in</span> <span class="t-f">range</span>(cfg.n_head)])
+<span class="t-k">self</span>.proj  = nn.<span class="t-f">Linear</span>(cfg.n_embd, cfg.n_embd)
+...
+x = x + <span class="t-k">self</span>.<span class="t-f">proj</span>(torch.<span class="t-f">cat</span>([<span class="t-f">head</span>(h) <span class="t-k">for</span> head <span class="t-k">in</span> <span class="t-k">self</span>.heads], dim=-<span class="t-s">1</span>))</pre><p class="eg__say">one head (1, 6, 32)  -&gt;  concat of four  (1, 6, 128)</p><div class="eg__cap">Four separate 32-wide opinions, stitched back into one 128-wide vector, then mixed.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">5</div><h3 class="concept__t">Residual connections are edits, not replacements</h3><p class="concept__b">Both residuals in <code>Block.forward</code> are an addition: <code>x = x + ...</code> for the attention and <code>return x + ...</code> for the feed-forward. The running vector is never overwritten, so each block adds a small correction and gradients reach the bottom of the stack through the addition even if the block itself contributes little. Measured on the untrained default model, each block adds an edit about a fifth the size of the vector it edits.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>block</th><th>length of x going in</th><th>length of the edit added</th><th>ratio</th></tr></thead><tbody><tr><td>0</td><td>63.09</td><td>13.46</td><td>0.21</td></tr><tr><td>1</td><td>64.53</td><td>14.69</td><td>0.23</td></tr><tr><td>2</td><td>65.56</td><td>13.13</td><td>0.20</td></tr><tr><td>3</td><td>66.58</td><td>13.82</td><td>0.21</td></tr></tbody></table><div class="eg__cap">Vector lengths through the four blocks of the untrained model on a 16-token input. The signal grows slowly instead of being replaced four times.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">6</div><h3 class="concept__t">Layer norm</h3><p class="concept__b"><code>nn.LayerNorm</code> rescales each token's 128 numbers to mean 0 and standard deviation 1, then applies one learned scale and one learned shift per channel. It runs <strong>before</strong> attention and before the feed-forward (<code>self.ln1</code>, <code>self.ln2</code>), and once more after the whole stack (<code>self.lnf</code>), so nothing downstream ever sees a vector that has drifted large. It costs 2 parameters per channel, which is 2,304 of the 824,897 in this model, or 0.3%.</p>
+        <div class="eg"><div class="eg__h">Example</div><p>before the final layer norm:  mean  0.005   std 1.523
+after  the final layer norm:  mean  0.000   std 1.000</p><div class="eg__cap">The activations after four blocks, before and after lnf. Cheap in parameters, and it is what keeps the residual stream from drifting.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">7</div><h3 class="concept__t">The position embedding</h3><p class="concept__b">Attention has no idea what order the tokens came in, because it only compares vectors to vectors. <code>self.pos</code> is a second lookup table with one row per slot in the context window, added to the token embedding at the very start. Zero it out on a one-layer model and reordering the earlier tokens changes the final prediction by 6e-07, which is float rounding: the model has become a bag of tokens.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre><span class="t-k">self</span>.tok = nn.<span class="t-f">Embedding</span>(vocab_size, <span class="t-k">self</span>.cfg.n_embd)
+<span class="t-k">self</span>.pos = nn.<span class="t-f">Embedding</span>(<span class="t-k">self</span>.cfg.block_size, <span class="t-k">self</span>.cfg.n_embd)
+...
+x = <span class="t-k">self</span>.<span class="t-f">tok</span>(idx) + <span class="t-k">self</span>.<span class="t-f">pos</span>(torch.<span class="t-f">arange</span>(T, device=idx.device))</pre><p class="eg__say">feeding [5, 9, 20, 7] and [20, 9, 5, 7] to a 1-layer model, largest change in the final prediction:</p><pre class="eg__out"><span class="t-o">pos zeroed  5.96e-07     (nothing)</span>
+<span class="t-o">pos intact  0.0288       (order matters)</span></pre><div class="eg__cap">One line of addition is the entire sense of order. Remove it and 'dog bites man' and 'man bites dog' are the same input.</div></div>
+        </div>
+        </div></section>
+        <section class="section section--try"><h2 class="section__h" data-stamp="hands on"><span>Try it yourself</span></h2>
+        <p class="small muted" style="margin-bottom:6px">Choose how big your own model is</p>
+        <div data-widget="modelsize"></div>
+        <p class="small muted" style="margin-bottom:6px">Watch attention pick the right word</p>
+        <div data-widget="attention"></div>
+        </section>
+        <div class="note note--gap"><div class="note__t">Worth knowing</div><p>tinygpt.py is written to be read, not to be fast. Each head is a separate triple of nn.Linear layers, where real implementations fuse all heads into one matrix multiply and use flash attention, so expect this to be several times slower than production code at the same size. The output head is not tied to the token embedding, which duplicates 8,320 parameters. Position vectors are learned per slot, so the model cannot handle a single token past block_size (it raises IndexError) and position 127 is trained on far fewer examples than position 0. The untrained loss also varies by a few tenths every run because the weights are random, so treat 4.495 as one measurement rather than a target. Passing all three checks proves the wiring is right; it says nothing about whether the model will learn anything useful, which is B3's problem.</p></div>
+        <section class="section section--more"><h2 class="section__h" data-stamp="optional"><span>If you want to go deeper</span></h2>
+        <p class="small muted">Optional.</p>
+        <div data-videos="more"></div></section>
+        <section class="section section--lab"><h2 class="section__h" data-stamp="hands on"><span>Lab: follow along</span></h2>
+        <div data-setupbanner></div>
+        <div class="note" data-path="offline free key" hidden><div class="note__t">You choose this model's size</div><p>Nothing here ships with a size baked in. Run <code>python ../_shared/myconfig.py --new</code> to get a <code>model_config.json</code>, set the four numbers yourself, and write down why for each one. Then <code>python ../_shared/myconfig.py</code> prints what your choices cost: the parameter count, the memory, and roughly how many training steps you will get in eight minutes. Get that right before B3 spends the time. The widget above does the same arithmetic live if you would rather drag sliders first.</p></div>
+        <p class="prose">You are building and inspecting, not training. Everything here runs in seconds on a laptop processor with no graphics card. Keep my-work/labs/_shared/tinygpt.py open beside you and put your scratch scripts in my-work/labs/lab20/.</p>
+        <p class="small muted">Code given, every line explained.</p>
+        <ol class="steps">
+        <li><h3>Run it before you read it</h3><p>The file has a shape check at the bottom under `if __name__ == &quot;__main__&quot;`. Run it and you get the parameter count, the input and output shapes, and the loss on random data. The loss is the number to sit with: 4.174 is what you score by guessing uniformly over 65 characters, and an untrained model scores about that or slightly worse, because random weights are worse than an honest shrug. Measured runs printed 4.495 and 4.249, and it moves every run because the weights are freshly random each time. If your number is near 4.2 to 4.5, the model is wired correctly and knows nothing, which is exactly the right starting point.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>python my-work/labs/_shared/tinygpt.py
+
+<span class="t-c"># parameters      824,897</span>
+<span class="t-c"># input  (2, 16)  -&gt;  logits (2, 16, 65)</span>
+<span class="t-c"># loss on random data 4.249 (a fair coin over 65 options would be 4.174)</span>
+<span class="t-c"># generated 20 tokens from an empty prompt</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>input (2, 16) -&gt; logits (2, 16, 65)</dt><dd>2 sequences of 16 tokens, and for every one of the 32 token positions a score for all 65 vocabulary entries. The model predicts at every position at once, not just the last one.</dd>
+        <dt>m(x, x)</dt><dd>Passing the input as its own targets is deliberate nonsense that still gives a valid loss. It only checks that the shapes line up for cross-entropy.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Uniform guessing over V options costs ln(V) nats of cross-entropy. ln(65) = 4.174. A model scoring 4.174 has learned nothing, and 4.495 means its random weights are slightly worse than a shrug. After training in B3 this drops to 1.674.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If your loss prints far below 4.1 on random data, something is leaking the answer. That is the failure the causal mask exists to prevent, and you test for it directly in step 4.</span></div>
+        </li>
+        <li><h3>Attention is ten lines</h3><p>Open `Head.forward` in my-work/labs/_shared/tinygpt.py. It is ten lines including its comments and six actual statements, and it is the whole idea of a transformer. Build one head on its own and print the shapes so you see what shrinks and what does not. The input is 128 wide, query, key and value are each 32 wide, and the score matrix is 6 by 6, one number per pair of token positions. That score matrix is the only place in the model where tokens look at each other; everything else works on one token at a time.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab20/peek.py</span>
+<span class="t-k">import</span> sys, pathlib, torch
+<span class="t-k">from</span> torch.nn <span class="t-k">import</span> functional <span class="t-k">as</span> F
+sys.path.<span class="t-f">insert</span>(<span class="t-s">0</span>, <span class="t-f">str</span>(pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parents[<span class="t-s">1</span>] / <span class="t-s">&quot;_shared&quot;</span>))
+<span class="t-k">from</span> tinygpt <span class="t-k">import</span> Config, Head
+
+torch.<span class="t-f">manual_seed</span>(<span class="t-s">0</span>)
+h = <span class="t-f">Head</span>(<span class="t-f">Config</span>(), head_size=<span class="t-s">32</span>)
+x = torch.<span class="t-f">randn</span>(<span class="t-s">1</span>, <span class="t-s">6</span>, <span class="t-s">128</span>)
+k, q, v = h.<span class="t-f">key</span>(x), h.<span class="t-f">query</span>(x), h.<span class="t-f">value</span>(x)
+<span class="t-f">print</span>(<span class="t-s">&quot;x&quot;</span>, <span class="t-f">tuple</span>(x.shape), <span class="t-s">&quot;q&quot;</span>, <span class="t-f">tuple</span>(q.shape), <span class="t-s">&quot;k&quot;</span>, <span class="t-f">tuple</span>(k.shape), <span class="t-s">&quot;v&quot;</span>, <span class="t-f">tuple</span>(v.shape))
+
+att = q @ k.<span class="t-f">transpose</span>(-<span class="t-s">2</span>, -<span class="t-s">1</span>) * k.shape[-<span class="t-s">1</span>] ** -<span class="t-s">0.5</span>
+<span class="t-f">print</span>(<span class="t-s">&quot;att&quot;</span>, <span class="t-f">tuple</span>(att.shape))
+<span class="t-f">print</span>(<span class="t-s">&quot;row 2 before mask&quot;</span>, [<span class="t-f">round</span>(<span class="t-f">float</span>(a), <span class="t-s">2</span>) <span class="t-k">for</span> a <span class="t-k">in</span> att[<span class="t-s">0</span>, <span class="t-s">2</span>]])
+
+<span class="t-c"># x (1, 6, 128) q (1, 6, 32) k (1, 6, 32) v (1, 6, 32)</span>
+<span class="t-c"># att (1, 6, 6)</span>
+<span class="t-c"># row 2 before mask [-0.16, 0.07, -0.24, -0.47, 0.09, 0.29]</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>k.transpose(-2, -1)</dt><dd>Flips the last two axes so (1, 6, 32) becomes (1, 32, 6), which lets the matrix multiply pair every query with every key. The leading batch axis is left alone.</dd>
+        <dt>row 2 still has six numbers</dt><dd>The scores for positions 3, 4 and 5 exist and are non-zero at this point. Step 4 is where they get destroyed.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>att[i][j] = (q[i] . k[j]) / sqrt(32), a plain dot product of 32 numbers divided by 5.657. Row i is how much token i cares about each token j. The matrix is T by T, so doubling the context quadruples this cost. That is why block_size is 128 and not 128,000.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>`torch.randn(1, 6, 128)` stands in for real embeddings so you can inspect one head alone. Do not read anything into the values, only the shapes and the pattern of zeros.</span></div>
+        </li>
+        <li><h3>Why divide by the square root of the head size</h3><p>The line `att = q @ k.transpose(-2, -1) * k.shape[-1] ** -0.5` has a factor most people copy without testing. Test it. A dot product of 32 roughly standard-normal numbers has a standard deviation near sqrt(32), about 5.66, and on random matrices it measured 5.14. Feed numbers that size into softmax and one token takes 99.6% of the weight while the other seven share 0.4%, so the head reads one token and the gradient through the others is close to nothing. With the scale applied the same row spreads 0.424, 0.160, 0.093 and so on, which is a preference rather than a hard pick.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab20/scale.py</span>
+<span class="t-k">import</span> torch
+<span class="t-k">from</span> torch.nn <span class="t-k">import</span> functional <span class="t-k">as</span> F
+
+torch.<span class="t-f">manual_seed</span>(<span class="t-s">1</span>)
+q, k = torch.<span class="t-f">randn</span>(<span class="t-s">8</span>, <span class="t-s">32</span>), torch.<span class="t-f">randn</span>(<span class="t-s">8</span>, <span class="t-s">32</span>)
+raw = q @ k.T
+scaled = raw * <span class="t-s">32</span> ** -<span class="t-s">0.5</span>
+<span class="t-f">print</span>(<span class="t-s">&quot;std  raw&quot;</span>, <span class="t-f">round</span>(<span class="t-f">float</span>(raw.<span class="t-f">std</span>()), <span class="t-s">2</span>), <span class="t-s">&quot; scaled&quot;</span>, <span class="t-f">round</span>(<span class="t-f">float</span>(scaled.<span class="t-f">std</span>()), <span class="t-s">2</span>))
+<span class="t-f">print</span>(<span class="t-s">&quot;raw   &quot;</span>, [<span class="t-f">round</span>(<span class="t-f">float</span>(w), <span class="t-s">3</span>) <span class="t-k">for</span> w <span class="t-k">in</span> F.<span class="t-f">softmax</span>(raw[<span class="t-s">0</span>], -<span class="t-s">1</span>)])
+<span class="t-f">print</span>(<span class="t-s">&quot;scaled&quot;</span>, [<span class="t-f">round</span>(<span class="t-f">float</span>(w), <span class="t-s">3</span>) <span class="t-k">for</span> w <span class="t-k">in</span> F.<span class="t-f">softmax</span>(scaled[<span class="t-s">0</span>], -<span class="t-s">1</span>)])
+
+<span class="t-c"># std  raw 5.14  scaled 0.91</span>
+<span class="t-c"># raw    [0.996, 0.004, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]</span>
+<span class="t-c"># scaled [0.424, 0.16, 0.05, 0.082, 0.044, 0.079, 0.067, 0.093]</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>k.shape[-1] ** -0.5</dt><dd>Reads the head size off the tensor rather than hard-coding 32, so the same line stays correct if you change n_head or n_embd in Config.</dd>
+        <dt>0.996 versus 0.424</dt><dd>Softmax is exponential. A gap of 5 in the scores is a factor of 150 in the weights; a gap of 1 is a factor of 2.7.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>For independent q and k with mean 0 and variance 1, the dot product over d terms has variance d, so standard deviation sqrt(d). Multiplying by d ** -0.5 = 32 ** -0.5 = 0.1768 brings the variance back to 1. Measured: 5.14 becomes 0.91.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>The scale is by head size (32 here), not by embedding width (128) and not by context length. Taking it from the wrong dimension is a silent bug: the model still trains, just worse.</span></div>
+        </li>
+        <li><h3>The causal mask, and why a model that sees the future learns nothing</h3><p>`tril` is registered as a buffer, not a parameter, so it moves to the right device and is saved with the model but never receives a gradient. `masked_fill` writes negative infinity into every position above the diagonal, and softmax maps negative infinity to exactly 0, so those tokens contribute nothing to the blend. Add these lines to peek.py and look at row 2: three real weights that sum to 1.000, and three hard zeros. Now think about what happens without it. The target for position 2 is the token at position 3, and position 2 can read position 3, so the model learns the identity function, the loss collapses toward zero, and at generation time (when there is no position 3 yet) it produces garbage.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># append to my-work/labs/lab20/peek.py</span>
+<span class="t-f">print</span>(h.tril[:<span class="t-s">4</span>, :<span class="t-s">4</span>])
+masked = att.<span class="t-f">masked_fill</span>(h.tril[:<span class="t-s">6</span>, :<span class="t-s">6</span>] == <span class="t-s">0</span>, <span class="t-f">float</span>(<span class="t-s">&quot;-inf&quot;</span>))
+w = F.<span class="t-f">softmax</span>(masked, dim=-<span class="t-s">1</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;row 2 after mask&quot;</span>, [f<span class="t-s">&quot;{float(a):.2f}&quot;</span> <span class="t-k">if</span> a &gt; -<span class="t-s">1e9</span> <span class="t-k">else</span> <span class="t-s">&quot;-inf&quot;</span> <span class="t-k">for</span> a <span class="t-k">in</span> masked[<span class="t-s">0</span>, <span class="t-s">2</span>]])
+<span class="t-f">print</span>(<span class="t-s">&quot;weights row 2   &quot;</span>, [<span class="t-f">round</span>(<span class="t-f">float</span>(a), <span class="t-s">3</span>) <span class="t-k">for</span> a <span class="t-k">in</span> w[<span class="t-s">0</span>, <span class="t-s">2</span>]], <span class="t-s">&quot;sum&quot;</span>, <span class="t-f">float</span>(w[<span class="t-s">0</span>, <span class="t-s">2</span>].<span class="t-f">sum</span>()))
+<span class="t-f">print</span>(<span class="t-s">&quot;out&quot;</span>, <span class="t-f">tuple</span>((w @ v).shape))
+
+<span class="t-c"># tensor([[1., 0., 0., 0.],</span>
+<span class="t-c">#         [1., 1., 0., 0.],</span>
+<span class="t-c">#         [1., 1., 1., 0.],</span>
+<span class="t-c">#         [1., 1., 1., 1.]])</span>
+<span class="t-c"># row 2 after mask ['-0.16', '0.07', '-0.24', '-inf', '-inf', '-inf']</span>
+<span class="t-c"># weights row 2    [0.313, 0.396, 0.291, 0.0, 0.0, 0.0] sum 1.0</span>
+<span class="t-c"># out (1, 6, 32)</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>self.tril[:T, :T]</dt><dd>The buffer is built at full block_size (128 by 128) but sliced to the actual sequence length, so shorter inputs work without rebuilding anything.</dd>
+        <dt>register_buffer, not nn.Parameter</dt><dd>It is a fixed fact about time, not something to learn. Buffers appear in state_dict and move with .to(device), but no optimiser touches them.</dd>
+        <dt>att @ v</dt><dd>Weights (1, 6, 6) times values (1, 6, 32) gives (1, 6, 32): each position's output is a weighted average of the values at and before it.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>softmax(x)[j] = exp(x[j]) / sum(exp(x)). exp(-inf) = 0 exactly, so masked positions get weight 0 and the visible ones renormalise to sum to 1. Row 2 above: exp of (-0.16, 0.07, -0.24) is (0.852, 1.073, 0.787), total 2.712, giving 0.313, 0.396, 0.291.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>The mask goes on before softmax, never after. Zeroing the weights after softmax leaves the survivors no longer summing to 1, which quietly shrinks the signal at early positions.</span></div>
+        </li>
+        <li><h3>Four heads, one block, and the edits that make it a stack</h3><p>`Block` is attention plus a small feed-forward network, with layer norm before each and an addition around each. Each of the four heads returns 32 numbers, they concatenate back to 128, and `self.proj` mixes them. Both lines are `x = x + ...`, so the block edits the running vector rather than replacing it, which is what lets you stack four of them (or ninety-six) without destroying the signal on the way. Measure the edit sizes on the untrained model: each block adds about 13.5 units of change to a vector about 65 units long, roughly a fifth. The feed-forward is `Linear(128, 512), ReLU, Linear(512, 128)`, the standard 4x widening, and it is where most of your parameters are hiding.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab20/residual.py</span>
+<span class="t-k">import</span> sys, pathlib, torch
+sys.path.<span class="t-f">insert</span>(<span class="t-s">0</span>, <span class="t-f">str</span>(pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parents[<span class="t-s">1</span>] / <span class="t-s">&quot;_shared&quot;</span>))
+<span class="t-k">from</span> tinygpt <span class="t-k">import</span> Config, TinyGPT, Block
+
+b = <span class="t-f">Block</span>(<span class="t-f">Config</span>())
+xs = torch.<span class="t-f">randn</span>(<span class="t-s">1</span>, <span class="t-s">6</span>, <span class="t-s">128</span>)
+outs = [<span class="t-f">head</span>(xs) <span class="t-k">for</span> head <span class="t-k">in</span> b.heads]
+<span class="t-f">print</span>(<span class="t-s">&quot;one head&quot;</span>, <span class="t-f">tuple</span>(outs[<span class="t-s">0</span>].shape), <span class="t-s">&quot;-&gt; concat&quot;</span>, <span class="t-f">tuple</span>(torch.<span class="t-f">cat</span>(outs, dim=-<span class="t-s">1</span>).shape))
+
+torch.<span class="t-f">manual_seed</span>(<span class="t-s">0</span>)
+m = <span class="t-f">TinyGPT</span>(<span class="t-s">65</span>, <span class="t-f">Config</span>()).<span class="t-f">eval</span>()
+x = torch.<span class="t-f">randint</span>(<span class="t-s">0</span>, <span class="t-s">65</span>, (<span class="t-s">1</span>, <span class="t-s">16</span>))
+<span class="t-k">with</span> torch.<span class="t-f">no_grad</span>():
+    h = m.<span class="t-f">tok</span>(x) + m.<span class="t-f">pos</span>(torch.<span class="t-f">arange</span>(<span class="t-s">16</span>))
+    <span class="t-k">for</span> i, block <span class="t-k">in</span> <span class="t-f">enumerate</span>(m.blocks):
+        out = <span class="t-f">block</span>(h)
+        <span class="t-f">print</span>(f<span class="t-s">&quot;block {i}: ||x||={h.norm():.2f}  ||edit||={(out - h).norm():.2f}&quot;</span>)
+        h = out
+    <span class="t-f">print</span>(<span class="t-s">&quot;before final layer norm: mean %.3f std %.3f&quot;</span> % (h.<span class="t-f">mean</span>(), h.<span class="t-f">std</span>()))
+    <span class="t-f">print</span>(<span class="t-s">&quot;after  final layer norm: mean %.3f std %.3f&quot;</span> % (m.<span class="t-f">lnf</span>(h).<span class="t-f">mean</span>(), m.<span class="t-f">lnf</span>(h).<span class="t-f">std</span>()))
+
+<span class="t-c"># one head (1, 6, 32) -&gt; concat (1, 6, 128)</span>
+<span class="t-c"># block 0: ||x||=63.09  ||edit||=13.46</span>
+<span class="t-c"># block 1: ||x||=64.53  ||edit||=14.69</span>
+<span class="t-c"># block 2: ||x||=65.56  ||edit||=13.13</span>
+<span class="t-c"># block 3: ||x||=66.58  ||edit||=13.82</span>
+<span class="t-c"># before final layer norm: mean 0.005 std 1.523</span>
+<span class="t-c"># after  final layer norm: mean 0.000 std 1.000</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>h = self.ln1(x), then x = x + self.proj(...)</dt><dd>The norm is applied to the copy that goes into attention, not to the copy that is added back. The residual path from input to output stays untouched, and that is what gradients travel down.</dd>
+        <dt>return x + self.ff(self.ln2(x))</dt><dd>The second edit. It uses the already-edited x from the attention line, so the two edits are sequential, not parallel.</dd>
+        <dt>4 * cfg.n_embd</dt><dd>The feed-forward widens to 512, applies ReLU, and comes back to 128. This is where the model does per-token thinking, as opposed to per-token mixing.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>head_size = n_embd // n_head = 128 // 4 = 32, and 4 heads of 32 concatenate back to exactly 128. If n_head does not divide n_embd the concatenation is the wrong width and the projection fails, so keep them divisible.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>The vector growing from 63.09 to 66.58 across four blocks is normal on an untrained model. If the length doubles per block you have lost a layer norm somewhere, and training will diverge in the first hundred steps.</span></div>
+        </li>
+        <li><h3>Take the position embedding away</h3><p>`x = self.tok(idx) + self.pos(torch.arange(T, device=idx.device))` is the only thing telling the model what order the tokens arrived in. Prove it by zeroing the position table and feeding the same tokens in two different orders. On a one-layer model the final prediction moves by 5.96e-07, which is float rounding: attention is permutation-equivariant, so with no position signal the model sees an unordered bag. With the position embedding intact the same swap moves the prediction by 0.0288. Use `n_layer=1` for this test, because on the four-layer model the causal mask smuggles a little order information back in through the earlier positions, and you get a smaller but non-zero difference that muddies the point.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab20/no_position.py</span>
+<span class="t-k">import</span> sys, pathlib, torch
+sys.path.<span class="t-f">insert</span>(<span class="t-s">0</span>, <span class="t-f">str</span>(pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parents[<span class="t-s">1</span>] / <span class="t-s">&quot;_shared&quot;</span>))
+<span class="t-k">from</span> tinygpt <span class="t-k">import</span> Config, TinyGPT
+
+torch.<span class="t-f">manual_seed</span>(<span class="t-s">0</span>)
+cfg = <span class="t-f">Config</span>(n_layer=<span class="t-s">1</span>)
+a = torch.<span class="t-f">tensor</span>([[<span class="t-s">5</span>, <span class="t-s">9</span>, <span class="t-s">20</span>, <span class="t-s">7</span>]])
+b = torch.<span class="t-f">tensor</span>([[<span class="t-s">20</span>, <span class="t-s">9</span>, <span class="t-s">5</span>, <span class="t-s">7</span>]])          <span class="t-c"># same tokens, first and third swapped</span>
+
+m = <span class="t-f">TinyGPT</span>(<span class="t-s">65</span>, cfg).<span class="t-f">eval</span>()
+<span class="t-k">with</span> torch.<span class="t-f">no_grad</span>():
+    m.pos.weight.<span class="t-f">zero_</span>()
+    <span class="t-f">print</span>(<span class="t-s">&quot;no position:  &quot;</span>, <span class="t-f">float</span>((<span class="t-f">m</span>(a)[<span class="t-s">0</span>][<span class="t-s">0</span>, -<span class="t-s">1</span>] - <span class="t-f">m</span>(b)[<span class="t-s">0</span>][<span class="t-s">0</span>, -<span class="t-s">1</span>]).<span class="t-f">abs</span>().<span class="t-f">max</span>()))
+
+m2 = <span class="t-f">TinyGPT</span>(<span class="t-s">65</span>, cfg).<span class="t-f">eval</span>()
+<span class="t-k">with</span> torch.<span class="t-f">no_grad</span>():
+    <span class="t-f">print</span>(<span class="t-s">&quot;with position:&quot;</span>, <span class="t-f">round</span>(<span class="t-f">float</span>((<span class="t-f">m2</span>(a)[<span class="t-s">0</span>][<span class="t-s">0</span>, -<span class="t-s">1</span>] - <span class="t-f">m2</span>(b)[<span class="t-s">0</span>][<span class="t-s">0</span>, -<span class="t-s">1</span>]).<span class="t-f">abs</span>().<span class="t-f">max</span>()), <span class="t-s">4</span>))
+
+<span class="t-c"># no position:   5.960464477539062e-07</span>
+<span class="t-c"># with position: 0.0288</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>torch.arange(T)</dt><dd>Positions 0 to T-1, so slot 0 always gets row 0 of the table. The model learns what 'third token in the window' means, not what 'third token in the document' means.</dd>
+        <dt>Embedding(block_size, n_embd)</dt><dd>One row per slot, and only block_size rows exist. Feed 129 tokens to a model with block_size 128 and you get IndexError: index out of range in self.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>pos is an Embedding(block_size, n_embd) = 128 by 128 = 16,384 parameters, 2.0% of the model. That is the entire cost of knowing what order words come in.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>This model learns its position vectors from scratch, so position 127 is trained on far fewer examples than position 0 and works worse. Larger models often use rotary or sinusoidal positions instead, which extend past the training length. This one does not.</span></div>
+        </li>
+        <li><h3>Count the parameters and find where they actually live</h3><p>824,897 parameters sounds like a lot until you ask where they are. Group them by module and the answer is blunt: the feed-forward networks hold 63.9% and attention holds 31.8%, so the part everyone talks about is under a third of the model. Attention is what makes a transformer a transformer, but the parameters mostly sit in the plain two-layer networks between the attention steps. Everything to do with embeddings and normalisation together is under 5%. Run this and check your total is exactly 824,897, because that number is what the mini-project checker verifies.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab20/count.py</span>
+<span class="t-k">import</span> sys, pathlib
+sys.path.<span class="t-f">insert</span>(<span class="t-s">0</span>, <span class="t-f">str</span>(pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parents[<span class="t-s">1</span>] / <span class="t-s">&quot;_shared&quot;</span>))
+<span class="t-k">from</span> tinygpt <span class="t-k">import</span> Config, TinyGPT
+
+m = <span class="t-f">TinyGPT</span>(<span class="t-s">65</span>, <span class="t-f">Config</span>())
+total = m.<span class="t-f">n_params</span>()
+groups = {}
+<span class="t-k">for</span> name, p <span class="t-k">in</span> m.<span class="t-f">named_parameters</span>():
+    key = name.<span class="t-f">split</span>(<span class="t-s">&quot;.&quot;</span>)[<span class="t-s">0</span>]
+    <span class="t-k">if</span> key == <span class="t-s">&quot;blocks&quot;</span>:
+        key = <span class="t-s">&quot;blocks.&quot;</span> + name.<span class="t-f">split</span>(<span class="t-s">&quot;.&quot;</span>)[<span class="t-s">2</span>]       <span class="t-c"># sum the same part over all 4 layers</span>
+    groups[key] = groups.<span class="t-f">get</span>(key, <span class="t-s">0</span>) + p.<span class="t-f">numel</span>()
+<span class="t-k">for</span> k, v <span class="t-k">in</span> groups.<span class="t-f">items</span>():
+    <span class="t-f">print</span>(f<span class="t-s">&quot;{k:14s} {v:9,}  {100 * v / total:5.1f}%&quot;</span>)
+<span class="t-f">print</span>(f<span class="t-s">&quot;{'total':14s} {total:9,}&quot;</span>)
+
+<span class="t-c"># tok                8,320    1.0%</span>
+<span class="t-c"># pos               16,384    2.0%</span>
+<span class="t-c"># blocks.heads     196,608   23.8%</span>
+<span class="t-c"># blocks.proj       66,048    8.0%</span>
+<span class="t-c"># blocks.ff        526,848   63.9%</span>
+<span class="t-c"># blocks.ln1         1,024    0.1%</span>
+<span class="t-c"># blocks.ln2         1,024    0.1%</span>
+<span class="t-c"># lnf                  256    0.0%</span>
+<span class="t-c"># head               8,385    1.0%</span>
+<span class="t-c"># total            824,897</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>p.numel()</dt><dd>Number of elements in the tensor. n_params() is one line: sum(p.numel() for p in self.parameters()).</dd>
+        <dt>blocks.ff at 526,848</dt><dd>Each block's feed-forward is 131,712 parameters against 65,664 for all four heads plus the projection. Two thirds of every block is the plain network, not the attention.</dd>
+        <dt>head at 8,385</dt><dd>The output projection back to 65 vocabulary entries. Many real models tie this to tok.weight and save the duplicate. This one does not, which is 8,320 parameters of honest waste.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Per block: heads 4 x 3 x (128 x 32) = 49,152; proj 128 x 128 + 128 = 16,512; ff (128 x 512 + 512) + (512 x 128 + 128) = 131,712; two layer norms 4 x 128 = 512. Total 197,888, times 4 layers = 791,552. Plus tok 65 x 128 = 8,320, pos 128 x 128 = 16,384, lnf 256, output head 128 x 65 + 65 = 8,385. Grand total 824,897.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Parameter count scales with vocabulary through tok and head only, so swapping the 65-character vocabulary for your 556-entry BPE vocabulary from B1 adds about 125,000 parameters and nothing else changes. The checker builds with vocab_size=65, so use 65 when you compare totals.</span></div>
+        </li>
+        </ol>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> You can point at any line of my-work/labs/_shared/tinygpt.py and say what it does and what breaks without it. You have seen the mask zero out the future, the scale keep softmax soft, the residuals edit rather than replace, and 63.9% of the parameters sitting in the feed-forward layers. Nothing has been trained yet, and that is the point: you now prove the model is right before spending any time on it.</div></div>
+        </section>
+        <section class="section section--mini"><h2 class="section__h" data-stamp="hands on"><span>Mini-project: your turn</span></h2>
+        <p class="prose">Prove your model is correct without training it. Three properties, checkable in seconds, and the third is the one that matters: a model that can see the future trains beautifully and generates garbage, so catch it now rather than after eight minutes of training in B3.</p>
+        <p class="small muted">No code given. Produce the file, then run the checker.</p>
+        <ol class="steps">
+        <li><p>Create my-work/labs/lab20/test_model.py. Add my-work/labs/_shared to sys.path with pathlib (parents[1] / &quot;_shared&quot;), import Config and TinyGPT, and build model = TinyGPT(vocab_size=65, cfg=Config()).eval(). Calling .eval() matters: with dropout active the mask test would turn into noise.</p></li>
+        <li><p>Check the parameter count: assert model.n_params() == 824_897, and print it. If your number differs you changed Config or the vocabulary size, and the checker will say so.</p></li>
+        <li><p>Check the shapes: x = torch.randint(0, 65, (2, 16)), then logits, loss = model(x, x) inside torch.no_grad(). Assert tuple(logits.shape) == (2, 16, 65) and loss.dim() == 0. One score per vocabulary entry per position, and a loss that is a single number.</p></li>
+        <li><p>Now the causal mask, the real test. Copy x into y, change only the last column (y[:, -1] = (y[:, -1] + 1) % 65), and run both through the model. Assert torch.equal(before[:, :-1], after[:, :-1]): every earlier output must be bit-identical, not close, identical. Then assert not torch.equal(before[:, -1], after[:, -1]): the last output must change, otherwise the model is ignoring its newest token.</p></li>
+        <li><p>Print one short line per check and let the assertions decide the exit code. Then save the checker as my-work/labs/lab20/check_b2.py and run it from inside my-work/labs/lab20.</p></li>
+        </ol>
+        <div class="checker"><div class="checker__h">Check it yourself, automatically</div>
+        <p>Save this as <code>check_b2.py</code> next to your work, then run <code>Save it as my-work/labs/lab20/check_b2.py, next to your test_model.py, then run `python check_b2.py` from inside my-work/labs/lab20. It needs torch, which you already have. If my-work/labs/lab20/my_gpt.py exists it checks that file instead of the shared one, so you can test your own copy.</code>. It reads what you produced, tests it, and prints a line per check.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>check_b2.py</span></div>
+<pre><span class="t-s">&quot;&quot;&quot;Checker for Build-track B2. Put it next to your test_model.py and run it.&quot;&quot;&quot;</span>
+<span class="t-k">import</span> importlib.util
+<span class="t-k">import</span> pathlib
+<span class="t-k">import</span> subprocess
+<span class="t-k">import</span> sys
+
+HERE = pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parent
+FAILED = []
+
+
+<span class="t-k">def</span> <span class="t-f">report</span>(name, passed, detail=<span class="t-s">&quot;&quot;</span>):
+    <span class="t-f">print</span>((<span class="t-s">&quot;PASS  &quot;</span> <span class="t-k">if</span> passed <span class="t-k">else</span> <span class="t-s">&quot;FAIL  &quot;</span>) + name + ((<span class="t-s">&quot;  &quot;</span> + detail) <span class="t-k">if</span> detail <span class="t-k">else</span> <span class="t-s">&quot;&quot;</span>))
+    <span class="t-k">if</span> <span class="t-k">not</span> passed:
+        FAILED.<span class="t-f">append</span>(name)
+
+
+test_file = HERE / <span class="t-s">&quot;test_model.py&quot;</span>
+<span class="t-k">if</span> <span class="t-k">not</span> test_file.<span class="t-f">exists</span>():
+    <span class="t-f">report</span>(<span class="t-s">&quot;test_model.py exists&quot;</span>, <span class="t-k">False</span>, <span class="t-s">&quot;expected it at &quot;</span> + <span class="t-f">str</span>(test_file))
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-f">report</span>(<span class="t-s">&quot;test_model.py exists&quot;</span>, <span class="t-k">True</span>)
+
+src = test_file.<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>, errors=<span class="t-s">&quot;replace&quot;</span>)
+<span class="t-f">report</span>(<span class="t-s">&quot;your test asks for the parameter count&quot;</span>, <span class="t-s">&quot;n_params&quot;</span> <span class="t-k">in</span> src)
+<span class="t-f">report</span>(<span class="t-s">&quot;your test asks for a shape&quot;</span>, <span class="t-s">&quot;shape&quot;</span> <span class="t-k">in</span> src)
+<span class="t-f">report</span>(<span class="t-s">&quot;your test mentions the mask&quot;</span>, <span class="t-s">&quot;mask&quot;</span> <span class="t-k">in</span> src.<span class="t-f">lower</span>() <span class="t-k">or</span> <span class="t-s">&quot;causal&quot;</span> <span class="t-k">in</span> src.<span class="t-f">lower</span>())
+
+run = subprocess.<span class="t-f">run</span>([sys.executable, <span class="t-f">str</span>(test_file)], capture_output=<span class="t-k">True</span>,
+                     text=<span class="t-k">True</span>, cwd=<span class="t-f">str</span>(HERE))
+tail = (run.stdout + run.stderr).<span class="t-f">strip</span>().<span class="t-f">splitlines</span>()
+<span class="t-f">report</span>(<span class="t-s">&quot;test_model.py runs and exits 0&quot;</span>, run.returncode == <span class="t-s">0</span>,
+       tail[-<span class="t-s">1</span>][:<span class="t-s">110</span>] <span class="t-k">if</span> tail <span class="t-k">else</span> <span class="t-s">&quot;&quot;</span>)
+
+model_path = HERE / <span class="t-s">&quot;my_gpt.py&quot;</span>
+<span class="t-k">if</span> <span class="t-k">not</span> model_path.<span class="t-f">exists</span>():
+    model_path = HERE.parent / <span class="t-s">&quot;_shared&quot;</span> / <span class="t-s">&quot;tinygpt.py&quot;</span>
+<span class="t-k">if</span> <span class="t-k">not</span> model_path.<span class="t-f">exists</span>():
+    <span class="t-f">report</span>(<span class="t-s">&quot;model file found&quot;</span>, <span class="t-k">False</span>, <span class="t-s">&quot;no my_gpt.py and no _shared/tinygpt.py&quot;</span>)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+
+<span class="t-k">try</span>:
+    <span class="t-k">import</span> torch
+    spec = importlib.util.<span class="t-f">spec_from_file_location</span>(<span class="t-s">&quot;b2model&quot;</span>, model_path)
+    gpt = importlib.util.<span class="t-f">module_from_spec</span>(spec)
+    spec.loader.<span class="t-f">exec_module</span>(gpt)
+    model = gpt.<span class="t-f">TinyGPT</span>(vocab_size=<span class="t-s">65</span>, cfg=gpt.<span class="t-f">Config</span>()).<span class="t-f">eval</span>()
+<span class="t-k">except</span> Exception <span class="t-k">as</span> exc:
+    <span class="t-f">report</span>(<span class="t-s">&quot;model imports and builds&quot;</span>, <span class="t-k">False</span>, <span class="t-f">type</span>(exc).__name__ + <span class="t-s">&quot;: &quot;</span> + <span class="t-f">str</span>(exc)[:<span class="t-s">90</span>])
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-f">report</span>(<span class="t-s">&quot;model imports and builds&quot;</span>, <span class="t-k">True</span>, model_path.name)
+
+n = model.<span class="t-f">n_params</span>()
+<span class="t-f">report</span>(<span class="t-s">&quot;parameter count is 824,897&quot;</span>, n == <span class="t-s">824897</span>, <span class="t-s">&quot;got {:,}&quot;</span>.<span class="t-f">format</span>(n))
+
+torch.<span class="t-f">manual_seed</span>(<span class="t-s">0</span>)
+x = torch.<span class="t-f">randint</span>(<span class="t-s">0</span>, <span class="t-s">65</span>, (<span class="t-s">2</span>, <span class="t-s">16</span>))
+<span class="t-k">with</span> torch.<span class="t-f">no_grad</span>():
+    logits, loss = <span class="t-f">model</span>(x, x)
+<span class="t-f">report</span>(<span class="t-s">&quot;logits shape is (2, 16, 65)&quot;</span>, <span class="t-f">tuple</span>(logits.shape) == (<span class="t-s">2</span>, <span class="t-s">16</span>, <span class="t-s">65</span>),
+       <span class="t-s">&quot;got &quot;</span> + <span class="t-f">str</span>(<span class="t-f">tuple</span>(logits.shape)))
+<span class="t-f">report</span>(<span class="t-s">&quot;loss is one number&quot;</span>, loss <span class="t-k">is</span> <span class="t-k">not</span> <span class="t-k">None</span> <span class="t-k">and</span> loss.<span class="t-f">dim</span>() == <span class="t-s">0</span>)
+
+y = x.<span class="t-f">clone</span>()
+y[:, -<span class="t-s">1</span>] = (y[:, -<span class="t-s">1</span>] + <span class="t-s">1</span>) % <span class="t-s">65</span>
+<span class="t-k">with</span> torch.<span class="t-f">no_grad</span>():
+    a, _ = <span class="t-f">model</span>(x)
+    b, _ = <span class="t-f">model</span>(y)
+same = torch.<span class="t-f">equal</span>(a[:, :-<span class="t-s">1</span>], b[:, :-<span class="t-s">1</span>])
+drift = <span class="t-f">float</span>((a[:, :-<span class="t-s">1</span>] - b[:, :-<span class="t-s">1</span>]).<span class="t-f">abs</span>().<span class="t-f">max</span>())
+<span class="t-f">report</span>(<span class="t-s">&quot;changing the last token leaves every earlier output identical&quot;</span>, same,
+       <span class="t-s">&quot;largest difference {:.2e}&quot;</span>.<span class="t-f">format</span>(drift))
+<span class="t-f">report</span>(<span class="t-s">&quot;changing the last token does change the last output&quot;</span>,
+       <span class="t-k">not</span> torch.<span class="t-f">equal</span>(a[:, -<span class="t-s">1</span>], b[:, -<span class="t-s">1</span>]),
+       <span class="t-s">&quot;largest difference {:.4f}&quot;</span>.<span class="t-f">format</span>(<span class="t-f">float</span>((a[:, -<span class="t-s">1</span>] - b[:, -<span class="t-s">1</span>]).<span class="t-f">abs</span>().<span class="t-f">max</span>())))
+
+<span class="t-f">print</span>()
+<span class="t-k">if</span> FAILED:
+    <span class="t-f">print</span>(<span class="t-s">&quot;{} check(s) failed: {}&quot;</span>.<span class="t-f">format</span>(<span class="t-f">len</span>(FAILED), <span class="t-s">&quot;; &quot;</span>.<span class="t-f">join</span>(FAILED)))
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;All checks passed. Your model is correct without a single training step.&quot;</span>)
+sys.<span class="t-f">exit</span>(<span class="t-s">0</span>)
+</pre></div>
+        </div>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> Your test file runs clean and the checker prints eleven PASS lines. The mask check is the interesting one: earlier positions differ by exactly 0.00e+00 and the last position moves by more than a whole logit. That is a proof, not an impression, and it holds on an untrained model with random weights.</div></div>
+        <div class="note" style="margin-top:12px"><div class="note__t">If you want more</div><p>Add two more checks. First the edges: T = 1 and T = 128 (the full block_size) must both work, and T = 129 must raise IndexError, because pos has only 128 rows. Second, break it on purpose: copy tinygpt.py to my-work/labs/lab20/my_gpt.py, delete the masked_fill line, and rerun the checker (it prefers my_gpt.py when that file exists). Verified: with the mask gone, earlier outputs drift by 6.19e-02 and that one check fails while everything else still passes. Delete my_gpt.py afterwards.</p></div>
+        </section>
+        <section class="section section--quiz"><h2 class="section__h" data-stamp="on record"><span>Check yourself</span></h2>
+        <p class="small muted">Explained either way.</p>
+        <div class="quiz" data-quiz>
+        <div class="q" data-answer="1"><p class="q__q">Why does Head.forward multiply the scores by k.shape[-1] ** -0.5?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>To make the attention weights add up to 1</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Because a dot product over 32 numbers has a spread near 5.7, and softmax on numbers that large collapses onto a single token</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>To reduce the parameter count of the head</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Because head_size has to divide the embedding width</span></button>
+        </div><div class="q__why" hidden>Softmax is exponential, so a score gap of 5 becomes a weight ratio of 150. Measured on random matrices: unscaled, one token took 0.996 of the weight; scaled, the top weight was 0.424 and the rest spread across the row. Softmax already handles the summing to 1, and the scale changes no shapes and no parameter counts.</div></div>
+        <div class="q" data-answer="3"><p class="q__q">You change only the last token of a 16-token input and run the model again. If the causal mask works, what must you see?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Every output position shifts a little</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Nothing changes anywhere</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>The loss goes down</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Every earlier position is bit-identical and only the last position changes</span></button>
+        </div><div class="q__why" hidden>Earlier positions cannot see the last token, so their outputs must be identical to the last bit, a difference of exactly 0.00e+00. The last position can see it, so it must change (measured: more than a whole logit). Both halves matter: if nothing changed, the model would be ignoring its newest token rather than masking the future.</div></div>
+        <div class="q" data-answer="2"><p class="q__q">In the 824,897-parameter default model, where do most of the parameters live?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>The token and position embedding tables</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>The key, query and value matrices in the attention heads</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>The feed-forward networks inside the blocks</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>The layer norms</span></button>
+        </div><div class="q__why" hidden>Measured: feed-forward 526,848 (63.9%), attention heads plus projection 262,656 (31.8%), both embeddings 24,704 (3.0%), all layer norms 2,304 (0.3%). Attention is what makes it a transformer, but two thirds of every block is a plain two-layer network widening 128 to 512 and back.</div></div>
+        </div></section>
+        <section class="section section--notes notes" data-notes><h2 class="section__h" data-stamp="on record"><span>Your notes</span></h2>
+        <p class="small muted">Saves as you type, in this browser.</p>
+        <label class="sr" for="n20">Notes for this module</label>
+        <textarea id="n20" placeholder="What clicked? What is still fuzzy? What do you want to come back to?"></textarea><div class="notes__status"></div></section>
+        <section class="section section--done"><h2 class="section__h" data-stamp="on record"><span>Mark it done</span></h2>
+        <div class="marks"><button class="mark" data-mark="read" aria-pressed="false"><span>Read the notes</span></button><button class="mark" data-mark="lab" aria-pressed="false"><span>Finished the lab</span></button><button class="mark" data-mark="mini" aria-pressed="false"><span>Finished the mini-project</span></button></div></section>
+        <section class="section section--docs"><h2 class="section__h" data-stamp="reference"><span>Go to the source</span></h2>
+        <p class="small muted">If this course and the docs disagree, the docs are newer.</p><ul class="prose">
+        <li><a href="https://arxiv.org/abs/1706.03762" target="_blank" rel="noopener">Attention Is All You Need, the paper this file implements</a></li>
+        <li><a href="https://arxiv.org/abs/1607.06450" target="_blank" rel="noopener">Layer Normalization, the paper</a></li>
+        <li><a href="https://pytorch.org/docs/stable/generated/torch.nn.LayerNorm.html" target="_blank" rel="noopener">PyTorch: torch.nn.LayerNorm</a></li>
+        <li><a href="https://pytorch.org/docs/stable/generated/torch.Tensor.masked_fill.html" target="_blank" rel="noopener">PyTorch: Tensor.masked_fill, the causal mask in one call</a></li>
+        <li><a href="https://github.com/karpathy/nanoGPT" target="_blank" rel="noopener">nanoGPT, the reference this model is a stripped-down version of</a></li>
+        </ul></section>
+    </div>
+    <nav data-chrome="pager"></nav>
+  </main>
+</div>
+
+<script src="../assets/data.js"></script>
+<script src="../assets/widgets.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

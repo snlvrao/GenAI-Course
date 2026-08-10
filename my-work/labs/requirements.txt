@@ -1,0 +1,26 @@
+# Install per phase rather than all at once. See setup.html for what each one
+# is and why the course needs it. The pinned versions are those tested in
+# August 2026 on Python 3.10 to 3.14; newer is normally fine.
+
+# --- Phase 1, Modules 1-3 --------------------------------------------------
+openai>=2.53.0                 # talks to every provider, not just OpenAI
+python-dotenv>=1.0             # reads your .env file
+sentence-transformers>=5.6.1   # local embeddings, no API key (pulls in torch)
+matplotlib>=3.11               # plot the loss curve in Module 2
+
+# --- Phase 3, Modules 9-11 -------------------------------------------------
+sqlite-vec>=0.1.9              # vector search inside SQLite, no server
+rank-bm25>=0.2.2               # keyword search, the other half of hybrid
+pypdf>=6.0                     # read your own PDFs
+peft>=0.20                     # LoRA for my-work/labs/lab11/cpu_lora.py, the route that
+                               # needs no GPU. sentence-transformers names peft
+                               # only under its "dev" extra, so a plain install
+                               # does not bring it and the import fails.
+
+# --- Phase 4, Modules 12-15 ------------------------------------------------
+mcp[cli]>=2.0.0                # build MCP servers (note: FastMCP is now MCPServer)
+langgraph>=1.2.10              # Module 14 only, after you write an agent by hand
+langchain>=1.3.14
+
+# Not installable on Python 3.14: crewai requires <3.14.
+# Module 14 runs the CrewAI comparison in Google Colab instead.

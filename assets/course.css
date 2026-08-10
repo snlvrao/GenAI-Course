@@ -1,0 +1,1420 @@
+/* ==========================================================================
+   Gen AI & Agentic AI - course stylesheet
+   Design direction: engineering lab notebook.
+   Wayfinding is carried by a cool-to-warm hue ramp across the six phases, plus a
+   seventh violet for the Build track, which runs alongside rather than after.
+   Body text always sits on a neutral, so contrast never depends on the ramp.
+   ========================================================================== */
+
+/* --- Tokens ------------------------------------------------------------- */
+
+:root {
+  /* Phase ramp: deep blue -> cyan -> teal -> green -> amber -> gold.
+     Stored as H S% L% triples so alpha variants can be composed inline. */
+  --p1: 219 62% 52%;
+  --p2: 193 72% 42%;
+  --p3: 174 62% 36%;
+  --p4: 145 52% 38%;
+  --p5: 33 82% 46%;
+  --p6: 43 82% 46%;
+  --p7: 285 55% 55%;   /* Build track: parallel, not next */
+
+  /* Same hues, dark enough to be text. On a light page the ramp above is for
+     filling and outlining only: as text it runs from 3.99:1 down to 1.95:1
+     for gold, all under AA. These are the identical H and S with the lightness
+     dropped until each clears 4.5:1 on the sunk background, the tightest one
+     they appear on. Decoration keeps the vivid ramp, text uses these. */
+  --p1-ink: 219 62% 48%;
+  --p2-ink: 193 72% 31%;
+  --p3-ink: 174 62% 28%;
+  --p4-ink: 145 52% 30%;
+  --p5-ink: 33 82% 32%;
+  --p6-ink: 43 82% 28%;
+  --p7-ink: 285 55% 48%;
+
+  /* Code tokens. Two hues only, 350 and 250, both less saturated than the
+     phase ramp so a coloured word inside a code block never reads as a phase
+     signal. Measured on the code background: 7.4:1 and 7.5:1. Comments and
+     program output reuse --ink-3 and --ink-2 rather than adding more hues. */
+  --code-lit: #8d3a48;
+  --code-kw:  #56479e;
+
+  /* A warm neutral for the sections that hold YOUR words rather than the
+     course's. Deliberately not a hue, so it never competes with the phase. */
+  --paper: hsl(38 44% 96%);
+  --paper-edge: hsl(38 32% 74%);
+  --paper-ink: hsl(38 38% 32%);
+  /* cards that sit ON --paper. Cannot be --surface: in dark mode --surface
+     is darker than --paper, which inverts every raised/recessed reading. */
+  --paper-card: #ffffff;
+
+  /* Surfaces - cool paper, deliberately not cream and not pure white */
+  --bg: #eef1f4;
+  --bg-sunk: #e4e9ee;
+  --surface: #ffffff;
+  --surface-2: #f7f9fb;
+  --line: #d3dae1;
+  --line-strong: #b6c0ca;
+
+  /* Ink */
+  --ink: #16202a;
+  --ink-2: #47576a;
+  /* 4.7:1 on the sidebar, 5.0:1 on the page, 5.7:1 on a card. The lighter
+     grey this replaced measured 3.7:1, which reads fine but is below AA for
+     the muted captions, table headings, sidebar numbers and stat labels that
+     all use this token. The sidebar is the tightest of those backgrounds. */
+  --ink-3: #586878;
+  --ink-invert: #ffffff;
+
+  /* Accents that are not phase-bound */
+  --ok: #1d7a4c;
+  --ok-bg: #e3f5ea;
+  --warn: #9a5b00;
+  --warn-bg: #fdf0da;
+  --bad: #b3261e;
+  --bad-bg: #fdeceb;
+  --focus: #0b64d6;
+
+  /* Type */
+  --ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --prose: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  --mono: "Cascadia Code", "Cascadia Mono", Consolas, "SF Mono", monospace;
+
+  /* Shape - squared off, not pillowy */
+  --r-chip: 4px;
+  --r-card: 6px;
+  --r-big: 8px;
+
+  /* Rhythm */
+  --gap: 16px;
+  --pad: 20px;
+  --measure: 68ch;
+  --sidebar-w: 288px;
+  --header-h: 56px;
+}
+
+:root[data-theme="dark"],
+:root:not([data-theme="light"]) {
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #10161c;
+    --bg-sunk: #0b1015;
+    --surface: #171f27;
+    --surface-2: #1d2732;
+    --line: #2b3742;
+    --line-strong: #3d4c5a;
+    --ink: #e6edf4;
+    --ink-2: #a3b3c2;
+    --ink-3: #7d8f9f;
+    --ok: #5fd6a0;
+    --ok-bg: #103324;
+    --warn: #f0b053;
+    --warn-bg: #33260f;
+    --bad: #f78d85;
+    --bad-bg: #3a1a18;
+    --focus: #6aa9ff;
+    --p1: 219 72% 66%;
+    --p2: 193 68% 56%;
+    --p3: 174 52% 50%;
+    --p4: 145 44% 54%;
+    --p5: 33 78% 60%;
+    --p6: 43 78% 60%;
+    --p7: 285 62% 70%;
+    /* On a dark page the ramp already clears AA as text (4.69:1 at worst),
+       so text and decoration can share one value. */
+    --p1-ink: var(--p1); --p2-ink: var(--p2); --p3-ink: var(--p3);
+    --p4-ink: var(--p4); --p5-ink: var(--p5); --p6-ink: var(--p6);
+    --p7-ink: var(--p7);
+    --code-lit: #d897a2;
+    --code-kw:  #b5ace2;
+    --paper: hsl(38 14% 13%);
+    --paper-edge: hsl(38 18% 34%);
+    --paper-ink: hsl(38 46% 70%);
+    --paper-card: hsl(38 12% 18%);
+  }
+}
+
+/* Explicit dark wins over the media query in both directions. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #10161c;
+  --bg-sunk: #0b1015;
+  --surface: #171f27;
+  --surface-2: #1d2732;
+  --line: #2b3742;
+  --line-strong: #3d4c5a;
+  --ink: #e6edf4;
+  --ink-2: #a3b3c2;
+  --ink-3: #7d8f9f;
+  --ok: #5fd6a0;
+  --ok-bg: #103324;
+  --warn: #f0b053;
+  --warn-bg: #33260f;
+  --bad: #f78d85;
+  --bad-bg: #3a1a18;
+  --focus: #6aa9ff;
+  --p1: 219 72% 66%;
+  --p2: 193 68% 56%;
+  --p3: 174 52% 50%;
+  --p4: 145 44% 54%;
+  --p5: 33 78% 60%;
+  --p6: 43 78% 60%;
+  --p7: 285 62% 70%;
+  --p1-ink: var(--p1); --p2-ink: var(--p2); --p3-ink: var(--p3);
+  --p4-ink: var(--p4); --p5-ink: var(--p5); --p6-ink: var(--p6);
+  --p7-ink: var(--p7);
+  --code-lit: #d897a2;
+  --code-kw:  #b5ace2;
+  --paper: hsl(38 14% 13%);
+  --paper-edge: hsl(38 18% 34%);
+  --paper-ink: hsl(38 46% 70%);
+  --paper-card: hsl(38 12% 18%);
+}
+
+/* Any element inside a phase-scoped region resolves --ph to its own hue, and
+   --ph-ink to the text-safe version of that same hue. Fill and outline with
+   --ph, set text with --ph-ink. */
+[data-phase="1"] { --ph: var(--p1); --ph-ink: var(--p1-ink); }
+[data-phase="2"] { --ph: var(--p2); --ph-ink: var(--p2-ink); }
+[data-phase="3"] { --ph: var(--p3); --ph-ink: var(--p3-ink); }
+[data-phase="4"] { --ph: var(--p4); --ph-ink: var(--p4-ink); }
+[data-phase="5"] { --ph: var(--p5); --ph-ink: var(--p5-ink); }
+[data-phase="6"] { --ph: var(--p6); --ph-ink: var(--p6-ink); }
+[data-phase="7"] { --ph: var(--p7); --ph-ink: var(--p7-ink); }
+
+/* --- Reset -------------------------------------------------------------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--ui);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-text-size-adjust: 100%;
+}
+
+img { max-width: 100%; display: block; }
+h1, h2, h3, h4 { line-height: 1.25; margin: 0 0 .5em; font-weight: 650; }
+h1 { font-size: 1.85rem; letter-spacing: -.015em; }
+h2 { font-size: 1.3rem; letter-spacing: -.01em; }
+h3 { font-size: 1.05rem; }
+p { margin: 0 0 1em; }
+a { color: var(--focus); }
+a:hover { text-decoration-thickness: 2px; }
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--r-chip);
+}
+
+/* --- Layout ------------------------------------------------------------- */
+
+.masthead {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+
+.masthead__brand {
+  font-weight: 700;
+  font-size: .95rem;
+  letter-spacing: -.01em;
+  text-decoration: none;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.masthead__brand span { color: var(--ink-3); font-weight: 500; }
+
+.masthead__spacer { flex: 1; }
+
+/* Six-segment progress bar - one segment per phase, coloured by the ramp */
+.progressbar {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  min-width: 140px;
+}
+.progressbar__seg {
+  height: 6px;
+  flex: 1;
+  border-radius: 2px;
+  background: var(--bg-sunk);
+  overflow: hidden;
+}
+.progressbar__fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: hsl(var(--ph));
+  transition: width .4s ease;
+}
+.progressbar__pct {
+  font-variant-numeric: tabular-nums;
+  font-size: .8rem;
+  color: var(--ink-2);
+  min-width: 3.5ch;
+  text-align: right;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  align-items: start;
+}
+
+.sidebar {
+  position: sticky;
+  top: var(--header-h);
+  max-height: calc(100vh - var(--header-h));
+  overflow-y: auto;
+  padding: 18px 12px 40px;
+  border-right: 1px solid var(--line);
+  background: var(--bg-sunk);
+  scrollbar-width: thin;
+}
+
+.main {
+  padding: 28px clamp(16px, 4vw, 44px) 96px;
+  min-width: 0;
+}
+
+.wrap { max-width: 860px; }
+
+/* --- Sidebar nav -------------------------------------------------------- */
+
+.navsearch {
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: .88rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-chip);
+  margin-bottom: 14px;
+}
+.navsearch::placeholder { color: var(--ink-3); }
+
+.phase { margin-bottom: 14px; }
+
+.phase__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 8px;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: hsl(var(--ph-ink));
+}
+.phase__head::before {
+  content: "";
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  background: hsl(var(--ph));
+  flex: none;
+}
+
+.navlink {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: var(--r-chip);
+  text-decoration: none;
+  color: var(--ink-2);
+  font-size: .875rem;
+  border-left: 3px solid transparent;
+}
+.navlink:hover { background: var(--surface); color: var(--ink); }
+.navlink[aria-current="page"] {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 640;
+  border-left-color: hsl(var(--ph-ink));
+}
+.navlink__n {
+  font: 600 .72rem/1 var(--mono);
+  color: var(--ink-3);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.navlink__t { min-width: 0; }
+.navlink__dots { display: flex; gap: 3px; }
+.dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+}
+.dot--on { background: hsl(var(--ph)); border-color: hsl(var(--ph-ink)); }
+.navlink.is-hidden { display: none; }
+
+/* --- Cards and blocks --------------------------------------------------- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: var(--pad);
+  margin: 0 0 var(--gap);
+}
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: hsl(var(--ph-ink));
+  margin-bottom: 10px;
+}
+.eyebrow::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, hsl(var(--ph) / .45), transparent);
+}
+
+.promise {
+  font-family: var(--prose);
+  font-size: 1.18rem;
+  line-height: 1.5;
+  color: var(--ink);
+  border-left: 4px solid hsl(var(--ph));
+  padding: 2px 0 2px 16px;
+  margin: 0 0 22px;
+}
+
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  font-size: .76rem;
+  border-radius: var(--r-chip);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+}
+.chip--phase {
+  background: hsl(var(--ph) / .12);
+  border-color: hsl(var(--ph) / .35);
+  /* Same rule as the section stamp: the hue fills and outlines, it never
+     sets text. As text on its own tint the warm phases fall to 2.7:1. */
+  color: var(--ink-2);
+  font-weight: 620;
+}
+
+/* Concept cards: binder-tab spine plus a large ghosted numeral */
+.concepts { display: grid; gap: 12px; }
+
+.concept {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid hsl(var(--ph) / .55);
+  border-radius: var(--r-card);
+  padding: 16px 18px 16px 20px;
+  overflow: hidden;
+}
+.concept__n {
+  position: absolute;
+  right: 10px;
+  top: 2px;
+  font: 800 3.2rem/1 var(--ui);
+  color: hsl(var(--ph) / .09);
+  pointer-events: none;
+  user-select: none;
+}
+.concept__t {
+  font-size: 1rem;
+  font-weight: 680;
+  margin: 0 0 6px;
+  padding-right: 44px;
+}
+.concept__b {
+  font-family: var(--prose);
+  font-size: 1.02rem;
+  line-height: 1.62;
+  color: var(--ink-2);
+  margin: 0;
+  max-width: var(--measure);
+}
+.concept__b strong { color: var(--ink); font-weight: 600; }
+.concept__b code { font-size: .9em; }
+
+/* Worked example inside a concept card */
+.eg {
+  margin: 12px 0 0;
+  border: 1px solid var(--line);
+  border-left: 3px solid hsl(var(--ph) / .7);
+  border-radius: var(--r-chip);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.eg__h {
+  padding: 6px 12px;
+  font: 700 .64rem/1 var(--ui);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: hsl(var(--ph-ink));
+  background: var(--bg-sunk);
+  border-bottom: 1px solid var(--line);
+}
+.eg pre {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font: 13px/1.65 var(--mono);
+  color: var(--ink);
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  white-space: pre;
+  tab-size: 2;
+}
+.eg pre:first-of-type { border-top: 0; }
+
+/* Explanation that used to live inside '#' comments. Prose, set in the reading
+   font, so it stops competing with the code for attention. */
+.eg__say {
+  margin: 0;
+  padding: 10px 14px;
+  font-family: var(--prose);
+  font-size: .95rem;
+  line-height: 1.55;
+  color: var(--ink-2);
+  background: var(--surface-2);
+}
+.eg__say + pre { border-top: 1px solid var(--line); }
+.eg__say code { font-size: .88em; }
+.eg > p {
+  margin: 0;
+  padding: 11px 13px;
+  font-size: .92rem;
+  line-height: 1.55;
+  color: var(--ink);
+}
+.eg table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.eg th, .eg td { text-align: left; padding: 7px 13px; border-bottom: 1px solid var(--line); }
+.eg th { font: 700 .68rem/1 var(--ui); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.eg td { color: var(--ink); font-variant-numeric: tabular-nums; }
+.eg tr:last-child td { border-bottom: 0; }
+.eg__cap {
+  padding: 8px 13px;
+  font-size: .8rem;
+  color: var(--ink-3);
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+/* Setup path chooser */
+.paths {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 0;
+}
+@media (min-width: 760px) { .paths { grid-template-columns: repeat(3, 1fr); } }
+
+.pathcard {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  text-align: left;
+  padding: 16px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: var(--r-card);
+  cursor: pointer;
+}
+.pathcard:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.pathcard.is-on {
+  border-color: hsl(var(--ph-ink));
+  background: hsl(var(--ph) / .08);
+}
+.pathcard__h { font-weight: 700; font-size: 1rem; }
+.pathcard.is-on .pathcard__h { color: hsl(var(--ph-ink)); }
+.pathcard__b { font-size: .88rem; color: var(--ink-2); line-height: 1.45; }
+.pathcard__m {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+  font-size: .78rem;
+  color: var(--ink-3);
+}
+.pathcard__m b { color: var(--ink); font-weight: 640; }
+
+[hidden] { display: none !important; }
+
+/* Mini-project checker */
+.checker {
+  border: 1px solid var(--ok);
+  border-radius: var(--r-card);
+  background: var(--ok-bg);
+  padding: 14px 16px;
+  margin: 14px 0 0;
+}
+.checker__h {
+  font: 700 .72rem/1 var(--ui);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ok);
+  margin-bottom: 8px;
+}
+.checker p { font-size: .93rem; }
+.checker .codeblock { margin-bottom: 0; }
+
+/* Reference prose - the part you read and keep */
+.prose {
+  font-family: var(--prose);
+  font-size: 1.05rem;
+  line-height: 1.65;
+  max-width: var(--measure);
+  color: var(--ink-2);
+}
+.prose strong { color: var(--ink); }
+
+/* Callouts */
+.note {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--ink-3);
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+  padding: 14px 16px;
+  margin: 0 0 var(--gap);
+  font-size: .94rem;
+}
+.note__t {
+  font-weight: 700;
+  font-size: .74rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 6px;
+}
+.note p:last-child { margin-bottom: 0; }
+.note--warn { border-left-color: var(--warn); background: var(--warn-bg); }
+.note--warn .note__t { color: var(--warn); }
+.note--gap { border-left-color: var(--bad); background: var(--bad-bg); }
+.note--gap .note__t { color: var(--bad); }
+.note--ok { border-left-color: var(--ok); background: var(--ok-bg); }
+.note--ok .note__t { color: var(--ok); }
+
+/* --- Video -------------------------------------------------------------- */
+
+.videos { display: grid; gap: 14px; }
+@media (min-width: 900px) {
+  .videos--multi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.video { border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface); overflow: hidden; }
+
+.video__frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--bg-sunk);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  display: block;
+  overflow: hidden;
+}
+.video__frame img { width: 100%; height: 100%; object-fit: cover; }
+.video__frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+
+.video__play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(to top, rgba(0,0,0,.45), rgba(0,0,0,.05));
+  transition: background .2s ease;
+}
+.video__frame:hover .video__play { background: linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,.15)); }
+.video__play svg { width: 58px; height: 58px; filter: drop-shadow(0 2px 8px rgba(0,0,0,.5)); }
+.video__frame:hover .video__play svg { transform: scale(1.06); }
+.video__play svg, .video__frame:hover .video__play svg { transition: transform .2s ease; }
+
+/* Offline / blocked poster fallback */
+.video__frame--noposter .video__play {
+  background: repeating-linear-gradient(45deg, var(--bg-sunk), var(--bg-sunk) 10px, var(--surface-2) 10px, var(--surface-2) 20px);
+}
+
+.video__body { padding: 12px 14px; }
+.video__t { font-size: .93rem; font-weight: 640; margin: 0 0 4px; }
+.video__m {
+  font-size: .78rem;
+  color: var(--ink-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-variant-numeric: tabular-nums;
+}
+.video__m b { color: var(--ink-2); font-weight: 600; }
+
+/* --- Diagrams ----------------------------------------------------------- */
+
+/* Inline SVG, built at page-build time rather than drawn by script, so the
+   diagrams survive printing and work with JavaScript switched off. */
+.diagram {
+  margin: 4px 0 var(--gap);
+  padding: 16px 16px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+}
+.diagram svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 720px;
+  margin: 0 auto;
+  overflow: visible;
+}
+.diagram figcaption {
+  margin-top: 12px;
+  font-size: .84rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+  text-align: center;
+  max-width: 62ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+.diagram figcaption b { color: var(--ink); }
+
+/* Shared classes used inside every generated SVG. */
+.d-box   { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1.5; }
+.d-fill  { fill: hsl(var(--ph) / .15); stroke: hsl(var(--ph)); stroke-width: 1.5; }
+.d-warn  { fill: var(--bad-bg); stroke: var(--bad); stroke-width: 1.5; }
+.d-ok    { fill: var(--ok-bg); stroke: var(--ok); stroke-width: 1.5; }
+.d-t     { fill: var(--ink); font: 600 13px var(--ui); }
+.d-s     { fill: var(--ink-3); font: 400 11px var(--ui); }
+.d-m     { fill: var(--ink); font: 500 12px var(--mono); }
+.d-hi    { fill: hsl(var(--ph)); font: 700 12px var(--ui); }
+.d-line  { stroke: var(--line-strong); stroke-width: 1.5; fill: none; }
+.d-arrow { stroke: var(--ink-3); stroke-width: 1.6; fill: none; }
+.d-dash  { stroke: var(--ink-3); stroke-width: 1.4; fill: none; stroke-dasharray: 5 4; }
+.d-curve { stroke: hsl(var(--ph)); stroke-width: 2.5; fill: none; }
+.d-head  { fill: var(--ink-3); }
+
+/* --- Code --------------------------------------------------------------- */
+
+.codeblock { position: relative; margin: 0 0 var(--gap); }
+.codeblock__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: var(--r-card) var(--r-card) 0 0;
+  font: 500 .74rem/1 var(--mono);
+  color: var(--ink-3);
+}
+.codeblock__bar span { flex: 1; }
+.codeblock pre {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0 0 var(--r-card) var(--r-card);
+  font: 13px/1.6 var(--mono);
+  color: var(--ink);
+  tab-size: 2;
+}
+.codeblock--bare pre { border-radius: var(--r-card); }
+/* Syntax colouring. Painted into the HTML at generation time, so it survives
+   JavaScript being off and it prints. Five classes is the whole vocabulary:
+   punctuation, operators and plain identifiers deliberately get no span and
+   inherit --ink, which is what stops a block looking like a highlighter set. */
+pre .t-s { color: var(--code-lit); }                      /* string, number */
+pre .t-k { color: var(--code-kw); font-weight: 600; }     /* keyword, prompt */
+pre .t-c { color: var(--ink-3); font-style: italic; }     /* comment */
+pre .t-f { font-weight: 600; }                            /* call name, key */
+pre .t-o { color: var(--ink-2); }                         /* program output */
+
+/* What the program printed, kept as lines rather than flattened into prose. */
+.eg__out {
+  margin: 0;
+  padding: 10px 14px;
+  overflow-x: auto;
+  font: 12.5px/1.6 var(--mono);
+  background: var(--surface-2);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  white-space: pre;
+  tab-size: 2;
+}
+.eg__out::before {
+  content: "output";
+  display: block;
+  font: 700 .58rem/1.8 var(--mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Copy button on a worked example. The wrapper exists only to give the button
+   something to position against, so it must not change the block's own box. */
+.eg__codewrap { position: relative; }
+.eg__copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font: 600 .64rem/1 var(--ui);
+  letter-spacing: .06em;
+  color: var(--ink-3);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 4px 7px;
+  cursor: pointer;
+  opacity: 0;
+}
+.eg__codewrap:hover .eg__copy,
+.eg__copy:focus-visible { opacity: 1; }
+.eg__copy:hover { color: var(--ink); border-color: var(--line-strong); }
+.eg__copy.btn--ok { color: var(--ok); border-color: var(--ok); opacity: 1; }
+@media (hover: none) { .eg__copy { opacity: 1; } }
+@media print { .eg__copy { display: none; } }
+
+.disknote {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  background: var(--warn-bg);
+  border: 1px solid var(--warn);
+  border-radius: var(--r-card);
+}
+.disknote p { margin: 0; font-size: .9rem; line-height: 1.5; color: var(--ink); }
+.disknote code {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: .08em .32em;
+}
+.disknote__x {
+  flex: none;
+  font: 600 .7rem/1 var(--ui);
+  color: var(--ink-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+@media print { .disknote { display: none; } }
+
+code { font-family: var(--mono); font-size: .88em; }
+:not(pre) > code {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: .08em .32em;
+}
+
+.btn {
+  font: inherit;
+  font-size: .78rem;
+  padding: 3px 9px;
+  border-radius: var(--r-chip);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.btn:hover { background: var(--bg-sunk); color: var(--ink); }
+.btn--ok { color: var(--ok); border-color: var(--ok); }
+
+/* --- Steps (lab / mini-project) ----------------------------------------- */
+
+.steps { list-style: none; counter-reset: s; margin: 0; padding: 0; }
+.steps > li {
+  counter-increment: s;
+  position: relative;
+  padding: 0 0 18px 40px;
+  border-left: 2px solid var(--line);
+  margin-left: 12px;
+}
+.steps > li:last-child { border-left-color: transparent; padding-bottom: 0; }
+.steps > li::before {
+  content: counter(s);
+  position: absolute;
+  left: -13px;
+  top: -2px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid hsl(var(--ph) / .6);
+  color: hsl(var(--ph-ink));
+  font: 700 .74rem/1 var(--ui);
+}
+.steps p { margin: 0 0 .5em; }
+
+.done {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid var(--ok);
+  background: var(--ok-bg);
+  border-radius: var(--r-card);
+  padding: 12px 14px;
+  margin-top: 14px;
+  font-size: .94rem;
+}
+.done b { color: var(--ok); }
+
+/* Line-by-line explanation of a code block */
+.walk {
+  margin: 0 0 var(--gap);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.walk__h {
+  padding: 8px 14px;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  background: var(--bg-sunk);
+  border-bottom: 1px solid var(--line);
+}
+.walk dl { margin: 0; padding: 4px 14px 12px; }
+.walk dt {
+  margin-top: 12px;
+  font: 500 12.5px/1.5 var(--mono);
+  color: hsl(var(--ph-ink));
+  overflow-wrap: anywhere;
+}
+.walk dd {
+  margin: 4px 0 0;
+  font-size: .92rem;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+/* Worked maths: formula, symbols, a real example */
+.maths {
+  margin: 0 0 var(--gap);
+  border: 1px solid var(--line-strong);
+  border-left: 4px solid hsl(var(--ph));
+  border-radius: var(--r-card);
+  background: var(--surface);
+  padding: 14px 16px;
+}
+.maths__h {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: hsl(var(--ph-ink));
+  margin-bottom: 8px;
+}
+.maths pre {
+  margin: 0;
+  font: 13px/1.7 var(--mono);
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.gotcha {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  border: 1px solid var(--warn);
+  background: var(--warn-bg);
+  border-radius: var(--r-card);
+  padding: 10px 13px;
+  margin: 0 0 var(--gap);
+  font-size: .9rem;
+}
+.gotcha b { color: var(--warn); white-space: nowrap; }
+
+/* --- Quiz --------------------------------------------------------------- */
+
+.quiz { display: grid; gap: 14px; }
+.q { border: 1px solid var(--line); border-radius: var(--r-card); padding: 16px; background: var(--surface); }
+.q__q { font-weight: 640; margin: 0 0 12px; }
+.q__opts { display: grid; gap: 7px; }
+.opt {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-chip);
+  background: var(--surface-2);
+  cursor: pointer;
+  font-size: .93rem;
+  text-align: left;
+  font-family: inherit;
+  color: var(--ink);
+  width: 100%;
+}
+.opt:hover:not(:disabled) { border-color: var(--line-strong); background: var(--bg-sunk); }
+.opt:disabled { cursor: default; }
+.opt__k {
+  font: 700 .74rem/1.4 var(--mono);
+  color: var(--ink-3);
+  flex: none;
+  width: 1.2em;
+}
+.opt--right { border-color: var(--ok); background: var(--ok-bg); }
+.opt--right .opt__k { color: var(--ok); }
+.opt--wrong { border-color: var(--bad); background: var(--bad-bg); }
+.opt--wrong .opt__k { color: var(--bad); }
+
+.q__why {
+  margin-top: 12px;
+  padding: 11px 13px;
+  border-radius: var(--r-chip);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: .9rem;
+  color: var(--ink-2);
+}
+.q__why b { color: var(--ink); }
+.q__why[hidden] { display: none; }
+
+/* --- Notes -------------------------------------------------------------- */
+
+.notes textarea {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  font: inherit;
+  font-size: .95rem;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 12px 14px;
+}
+.notes__status { font-size: .78rem; color: var(--ink-3); margin-top: 6px; min-height: 1.2em; }
+
+/* --- Completion toggles ------------------------------------------------- */
+
+.marks { display: flex; flex-wrap: wrap; gap: 10px; }
+.mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: .9rem;
+  cursor: pointer;
+}
+.mark:hover { border-color: hsl(var(--ph-ink)); color: var(--ink); }
+.mark__box {
+  width: 18px; height: 18px;
+  border: 2px solid var(--line-strong);
+  border-radius: var(--r-chip);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.mark__box svg { width: 12px; height: 12px; opacity: 0; }
+.mark[aria-pressed="true"] { border-color: var(--ok); color: var(--ok); background: var(--ok-bg); font-weight: 620; }
+.mark[aria-pressed="true"] .mark__box { border-color: var(--ok); background: var(--ok); }
+.mark[aria-pressed="true"] .mark__box svg { opacity: 1; }
+
+/* --- Prev / next -------------------------------------------------------- */
+
+.pager { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; margin-top: 34px; }
+.pager a {
+  display: block;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  text-decoration: none;
+  color: var(--ink);
+}
+.pager a:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.pager small { display: block; color: var(--ink-3); font-size: .74rem; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 3px; }
+.pager .is-next { text-align: right; }
+.pager span.empty { display: block; }
+
+/* --- Widgets ------------------------------------------------------------ */
+
+.widget {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  margin: 0 0 var(--gap);
+  overflow: hidden;
+}
+.widget__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  font-size: .85rem;
+  font-weight: 650;
+}
+.widget__head .tag {
+  font: 700 .64rem/1 var(--ui);
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  padding: 4px 7px;
+  border-radius: var(--r-chip);
+  background: hsl(var(--ph) / .16);
+  color: hsl(var(--ph-ink));
+}
+.widget__body { padding: 16px; }
+.widget__hint { font-size: .82rem; color: var(--ink-3); margin: 10px 0 0; }
+
+.field { display: block; margin-bottom: 12px; }
+.field > span { display: block; font-size: .8rem; color: var(--ink-2); margin-bottom: 5px; font-weight: 600; }
+.field input[type="text"], .field textarea, .field select {
+  width: 100%;
+  font: inherit;
+  font-size: .92rem;
+  padding: 8px 10px;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-chip);
+}
+.field textarea { font-family: var(--mono); font-size: .85rem; min-height: 90px; resize: vertical; }
+input[type="range"] { width: 100%; accent-color: hsl(var(--ph-ink)); }
+
+.readout { font: 600 .82rem/1.5 var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.readout b { color: var(--ink); }
+
+.grid2 { display: grid; gap: 14px; }
+@media (min-width: 700px) { .grid2 { grid-template-columns: 1fr 1fr; } }
+
+/* token chips */
+.tokens { display: flex; flex-wrap: wrap; gap: 3px; font-family: var(--mono); font-size: .82rem; }
+.tok {
+  padding: 2px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  white-space: pre;
+}
+.tok:nth-child(6n+1) { background: hsl(var(--p1) / .16); }
+.tok:nth-child(6n+2) { background: hsl(var(--p2) / .16); }
+.tok:nth-child(6n+3) { background: hsl(var(--p3) / .16); }
+.tok:nth-child(6n+4) { background: hsl(var(--p4) / .16); }
+.tok:nth-child(6n+5) { background: hsl(var(--p5) / .18); }
+.tok:nth-child(6n+6) { background: hsl(var(--p6) / .18); }
+
+/* stacked bar for the context budget widget */
+.stack { display: flex; height: 30px; border-radius: var(--r-chip); overflow: hidden; border: 1px solid var(--line-strong); background: var(--bg-sunk); }
+.stack__seg { height: 100%; transition: width .18s ease; }
+.legend { display: grid; gap: 6px; margin-top: 12px; }
+.legend__row { display: grid; grid-template-columns: 14px 1fr auto; gap: 9px; align-items: center; font-size: .83rem; }
+.legend__sw { width: 14px; height: 14px; border-radius: 3px; }
+
+table.data { width: 100%; border-collapse: collapse; font-size: .87rem; }
+table.data th, table.data td { text-align: left; padding: 7px 9px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.data th { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); }
+table.data td.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.scroll-x { overflow-x: auto; }
+
+/* --- Index page --------------------------------------------------------- */
+
+.hero { margin-bottom: 30px; }
+.hero h1 { font-size: clamp(1.9rem, 4.2vw, 2.7rem); margin-bottom: .3em; }
+.hero p { font-family: var(--prose); font-size: 1.1rem; color: var(--ink-2); max-width: 62ch; }
+
+.ramp { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin: 22px 0; }
+.ramp i { flex: 1; }
+
+.phasegrid { display: grid; gap: 14px; }
+@media (min-width: 780px) { .phasegrid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media (min-width: 1180px) { .phasegrid { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+
+.pcard {
+  border: 1px solid var(--line);
+  border-top: 3px solid hsl(var(--ph));
+  border-radius: var(--r-card);
+  background: var(--surface);
+  padding: 16px;
+}
+.pcard h3 { margin-bottom: 2px; }
+.pcard > p { font-size: .88rem; color: var(--ink-3); margin-bottom: 12px; }
+.mlist { display: grid; gap: 6px; }
+.mlink {
+  display: grid;
+  grid-template-columns: 26px 1fr 16px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: var(--r-chip);
+  text-decoration: none;
+  color: var(--ink);
+  border: 1px solid transparent;
+  font-size: .9rem;
+}
+.mlink:hover { background: var(--surface-2); border-color: var(--line); }
+.mlink__n { font: 700 .74rem/1 var(--mono); color: hsl(var(--ph-ink)); font-variant-numeric: tabular-nums; }
+.mlink__s { width: 16px; height: 16px; }
+.mlink.is-hidden { display: none; }
+.pcard.is-hidden { display: none; }
+
+.stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom: 26px; }
+.stat { border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface); padding: 13px 15px; }
+.stat b { display: block; font-size: 1.6rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat span { font-size: .78rem; color: var(--ink-3); }
+
+/* --- Utility ------------------------------------------------------------ */
+
+.sr {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.skip {
+  position: absolute; left: 8px; top: -60px;
+  background: var(--surface); color: var(--ink);
+  padding: 10px 14px; border-radius: var(--r-chip);
+  border: 1px solid var(--line-strong); z-index: 100;
+  transition: top .15s ease;
+}
+.skip:focus { top: 8px; }
+
+/* --- Section identity ---------------------------------------------------- */
+
+/* Sections are grouped by what you are being asked to DO, not by which section
+   they are, so there are three treatments rather than ten colours.
+
+   The page's phase hue already appears everywhere, so it keeps its monopoly on
+   saturation. It is the only hue allowed to fill an area, and it fills only the
+   three sections where you are working with your hands on the keyboard. Reading
+   sections get a rule and a stamp. The two sections that hold YOUR words get a
+   warm neutral, so they read as your paper rather than the course's. */
+
+.section {
+  margin: 0 0 34px;
+  --sec-pad: 0px;
+}
+
+/* the small stamp that names what kind of section this is */
+.section__h {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.section__h::before {
+  content: attr(data-stamp);
+  font: 700 .6rem/1.9 var(--mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  /* Never the phase hue and never --ink-3. At this size the warm phases
+     measure as low as 2.4:1 against white and --ink-3 is 3.7:1 against the
+     page, both below AA. The phase hue still appears on the stamp, but only
+     as border and tint, which are decorative and exempt. */
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0 7px;
+  white-space: nowrap;
+  flex: none;
+}
+/* a heading with no stamp must not render an empty pill */
+.section__h:not([data-stamp])::before { content: none; }
+
+/* --- take in: read or watch. A rule, a stamp, no fill. ------------------- */
+.section--watch, .section--ideas, .section--more, .section--docs {
+  border-top: 2px solid hsl(var(--ph) / .5);
+  padding-top: 16px;
+}
+.section--watch .section__h::before,
+.section--ideas .section__h::before {
+  border-color: hsl(var(--ph) / .45);
+  background: hsl(var(--ph) / .07);
+}
+/* the two optional ones stay quieter than the two you must read */
+.section--more, .section--docs { border-top-color: var(--line-strong); }
+
+/* --- hands on: you are producing something. The phase hue fills here. ---- */
+.section--try, .section--lab, .section--mini {
+  --sec-pad: clamp(14px, 2.4vw, 22px);
+  padding: var(--sec-pad);
+  border: 1px solid hsl(var(--ph) / .3);
+  border-left: 4px solid hsl(var(--ph) / .75);
+  border-radius: var(--r-card);
+  background: hsl(var(--ph) / .045);
+}
+.section--try .section__h::before,
+.section--lab .section__h::before,
+.section--mini .section__h::before {
+  border-color: hsl(var(--ph) / .5);
+  background: var(--surface);
+}
+/* cards sitting inside a washed panel need to stay legible */
+.section--try .widget,
+.section--lab .codeblock pre,
+.section--mini .codeblock pre { background: var(--surface); }
+
+/* --- on record: your answers, your words. Warm neutral, not the hue. ----- */
+.section--quiz, .section--notes, .section--done {
+  --sec-pad: clamp(14px, 2.4vw, 22px);
+  padding: var(--sec-pad);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--paper-edge);
+  border-radius: var(--r-card);
+  background: var(--paper);
+}
+.section--quiz .section__h::before,
+.section--notes .section__h::before,
+.section--done .section__h::before {
+  border-color: var(--paper-edge);
+  background: var(--paper-card);
+}
+.section--quiz .q,
+.section--notes textarea,
+.section--done .mark { background: var(--paper-card); }
+
+@media (max-width: 640px) {
+  .section--try, .section--lab, .section--mini,
+  .section--quiz, .section--notes, .section--done {
+    border-radius: 0;
+    margin-left: -16px;
+    margin-right: -16px;
+    border-left-width: 4px;
+    border-right: 0;
+  }
+}
+.muted { color: var(--ink-3); }
+.small { font-size: .86rem; }
+.stack-gap > * + * { margin-top: 12px; }
+.hr { height: 1px; background: var(--line); border: 0; margin: 30px 0; }
+
+.iconbtn {
+  display: grid; place-items: center;
+  width: 34px; height: 34px;
+  border-radius: var(--r-chip);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.iconbtn:hover { color: var(--ink); border-color: var(--line-strong); }
+.iconbtn svg { width: 17px; height: 17px; }
+
+.navtoggle { display: none; }
+
+/* --- Responsive --------------------------------------------------------- */
+
+@media (max-width: 940px) {
+  .shell { grid-template-columns: 1fr; }
+  .navtoggle { display: grid; }
+  .sidebar {
+    position: fixed;
+    inset: var(--header-h) 0 0 0;
+    z-index: 40;
+    max-height: none;
+    border-right: 0;
+    display: none;
+  }
+  .sidebar.is-open { display: block; }
+  .main { padding: 20px 16px 80px; }
+  .pager { grid-template-columns: 1fr; }
+  .masthead__brand span { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --- Print -------------------------------------------------------------- */
+
+@media print {
+  /* All four selectors, not just :root. A bare :root here is specificity
+     (0,1,0) and loses to :root[data-theme="dark"] at (0,2,0), so anyone who
+     had toggled to dark used to print the dark palette on white paper. The
+     last selector covers a reader who never touched the toggle but whose
+     system prefers dark. Paper always gets the light ramp and light code. */
+  :root,
+  :root[data-theme="dark"],
+  :root[data-theme="light"],
+  :root:not([data-theme="light"]) {
+    --bg: #fff; --surface: #fff; --surface-2: #fff;
+    --ink: #000; --ink-2: #222; --ink-3: #555; --line: #bbb;
+    --code-lit: #8d3a48; --code-kw: #56479e;
+    --p1-ink: 219 62% 48%; --p2-ink: 193 72% 31%; --p3-ink: 174 62% 28%;
+    --p4-ink: 145 52% 30%; --p5-ink: 33 82% 32%; --p6-ink: 43 82% 28%;
+    --p7-ink: 285 55% 48%;
+  }
+  .masthead, .sidebar, .pager, .videos, .widget, .notes, .marks, .skip, .navtoggle, .q__opts { display: none !important; }
+  /* diagrams are part of the reference notes, so they print */
+  .diagram { break-inside: avoid; background: #fff; border-color: #bbb; }
+  /* section panels are screen wayfinding, not information. Print them flat. */
+  :root,
+  :root[data-theme="dark"],
+  :root[data-theme="light"],
+  :root:not([data-theme="light"]) { --paper: #fff; --paper-card: #fff; --paper-edge: #bbb; }
+  .eg__out { background: #fff; border-color: #bbb; }
+  .section--try, .section--lab, .section--mini,
+  .section--quiz, .section--notes, .section--done {
+    background: #fff; border: 0; border-left: 2px solid #bbb; padding: 0 0 0 12px;
+  }
+  .section__h::before { border-color: #bbb; background: #fff; color: #333; }
+  .shell { display: block; }
+  .main { padding: 0; }
+  body { font-size: 11pt; }
+  .concept, .card, .note { break-inside: avoid; border-color: #bbb; }
+  .concept__n { display: none; }
+  .prose, .concept__b { color: #000; }
+  a { color: #000; text-decoration: none; }
+  .q__why { display: block !important; }
+  .q__why[hidden] { display: block !important; }
+}

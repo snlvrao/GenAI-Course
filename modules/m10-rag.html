@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>10. RAG - giving a model your own documents</title>
+<meta name="description" content="Build something that answers questions from your own files, and learn the three RAG designs and when each one fits.">
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+</head>
+<body data-module="m10" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="3">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+        <div data-chrome="modhead"></div>
+        <p class="prose">A model has never seen your PDFs and cannot learn them by being asked. This module gives you the whole pipeline (chunk the files, index them twice, merge, rerank, answer with citations you can check) and the reason almost every RAG failure is a search failure, not a model failure.</p>
+        <section class="section section--watch"><h2 class="section__h" data-stamp="take in"><span>Watch this first</span></h2>
+        <div data-videos="core"></div></section>
+        <section class="section section--ideas"><h2 class="section__h" data-stamp="take in"><span>The ideas, in plain English</span></h2>
+        <p class="small muted">Each idea, then a worked example of it.</p>
+        <div class="concepts">
+        <div class="concept"><div class="concept__n" aria-hidden="true">1</div><h3 class="concept__t">Your files go in the prompt</h3><p class="concept__b">RAG (retrieval augmented generation) means you search your own documents, paste the best passages into the prompt, and ask the model to answer from them. Nothing is retrained, and the model forgets your files the moment the reply ends. Everything that decides whether the answer is good happens before the model sees anything, so if the right paragraph was never retrieved, no prompt wording brings it back.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre>chunk = <span class="t-s">&quot;Full-time staff accrue 25 days of annual leave per year.&quot;</span>
+prompt = (
+    <span class="t-s">&quot;Answer using only the sources.\n&quot;</span>
+    <span class="t-s">&quot;\n&quot;</span>
+    <span class="t-s">&quot;Sources:\n&quot;</span>
+    <span class="t-s">&quot;[1] handbook.pdf, page 7\n&quot;</span>
+    f<span class="t-s">&quot;{chunk}\n&quot;</span>
+    <span class="t-s">&quot;\n&quot;</span>
+    <span class="t-s">&quot;Question: how much time off do I get&quot;</span>
+)
+<span class="t-f">print</span>(<span class="t-f">len</span>(prompt.<span class="t-f">split</span>()))   <span class="t-c"># 28</span></pre><div class="eg__cap">One chunk and one question assembled into the entire prompt, 28 words.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">2</div><h3 class="concept__t">Chunking, and how it breaks</h3><p class="concept__b">A chunk is a slice of a document small enough to search and to paste, usually a few hundred words. You cut documents because you cannot paste a 40 page PDF into every prompt, and because a whole-document hit only tells you the file is about pensions. Chunks then break in physical ways: a table sliced mid-row, or a rule cut away from the sentence that limits it. Overlapping the windows patches some of that, and Anthropic's contextual retrieval (prepending one line saying where each chunk sits) cut retrieval failures 49% on their own test set.</p>
+        <div class="eg"><div class="eg__h">Example</div><p>Page 12 of a pump manual reads: &quot;The 3T oxygenator filter is rated for single use. It must be replaced every six months.&quot; The 200 word window ends after &quot;single use.&quot;, so chunk 47 never says how often, and chunk 48 opens with &quot;It must be replaced every six months.&quot; and never names the filter. Search &quot;filter replacement interval&quot; and chunk 48 wins, telling you six months for something unnamed. Turn overlap=40 on and the windows slide 160 words at a time instead of 200. Both sentences then land inside one chunk, so the six months arrives with the name of the filter attached.</p><div class="eg__cap">Overlap exists because &quot;It&quot; and the thing it refers to land in different chunks.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">3</div><h3 class="concept__t">Turning text into numbers</h3><p class="concept__b">An embedding is a fixed list of numbers, 384 in this lab, that a small model produces for a piece of text, arranged so similar meanings give similar lists. You embed each chunk once when you build the index, embed the question at query time, and rank by cosine similarity. That is how a question about time off finds a chunk saying annual leave with no shared words. It also means the search never returns nothing: something is always closest, so closeness is not evidence.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre><span class="t-k">from</span> sentence_transformers <span class="t-k">import</span> SentenceTransformer, util
+m = <span class="t-f">SentenceTransformer</span>(<span class="t-s">&quot;sentence-transformers/all-MiniLM-L6-v2&quot;</span>)
+q = m.<span class="t-f">encode</span>(<span class="t-s">&quot;how much time off do I get&quot;</span>)   <span class="t-c"># 384 numbers</span>
+<span class="t-k">for</span> text <span class="t-k">in</span> [<span class="t-s">&quot;Full-time staff accrue 25 days of annual leave per year.&quot;</span>,
+             <span class="t-s">&quot;Error P019 indicates a stack overflow in the pump controller board.&quot;</span>]:
+    <span class="t-f">print</span>(<span class="t-f">round</span>(<span class="t-f">float</span>(util.<span class="t-f">cos_sim</span>(q, m.<span class="t-f">encode</span>(text))[<span class="t-s">0</span>][<span class="t-s">0</span>]), <span class="t-s">3</span>))</pre><pre class="eg__out"><span class="t-o">0.335   not one word in common with the question, and still the best match</span>
+<span class="t-o">0.018   unrelated, but never zero and never absent from the ranking</span></pre><div class="eg__cap">Measured with all-MiniLM-L6-v2: the paraphrase scores 0.335, the unrelated chunk 0.018.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">4</div><h3 class="concept__t">Keyword search still matters</h3><p class="concept__b">BM25 is a keyword formula from the 1990s that scores a chunk on how many of your rarer query words it holds, how often, and how short the chunk is. It has no idea what any word means, and that blindness is why you want it: part numbers, error codes and surnames carry almost no meaning for an embedding model. It also scores exactly zero when your wording shares no word with the text, so it misses every paraphrase and cannot stand alone.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre><span class="t-k">from</span> rank_bm25 <span class="t-k">import</span> BM25Okapi
+chunks = [<span class="t-s">&quot;Error P019 indicates a stack overflow in the pump controller board.&quot;</span>,
+          <span class="t-s">&quot;General error handling: check the log, clear the fault, then restart.&quot;</span>,
+          <span class="t-s">&quot;Full-time staff accrue 25 days of annual leave per year.&quot;</span>]
+bm = <span class="t-f">BM25Okapi</span>([c.<span class="t-f">lower</span>().<span class="t-f">split</span>() <span class="t-k">for</span> c <span class="t-k">in</span> chunks])
+<span class="t-f">print</span>([<span class="t-f">round</span>(<span class="t-f">float</span>(s), <span class="t-s">2</span>) <span class="t-k">for</span> s <span class="t-k">in</span> bm.<span class="t-f">get_scores</span>([<span class="t-s">&quot;p019&quot;</span>])])
+<span class="t-f">print</span>([<span class="t-f">round</span>(<span class="t-f">float</span>(s), <span class="t-s">2</span>) <span class="t-k">for</span> s <span class="t-k">in</span> bm.<span class="t-f">get_scores</span>(<span class="t-s">&quot;how much time off&quot;</span>.<span class="t-f">split</span>())])</pre><pre class="eg__out"><span class="t-o">[0.5, 0.0, 0.0]</span>
+<span class="t-o">[0.0, 0.0, 0.0]</span></pre><p class="eg__say">The first line is the error code search: only the chunk holding the literal P019 scores at all. The second is the paraphrase: the leave chunk shares no word with the question, so nothing scores.</p><div class="eg__cap">Measured with rank-bm25: it nails the code, scores zero on the paraphrase.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">5</div><h3 class="concept__t">Two searches, then a merge</h3><p class="concept__b">Hybrid search runs the keyword search and the vector search separately, then merges the two ranked lists. You cannot add the scores, because a cosine of 0.31 and a BM25 of 8.4 are different scales, and the BM25 scale shifts from query to query. Reciprocal Rank Fusion (RRF) throws the scores away and uses positions only: each list gives a chunk 1/(k + rank) points, with k = 60. Hybrid search plus a reranker is the 2026 RAG baseline, not a tuning trick you add later.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>chunk</th><th>vector rank</th><th>BM25 rank</th><th>RRF points, k = 60</th></tr></thead><tbody><tr><td>A</td><td>1</td><td>not in the top 20</td><td>1/61 = 0.0164</td></tr><tr><td>B</td><td>4</td><td>5</td><td>1/64 + 1/65 = 0.0310</td></tr><tr><td>C</td><td>20</td><td>18</td><td>1/80 + 1/78 = 0.0253</td></tr></tbody></table><div class="eg__cap">Final order B, C, A: agreement across lists beats one list's rank 1.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 660 280" role="img" aria-label="The RAG pipeline: build an index once, then search two ways and rerank" xmlns="http://www.w3.org/2000/svg"><title>The RAG pipeline: build an index once, then search two ways and rerank</title><defs><marker id="ah-rag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><text x="120" y="20" text-anchor="middle" class="d-hi">once, when you add documents</text><rect x="20" y="30" width="90" height="36" rx="6" class="d-box"/><text x="65.0" y="53.0" text-anchor="middle" class="d-t">your PDFs</text><path d="M110 48 L138 48" class="d-arrow" marker-end="url(#ah-rag)"/><rect x="138" y="30" width="90" height="36" rx="6" class="d-box"/><text x="183.0" y="53.0" text-anchor="middle" class="d-t">chunks</text><path d="M228 48 L256 48" class="d-arrow" marker-end="url(#ah-rag)"/><rect x="256" y="30" width="100" height="36" rx="6" class="d-box"/><text x="306.0" y="53.0" text-anchor="middle" class="d-t">embeddings</text><path d="M356 48 L384 48" class="d-arrow" marker-end="url(#ah-rag)"/><rect x="384" y="30" width="100" height="36" rx="6" class="d-ok"/><text x="434.0" y="53.0" text-anchor="middle" class="d-t">index file</text><text x="140" y="82" text-anchor="middle" class="d-hi">every time you ask a question</text><rect x="20" y="112" width="90" height="36" rx="6" class="d-box"/><text x="65.0" y="135.0" text-anchor="middle" class="d-t">question</text><path d="M110 122 L150 112" class="d-arrow" marker-end="url(#ah-rag)"/><path d="M110 140 L150 152" class="d-arrow" marker-end="url(#ah-rag)"/><rect x="150" y="92" width="130" height="36" rx="6" class="d-fill"/><text x="215.0" y="115.0" text-anchor="middle" class="d-t">keyword search</text><rect x="150" y="138" width="130" height="36" rx="6" class="d-fill"/><text x="215.0" y="161.0" text-anchor="middle" class="d-t">meaning search</text><path d="M280 110 L320 128" class="d-arrow" marker-end="url(#ah-rag)"/><path d="M280 156 L320 138" class="d-arrow" marker-end="url(#ah-rag)"/><rect x="320" y="114" width="90" height="36" rx="6" class="d-fill"/><text x="365.0" y="137.0" text-anchor="middle" class="d-t">merge</text><path d="M410 132 L442 132" class="d-arrow" marker-end="url(#ah-rag)"/><rect x="442" y="114" width="96" height="36" rx="6" class="d-fill"/><text x="490.0" y="137.0" text-anchor="middle" class="d-t">rerank</text><path d="M538 132 L566 132" class="d-arrow" marker-end="url(#ah-rag)"/><rect x="566" y="114" width="84" height="36" rx="6" class="d-ok"/><text x="608.0" y="137.0" text-anchor="middle" class="d-t">answer</text><text x="215" y="196" text-anchor="middle" class="d-s">two searches because each fails where the other works</text><text x="215" y="214" text-anchor="middle" class="d-s">keyword finds exact words, meaning finds paraphrases</text><text x="490" y="196" text-anchor="middle" class="d-s">rerank re-reads the shortlist properly</text><text x="490" y="214" text-anchor="middle" class="d-s">and fixes the order</text><text x="330" y="256" text-anchor="middle" class="d-s">the index is built once, the bottom row runs on every question</text></svg><figcaption><b>RAG.</b> You cannot paste a whole filing cabinet into a prompt, so you cut documents into chunks and store them twice: once for exact words, once for meaning. A question searches both, the two ranked lists get merged, and a slower model re-reads the shortlist to fix the order. Skipping the rerank is the most common reason a RAG system feels almost right.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">6</div><h3 class="concept__t">Reranking, a slower better judge</h3><p class="concept__b">The first search encoded the question alone and each chunk alone, months apart, then measured the gap between them. A cross-encoder reads the question and one chunk together in a single pass and scores that exact pair, which is far more accurate and far too slow for 50,000 chunks. So the standard shape is to retrieve 20 to 50 candidates cheaply, rerank only those, and keep the best 5. For a few lines of code this is usually the largest single jump in answer quality you get.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre><span class="t-k">from</span> sentence_transformers <span class="t-k">import</span> CrossEncoder
+ce = <span class="t-f">CrossEncoder</span>(<span class="t-s">&quot;cross-encoder/ms-marco-MiniLM-L-6-v2&quot;</span>)
+q = <span class="t-s">&quot;how much annual leave do I get&quot;</span>
+<span class="t-f">print</span>([<span class="t-f">round</span>(<span class="t-f">float</span>(s), <span class="t-s">2</span>) <span class="t-k">for</span> s <span class="t-k">in</span> ce.<span class="t-f">predict</span>([
+    (q, <span class="t-s">&quot;Full-time staff accrue 25 days of annual leave per year.&quot;</span>),
+    (q, <span class="t-s">&quot;Leave requests must be submitted through the HR portal two weeks in advance.&quot;</span>),
+])])</pre><p class="eg__say">[5.04, -10.48]: both chunks say &quot;leave&quot;, and only the first answers the question. These are logits, not percentages: 1/(1+e^-5.04) = 0.994 and 1/(1+e^10.48) = 0.00003.</p><div class="eg__cap">Measured logits: sharing the word &quot;leave&quot; earns a chunk nothing here.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">7</div><h3 class="concept__t">The three shapes of RAG</h3><p class="concept__b">Pipeline RAG searches once and answers once. Agentic RAG lets the model decide whether to search, what to search for, and when it has enough, which is what a question needing two lookups in sequence requires. Graph RAG spends real money at ingestion building a graph of the people, products and places in your files plus the links between them, so it can answer questions about relationships spread across documents. Pipeline still runs most systems in production, so start there and move only when you can name the question that failed.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>design</th><th>searches per question</th><th>a question it handles</th><th>reported ingestion cost, 500 pages</th></tr></thead><tbody><tr><td>pipeline</td><td>1, always</td><td>what is the warranty period</td><td>free in this lab, the model runs on your CPU; well under a dollar with a hosted API</td></tr><tr><td>agentic</td><td>0 to 5, the model decides</td><td>who signed the contract that replaced the 2019 one</td><td>same index, more tokens per question</td></tr><tr><td>graph</td><td>1, over a graph built up front</td><td>which suppliers appear in both the 2024 and 2025 audits</td><td>$50 to $200 to build</td></tr></tbody></table><div class="eg__cap">Same PDFs, three designs; the cost gap sits at ingestion, not query time.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">8</div><h3 class="concept__t">Old text that reads as true</h3><p class="concept__b">Temporal drift is the failure where the chunk you retrieved matches the question perfectly and is simply out of date. The 2023 handbook words the policy exactly like the 2026 one, so it scores just as highly, and the citation makes the wrong answer more convincing rather than less. The fix is housekeeping: store each document's date, prefer the newest, and remove superseded files from the index instead of leaving them searchable. Drift is also a good moment to ask whether you need RAG here at all, since five chunks are not the document when someone asks you to summarise it.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">connect() is the helper you write in the lab below; it opens rag.db.</p><pre><span class="t-k">for</span> doc, n <span class="t-k">in</span> <span class="t-f">connect</span>().<span class="t-f">execute</span>(<span class="t-s">&quot;SELECT doc, count(*) FROM chunks GROUP BY doc&quot;</span>):
+    <span class="t-f">print</span>(f<span class="t-s">&quot;{doc}  {n}&quot;</span>)</pre><pre class="eg__out"><span class="t-o">handbook-2023.pdf  118</span>
+<span class="t-o">handbook-2026.pdf  121</span></pre><p class="eg__say">Both versions are searchable, and both word the policy the same way. The fix is to move the 2023 PDF out of docs/ and re-run python ingest.py. Deleting rows from chunks alone would leave its 118 vectors behind in vec_chunks.</p><div class="eg__cap">One query shows two versions of the same handbook in your index.</div></div>
+        </div>
+        </div></section>
+        <section class="section section--try"><h2 class="section__h" data-stamp="hands on"><span>Try it yourself</span></h2>
+        <p class="small muted" style="margin-bottom:6px">Chop text badly, on purpose</p>
+        <div data-widget="chunking"></div>
+        </section>
+        <div class="note note--gap"><div class="note__t">Worth knowing</div><p>Video coverage of RAG is unusually stale. Most tutorials still show vector search only, against a hosted vector database, using 2024 era library APIs that no longer run, and they skip both keyword search and reranking, which are now the ordinary baseline. Chunk size and overlap are genuinely unsettled: there is no measured best value, and anyone quoting one is quoting results from their own documents. The contextual retrieval percentages and the GraphRAG cost figures both come from companies with an interest in the answer, so treat them as directional rather than as settled numbers.</p></div>
+        <section class="section section--more"><h2 class="section__h" data-stamp="optional"><span>If you want to go deeper</span></h2>
+        <p class="small muted">Optional.</p>
+        <div data-videos="more"></div></section>
+        <section class="section section--lab"><h2 class="section__h" data-stamp="hands on"><span>Lab: follow along</span></h2>
+        <div data-setupbanner></div>
+        
+        <p class="prose">RAG stands for retrieval augmented generation, and there is less to it than the name suggests: you search your own files for a few relevant passages, paste that text into the prompt, and ask the model to answer using only those passages. The model is never retrained and it forgets your files the moment the reply ends, so everything that decides whether the answer is good or bad happens <strong>before</strong> the model sees anything. In this lab you build the whole pipeline over your own PDFs: read the files, cut them into chunks, index them two ways, merge the two ranked lists, rerank the survivors with a slower and better model, and answer with citations you can check by hand. Everything runs on your own machine except the final answer, with no vector database server and no Docker, so before you start make sure <code>python llm.py</code> works (see <code>setup.html</code>).</p>
+        <p class="small muted">Code given, every line explained.</p>
+        <ol class="steps">
+        <li><h3>Set up the folder and install four packages</h3><p>Make a folder <code>my-work/labs/lab10/</code> and a subfolder <code>docs/</code> inside it, then drop 3 to 10 PDFs you actually care about into <code>docs/</code>, for example manuals, papers, or a company handbook. Use text based PDFs only for now, because a scanned page is a photograph of text: <code>pypdf</code> will pull an empty string out of it and you will build an index of nothing without any error message telling you so. The four packages do four separate jobs, and it is worth knowing which is which before you start, because when something breaks the error usually names one of them. <code>pypdf</code> reads PDFs, <code>sentence-transformers</code> turns text into numbers, <code>sqlite-vec</code> lets an ordinary SQLite file search those numbers, and <code>rank-bm25</code> does old fashioned keyword scoring. The first time you run the code in later steps, <code>sentence-transformers</code> downloads two small models from Hugging Face, so expect a one time pause of a minute or two with a progress bar, and note that no API key is involved in any of it. Choosing documents you know well matters more than it sounds: if you can tell instantly when an answer is wrong, you will learn something from every run, and if you cannot, you will just be nodding at plausible text.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>pip install pypdf sentence-transformers sqlite-vec rank-bm25</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>pypdf</dt><dd>Opens a PDF and hands you the text of each page. It does not do OCR (turning a picture of text back into text), so it only works on PDFs that already contain a text layer underneath the visible page.</dd>
+        <dt>sentence-transformers</dt><dd>Downloads and runs the two small models this lab uses: the embedding model that turns any text into 384 numbers, and the cross-encoder that reranks results in step 5. Both run on your CPU, with no key and no internet needed after the first download.</dd>
+        <dt>sqlite-vec</dt><dd>A SQLite extension that adds a table type able to store lists of numbers and find the closest ones. It is what lets your entire vector database be a single file called rag.db, with nothing to install and no server to start.</dd>
+        <dt>rank-bm25</dt><dd>A small pure Python implementation of BM25, a keyword scoring formula from the 1990s. It is here because meaning based search is genuinely bad at part numbers, error codes and surnames, and this fills that gap.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>How big is &quot;two small models&quot;?
+
+Size on disk = number of parameters x bytes per parameter
+
+A parameter is one number the model learned during training. These models store each one as a 32 bit float, which is 4 bytes.
+
+all-MiniLM-L6-v2 has about 22.7 million parameters.
+  22,700,000 x 4 bytes = 90,800,000 bytes
+  90,800,000 / 1,048,576 = about 87 MB
+
+Where do 22.7 million parameters come from? Mostly the vocabulary table: 30,522 known word pieces x 384 numbers each = 11.7 million, which is over half the model before you reach a single transformer layer. The other 11 million sit in 6 stacked layers.
+
+Being honest about the download figure: the cross-encoder used in step 5 (ms-marco-MiniLM-L-6-v2) is built the same way and is about the same size, so both together land nearer 180 MB than the &quot;roughly 100 MB&quot; you may see quoted. Budget a couple of hundred MB of disk and you will not be surprised.
+
+Intuitively: these are tiny by 2026 standards. A chat model you call over the internet is hundreds of times larger, which is exactly why these two can sit on your laptop and run for free forever.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If your chunk count in step 3 comes out as 0, your PDFs are scanned images rather than text; open one in a reader and try to select a sentence with the mouse, and if you cannot, that file has no text layer for pypdf to find.</span></div>
+        </li>
+        <li><h3>Read the PDFs and cut them into chunks</h3><p>Create <code>ingest.py</code> and put this in it. A chunk is a slice of a document small enough to search and small enough to paste into a prompt, usually a few hundred words. You cut documents up for two reasons: you cannot paste a 40 page PDF into every prompt, and searching whole documents only tells you which file is about pensions rather than handing you the one sentence you need. This code walks each PDF page by page, keeps the page number so a citation can point at something you can actually open, and cuts each page into overlapping windows of 200 words. Chunking per page is a deliberate trade, not an oversight: you get exact page citations, but a sentence that runs across a page break gets split in half and neither half makes sense on its own. Nothing runs yet because <code>main()</code> arrives in the next step, so save the file and keep going. If you run it now you will see no output at all, which is correct.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># ingest.py  (part 1 of 2)</span>
+<span class="t-k">import</span> glob
+<span class="t-k">import</span> os
+<span class="t-k">import</span> sqlite3
+
+<span class="t-k">import</span> sqlite_vec
+<span class="t-k">from</span> pypdf <span class="t-k">import</span> PdfReader
+<span class="t-k">from</span> sentence_transformers <span class="t-k">import</span> SentenceTransformer
+<span class="t-k">from</span> sqlite_vec <span class="t-k">import</span> serialize_float32
+
+DB = <span class="t-s">&quot;rag.db&quot;</span>
+DIM = <span class="t-s">384</span>
+EMBED = <span class="t-f">SentenceTransformer</span>(<span class="t-s">&quot;sentence-transformers/all-MiniLM-L6-v2&quot;</span>)
+
+
+<span class="t-k">def</span> <span class="t-f">pages</span>(path):
+    reader = <span class="t-f">PdfReader</span>(path)
+    <span class="t-k">for</span> number, page <span class="t-k">in</span> <span class="t-f">enumerate</span>(reader.pages, start=<span class="t-s">1</span>):
+        text = (page.<span class="t-f">extract_text</span>() <span class="t-k">or</span> <span class="t-s">&quot;&quot;</span>).<span class="t-f">strip</span>()
+        <span class="t-k">if</span> text:
+            <span class="t-k">yield</span> number, text
+
+
+<span class="t-k">def</span> <span class="t-f">chunk</span>(text, size=<span class="t-s">200</span>, overlap=<span class="t-s">40</span>):
+    words = text.<span class="t-f">split</span>()
+    step = size - overlap
+    i = <span class="t-s">0</span>
+    <span class="t-k">while</span> i &lt; <span class="t-f">len</span>(words):
+        <span class="t-k">yield</span> <span class="t-s">&quot; &quot;</span>.<span class="t-f">join</span>(words[i:i + size])
+        <span class="t-k">if</span> i + size &gt;= <span class="t-f">len</span>(words):
+            <span class="t-k">break</span>
+        i += step</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>EMBED = SentenceTransformer(&quot;sentence-transformers/all-MiniLM-L6-v2&quot;)</dt><dd>Loads the embedding model once, at import time, into a module level variable. Loading takes several seconds, so you do it once here rather than inside a loop, and the very first run also downloads it.</dd>
+        <dt>DIM = 384</dt><dd>This model outputs exactly 384 numbers for any input text, whether that text is three words or three hundred. The table you create in step 3 must declare the same number, so it lives in one constant to stop the two values drifting apart.</dd>
+        <dt>text = (page.extract_text() or &quot;&quot;).strip()</dt><dd>extract_text() returns None when a page has no text layer, and None has no .strip() method, so the `or &quot;&quot;` turns None into an empty string first. The `if text:` line underneath then skips blank pages instead of storing them as empty chunks.</dd>
+        <dt>yield (used in both pages and chunk)</dt><dd>Both functions hand back one item at a time instead of building a complete list in memory. For a 300 page PDF this keeps memory use flat, and it lets the caller start work on page 1 before page 300 has been read.</dd>
+        <dt>step = size - overlap</dt><dd>The window slides forward by 160 words rather than 200, so the last 40 words of each chunk reappear as the first 40 words of the next. That repetition is what stops a sentence being cut in half and lost at every boundary.</dd>
+        <dt>if i + size &gt;= len(words): break</dt><dd>Stops the loop as soon as the current window already reaches the end of the page. Without it you would emit a final chunk of only 20 or 30 leftover words that repeats text you already stored, and short orphan chunks score badly and pollute results.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>The sliding window
+
+step = size - overlap = 200 - 40 = 160 words
+
+Number of chunks for a page of N words, when N is larger than size:
+
+  chunks = ceil( (N - size) / step ) + 1
+
+Worked example, a page holding 500 words:
+
+  chunks = ceil( (500 - 200) / 160 ) + 1 = ceil(1.875) + 1 = 2 + 1 = 3
+
+Trace it by hand and you get the same answer:
+  i = 0    -&gt; words 0 to 199    (200 words)
+  i = 160  -&gt; words 160 to 359  (200 words)
+  i = 320  -&gt; words 320 to 499  (180 words, then the break fires)
+
+How much text ends up stored twice:
+  words stored = 200 + 200 + 180 = 580
+  duplication  = 580 / 500 = 1.16, so 16 percent more text than the page actually contains
+
+Overlap fraction = 40 / 200 = 0.20, so every chunk repeats a fifth of the chunk before it.
+
+Intuitively: overlap is insurance. You pay about 16 percent more storage and 16 percent more embedding time so that a sentence sitting on a boundary appears whole inside at least one chunk. Be honest about the defaults: there is no measured best value for 200 and 40, they are common starting points, and the right numbers for your documents can only be found by looking at your own chunks.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If a page contains a table, pypdf hands the words back as one long run of numbers with no row structure, so those chunks will read as nonsense; that is a real limit of text extraction, not a bug in your code.</span></div>
+        </li>
+        <li><h3>Build the index in one SQLite file</h3><p>Add this to the bottom of the same <code>ingest.py</code> file. There are two tables and they work as a pair. <code>chunks</code> is an ordinary SQLite table holding the text plus where it came from, and <code>vec_chunks</code> is a sqlite-vec virtual table holding only the 384 numbers for each chunk. A virtual table is a table whose behaviour is supplied by an extension rather than by SQLite itself, and that is what makes <code>MATCH</code> on a list of numbers possible at all. The two tables are joined by row id, so chunk 7 in one is chunk 7 in the other, which is why the insert loop deliberately uses the same <code>i</code> for both. Run it with <code>python ingest.py</code> and you should see a chunk count, a sample chunk, a progress bar while the model encodes, and finally the line <code>wrote rag.db</code>. Read that printed sample chunk properly rather than glancing at it: if it looks like broken table rows or repeated page headers, that is your first real lesson about chunking, and no amount of clever search later will rescue text that was cut up badly here.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># ingest.py  (part 2 of 2)</span>
+
+<span class="t-k">def</span> <span class="t-f">connect</span>():
+    db = sqlite3.<span class="t-f">connect</span>(DB)
+    db.<span class="t-f">enable_load_extension</span>(<span class="t-k">True</span>)
+    sqlite_vec.<span class="t-f">load</span>(db)
+    db.<span class="t-f">enable_load_extension</span>(<span class="t-k">False</span>)
+    <span class="t-k">return</span> db
+
+
+<span class="t-k">def</span> <span class="t-f">main</span>():
+    db = <span class="t-f">connect</span>()
+    db.<span class="t-f">execute</span>(<span class="t-s">&quot;DROP TABLE IF EXISTS chunks&quot;</span>)
+    db.<span class="t-f">execute</span>(<span class="t-s">&quot;DROP TABLE IF EXISTS vec_chunks&quot;</span>)
+    db.<span class="t-f">execute</span>(<span class="t-s">&quot;CREATE TABLE chunks (id INTEGER PRIMARY KEY, doc TEXT, page INT, text TEXT)&quot;</span>)
+    db.<span class="t-f">execute</span>(f<span class="t-s">&quot;CREATE VIRTUAL TABLE vec_chunks USING vec0(embedding float[{DIM}])&quot;</span>)
+
+    rows = []
+    <span class="t-k">for</span> path <span class="t-k">in</span> glob.<span class="t-f">glob</span>(os.path.<span class="t-f">join</span>(<span class="t-s">&quot;docs&quot;</span>, <span class="t-s">&quot;*.pdf&quot;</span>)):
+        name = os.path.<span class="t-f">basename</span>(path)
+        <span class="t-k">for</span> page_no, text <span class="t-k">in</span> <span class="t-f">pages</span>(path):
+            <span class="t-k">for</span> piece <span class="t-k">in</span> <span class="t-f">chunk</span>(text):
+                rows.<span class="t-f">append</span>((name, page_no, piece))
+
+    <span class="t-f">print</span>(<span class="t-f">len</span>(rows), <span class="t-s">&quot;chunks&quot;</span>)
+    <span class="t-f">print</span>(<span class="t-s">&quot;sample:&quot;</span>, rows[<span class="t-s">0</span>][<span class="t-s">2</span>][:<span class="t-s">300</span>] <span class="t-k">if</span> rows <span class="t-k">else</span> <span class="t-s">&quot;none&quot;</span>)
+
+    vectors = EMBED.<span class="t-f">encode</span>([r[<span class="t-s">2</span>] <span class="t-k">for</span> r <span class="t-k">in</span> rows], batch_size=<span class="t-s">32</span>, show_progress_bar=<span class="t-k">True</span>)
+    <span class="t-k">for</span> i, (name, page_no, piece) <span class="t-k">in</span> <span class="t-f">enumerate</span>(rows, start=<span class="t-s">1</span>):
+        db.<span class="t-f">execute</span>(<span class="t-s">&quot;INSERT INTO chunks (id, doc, page, text) VALUES (?,?,?,?)&quot;</span>,
+                   (i, name, page_no, piece))
+        db.<span class="t-f">execute</span>(<span class="t-s">&quot;INSERT INTO vec_chunks (rowid, embedding) VALUES (?,?)&quot;</span>,
+                   (i, <span class="t-f">serialize_float32</span>(vectors[i - <span class="t-s">1</span>].<span class="t-f">tolist</span>())))
+    db.<span class="t-f">commit</span>()
+    <span class="t-f">print</span>(<span class="t-s">&quot;wrote&quot;</span>, DB)
+
+
+<span class="t-k">if</span> __name__ == <span class="t-s">&quot;__main__&quot;</span>:
+    <span class="t-f">main</span>()</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>db.enable_load_extension(True) ... sqlite_vec.load(db) ... db.enable_load_extension(False)</dt><dd>Python's built in sqlite3 refuses to load C extensions by default, for safety. You switch loading on, load sqlite-vec, then switch it straight back off so nothing else can push code into this database connection later.</dd>
+        <dt>db.execute(&quot;DROP TABLE IF EXISTS chunks&quot;)</dt><dd>Every run rebuilds the whole index from scratch, both tables. That keeps ingest.py simple and makes re-running it after you add a PDF completely safe, but be clear about what you are giving up: there is no incremental update, so a big corpus is re-embedded every time.</dd>
+        <dt>CREATE VIRTUAL TABLE vec_chunks USING vec0(embedding float[{DIM}])</dt><dd>Declares a vector column of exactly 384 floats. The length is fixed at creation time, so if you later swap in a model that outputs 768 numbers the insert fails loudly instead of silently storing something meaningless.</dd>
+        <dt>EMBED.encode([r[2] for r in rows], batch_size=32, show_progress_bar=True)</dt><dd>Encodes every chunk in one call, 32 chunks at a time. Batching matters a lot: 2,000 separate calls are far slower than 63 batches, because each batch runs as a single large matrix operation instead of 32 small ones.</dd>
+        <dt>serialize_float32(vectors[i - 1].tolist())</dt><dd>sqlite-vec stores vectors as raw bytes, not as JSON or text. serialize_float32 packs the 384 Python floats into exactly 1,536 bytes in the byte layout the extension expects to read back.</dd>
+        <dt>enumerate(rows, start=1) paired with vectors[i - 1]</dt><dd>SQLite row ids start at 1 while the Python vectors list is indexed from 0, so the ids and the list are off by one. The `i - 1` is that offset written out on purpose rather than hidden, and getting it wrong would silently attach every chunk to its neighbour's vector.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>How big does rag.db get, and how much work is one search?
+
+Bytes per vector = dimensions x bytes per float = 384 x 4 = 1,536 bytes (1.5 KB)
+
+Worked example: 3 PDFs of 40 pages each, about 500 words a page.
+  pages           = 3 x 40 = 120
+  chunks per page = 3 (from step 2's arithmetic)
+  chunks          = 120 x 3 = 360
+  vector storage  = 360 x 1,536 = 552,960 bytes, about 0.53 MB
+  text storage    = 360 x 200 words x about 6 bytes a word = 432,000 bytes, about 0.41 MB
+
+So rag.db lands near 1 MB. Even 50,000 chunks would only be 50,000 x 1,536 = 76,800,000 bytes, about 73 MB of vectors.
+
+Search cost. sqlite-vec here compares your question vector against every stored vector, one at a time, with no shortcut index:
+
+  operations = chunks x dimensions = 360 x 384 = 138,240 multiply-and-add steps
+
+A laptop CPU does hundreds of millions of those per second, so this finishes in well under a millisecond.
+
+Intuitively: brute force is completely fine at this size, and stays fine into the tens of thousands of chunks. Approximate indexes exist because at ten million chunks that same scan becomes 10,000,000 x 384 = 3.84 billion operations per query, and only at that point is it worth trading exact answers for speed.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If you see sqlite3.OperationalError: no such module: vec0, then sqlite_vec.load() never ran on that connection, which almost always means you opened the database with plain sqlite3.connect() somewhere instead of calling connect().</span></div>
+        </li>
+        <li><h3>Search two ways and merge with RRF</h3><p>Create a second file, <code>search.py</code>. This step is the retrieval half of RAG, and retrieval is where almost all RAG quality comes from, which is why the search code is longer than the prompt code. <code>vector_ids</code> asks sqlite-vec for the 20 chunks whose numbers sit closest to your question's numbers, and that is what finds paraphrases: &quot;how much time off do I get&quot; can match a chunk that says &quot;annual leave entitlement&quot; with no shared words at all. <code>bm25_ids</code> scores every chunk by keyword overlap and takes the top 20, which catches exactly what meaning search is worst at, such as P019, a part number, or a surname. <code>rrf</code> merges the two ranked lists using positions only and throws the actual scores away, because a cosine distance of 0.31 and a BM25 score of 8.4 are on completely different scales and adding them would be meaningless. Rebuilding the BM25 index on every single query is fine for a few thousand chunks and would be silly for a million, which is what a dedicated keyword engine such as Elasticsearch exists for. Nothing runs yet, because <code>search()</code> itself arrives in the next step.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># search.py  (part 1 of 2)</span>
+<span class="t-k">import</span> sqlite3
+
+<span class="t-k">import</span> sqlite_vec
+<span class="t-k">from</span> rank_bm25 <span class="t-k">import</span> BM25Okapi
+<span class="t-k">from</span> sentence_transformers <span class="t-k">import</span> CrossEncoder, SentenceTransformer
+<span class="t-k">from</span> sqlite_vec <span class="t-k">import</span> serialize_float32
+
+DB = <span class="t-s">&quot;rag.db&quot;</span>
+EMBED = <span class="t-f">SentenceTransformer</span>(<span class="t-s">&quot;sentence-transformers/all-MiniLM-L6-v2&quot;</span>)
+RERANK = <span class="t-f">CrossEncoder</span>(<span class="t-s">&quot;cross-encoder/ms-marco-MiniLM-L-6-v2&quot;</span>)
+
+
+<span class="t-k">def</span> <span class="t-f">connect</span>():
+    db = sqlite3.<span class="t-f">connect</span>(DB)
+    db.<span class="t-f">enable_load_extension</span>(<span class="t-k">True</span>)
+    sqlite_vec.<span class="t-f">load</span>(db)
+    db.<span class="t-f">enable_load_extension</span>(<span class="t-k">False</span>)
+    <span class="t-k">return</span> db
+
+
+<span class="t-k">def</span> <span class="t-f">vector_ids</span>(db, query, n=<span class="t-s">20</span>):
+    q = EMBED.<span class="t-f">encode</span>(query).<span class="t-f">tolist</span>()
+    sql = f<span class="t-s">&quot;SELECT rowid FROM vec_chunks WHERE embedding MATCH ? ORDER BY distance LIMIT {int(n)}&quot;</span>
+    <span class="t-k">return</span> [r[<span class="t-s">0</span>] <span class="t-k">for</span> r <span class="t-k">in</span> db.<span class="t-f">execute</span>(sql, (<span class="t-f">serialize_float32</span>(q),)).<span class="t-f">fetchall</span>()]
+
+
+<span class="t-k">def</span> <span class="t-f">bm25_ids</span>(chunks, query, n=<span class="t-s">20</span>):
+    corpus = [c[<span class="t-s">3</span>].<span class="t-f">lower</span>().<span class="t-f">split</span>() <span class="t-k">for</span> c <span class="t-k">in</span> chunks]
+    bm = <span class="t-f">BM25Okapi</span>(corpus)
+    scores = bm.<span class="t-f">get_scores</span>(query.<span class="t-f">lower</span>().<span class="t-f">split</span>())
+    best = <span class="t-f">sorted</span>(<span class="t-f">range</span>(<span class="t-f">len</span>(scores)), key=<span class="t-k">lambda</span> i: -scores[i])[:n]
+    <span class="t-k">return</span> [chunks[i][<span class="t-s">0</span>] <span class="t-k">for</span> i <span class="t-k">in</span> best]
+
+
+<span class="t-k">def</span> <span class="t-f">rrf</span>(lists, k=<span class="t-s">60</span>):
+    points = {}
+    <span class="t-k">for</span> ranked <span class="t-k">in</span> lists:
+        <span class="t-k">for</span> rank, chunk_id <span class="t-k">in</span> <span class="t-f">enumerate</span>(ranked, start=<span class="t-s">1</span>):
+            points[chunk_id] = points.<span class="t-f">get</span>(chunk_id, <span class="t-s">0.0</span>) + <span class="t-s">1.0</span> / (k + rank)
+    <span class="t-k">return</span> <span class="t-f">sorted</span>(points, key=<span class="t-k">lambda</span> c: -points[c])</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>RERANK = CrossEncoder(&quot;cross-encoder/ms-marco-MiniLM-L-6-v2&quot;)</dt><dd>Loaded here at import time even though nothing uses it until step 5. That is why the very first import of search.py sits silent for a minute: it is downloading the second model, not hanging.</dd>
+        <dt>q = EMBED.encode(query).tolist()</dt><dd>The question goes through exactly the same model the chunks went through in ingest.py. This is not optional: vectors from two different embedding models live in different number spaces and comparing them produces confident nonsense, so changing the model means rebuilding rag.db.</dd>
+        <dt>f&quot;SELECT rowid FROM vec_chunks WHERE embedding MATCH ? ORDER BY distance LIMIT {int(n)}&quot;</dt><dd>sqlite-vec exposes a hidden `distance` column on a MATCH query and requires a LIMIT so it knows how many neighbours to return. The `int(n)` is not cosmetic: n is pasted straight into the SQL text, and forcing it to an integer is what stops anything other than a number ending up in your query.</dd>
+        <dt>corpus = [c[3].lower().split() for c in chunks]</dt><dd>BM25 wants a list of word lists, so each chunk's text (column index 3) is lowercased and split on whitespace. Lowercasing is what makes &quot;Leave&quot; match &quot;leave&quot;, and note there is no stemming here, so &quot;leaves&quot; still will not match &quot;leave&quot;.</dd>
+        <dt>bm = BM25Okapi(corpus)</dt><dd>Builds the entire keyword index from scratch on every single query. Honest simplification: this is work proportional to your whole corpus per question, and it is only acceptable because your corpus is small enough that you will not notice.</dd>
+        <dt>points[chunk_id] = points.get(chunk_id, 0.0) + 1.0 / (k + rank)</dt><dd>This one line is the whole of RRF. A chunk collects points from every list it appears in, and a chunk missing from one list simply collects nothing from that list rather than being actively punished.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Two separate formulas live in this step.
+
+1. Reciprocal Rank Fusion (RRF)
+
+  score(chunk) = sum over each list of  1 / (k + rank)
+
+  rank = the chunk's position in that list, counting from 1
+  k    = a constant, 60 here, which flattens the gap between top positions
+  a chunk that never appears in a list contributes nothing for that list
+
+Worked example. Chunk A is rank 1 in the vector list and does not appear in the BM25 top 20 at all. Chunk B is rank 4 in the vector list and rank 5 in the BM25 list.
+
+  A = 1 / (60 + 1) = 1 / 61 = 0.01639
+  B = 1 / (60 + 4) + 1 / (60 + 5) = 0.015625 + 0.015385 = 0.031010
+
+B wins, even though A was somebody's number one. That is RRF doing its job: agreement between two different searches beats enthusiasm from one.
+
+What k actually does. Compare rank 1 against rank 20:
+  with k = 60:  1/61 = 0.01639  versus  1/80 = 0.01250   -&gt;  a ratio of 1.31
+  with k = 0:   1/1  = 1.0      versus  1/20 = 0.05      -&gt;  a ratio of 20
+
+So k = 60 says &quot;rank 1 is a bit better than rank 20&quot;, while k = 0 would say &quot;rank 1 is twenty times better&quot;. 60 comes from the original 2009 paper and is a convention, not a value anyone tuned for your documents.
+
+2. BM25
+
+For each word in your query, BM25 adds this to the chunk's score:
+
+  IDF(word) x ( f x (k1 + 1) ) / ( f + k1 x (1 - b + b x dl / avgdl) )
+
+  f     = how many times that word appears in this chunk
+  dl    = length of this chunk in words
+  avgdl = average chunk length across the whole index
+  k1    = 1.5, controls how quickly repeats stop helping
+  b     = 0.75, controls how much short chunks are favoured
+  IDF   = ln( (N - n + 0.5) / (n + 0.5) ), a rarity score for the word
+  N     = total number of chunks
+  n     = number of chunks that contain that word
+
+Worked example. You search for P019. Your index has N = 1000 chunks and only n = 2 of them contain P019. The chunk being scored has f = 2 occurrences, is dl = 200 words long, and the average chunk is avgdl = 180 words.
+
+  IDF         = ln( (1000 - 2 + 0.5) / (2 + 0.5) ) = ln(998.5 / 2.5) = ln(399.4) = 5.99
+  length term = 1 - 0.75 + 0.75 x (200 / 180) = 0.25 + 0.8333 = 1.0833
+  denominator = 2 + 1.5 x 1.0833 = 2 + 1.625 = 3.625
+  numerator   = 2 x (1.5 + 1) = 5
+  tf part     = 5 / 3.625 = 1.379
+  contribution = 5.99 x 1.379 = 8.26
+
+Now the same arithmetic for the word &quot;the&quot;, which appears in n = 900 of the 1000 chunks:
+
+  IDF = ln( (1000 - 900 + 0.5) / (900 + 0.5) ) = ln(100.5 / 900.5) = ln(0.1116) = -2.19
+
+The rarity score goes negative for very common words. rank_bm25 patches negative values up to a small floor so common words cannot drag a score downwards, but the point stands: rare words carry almost the entire score and &quot;the&quot; carries none of it.
+
+Intuitively: BM25 rewards a chunk for containing your rarest words, several times, in a short chunk. It has no idea what any word means, which is precisely why it finds P019 while the meaning model shrugs and hands you general pages about error handling.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Running python search.py right now prints nothing at all because there is no main block yet, and once you add step 5 it will fail with sqlite3.OperationalError: no such table: vec_chunks unless you have already run python ingest.py from the same folder.</span></div>
+        </li>
+        <li><h3>Rerank the survivors with a cross-encoder</h3><p>Add this to the bottom of <code>search.py</code>. Everything up to now compared the question and each chunk separately: the question became 384 numbers on its own, each chunk became 384 numbers on its own, and you measured the gap between them. That is fast, and it is crude, because every chunk was turned into numbers months before your question existed and with no knowledge of it. A cross-encoder is a different kind of model that reads the question and one chunk <strong>together</strong>, in a single pass, and scores how well that specific chunk answers that specific question. It is much more accurate and far too slow to run against 50,000 chunks, so the standard shape is exactly what you see here: retrieve 20 candidates cheaply, rerank only those 20, keep the best 5. Run <code>python search.py what is the warranty period</code> with a question of your own, and read the five chunks it prints before you let any model near them, because if the answer is not visibly sitting in those five chunks then no prompt in step 6 can save you.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># search.py  (part 2 of 2)</span>
+
+<span class="t-k">def</span> <span class="t-f">search</span>(query, keep=<span class="t-s">5</span>, pool=<span class="t-s">20</span>, use_bm25=<span class="t-k">True</span>):
+    db = <span class="t-f">connect</span>()
+    chunks = db.<span class="t-f">execute</span>(<span class="t-s">&quot;SELECT id, doc, page, text FROM chunks ORDER BY id&quot;</span>).<span class="t-f">fetchall</span>()
+    by_id = {c[<span class="t-s">0</span>]: c <span class="t-k">for</span> c <span class="t-k">in</span> chunks}
+
+    lists = [<span class="t-f">vector_ids</span>(db, query, pool)]
+    <span class="t-k">if</span> use_bm25:
+        lists.<span class="t-f">append</span>(<span class="t-f">bm25_ids</span>(chunks, query, pool))
+
+    merged = <span class="t-f">rrf</span>(lists)[:pool]
+    scores = RERANK.<span class="t-f">predict</span>([(query, by_id[c][<span class="t-s">3</span>]) <span class="t-k">for</span> c <span class="t-k">in</span> merged])
+    ranked = <span class="t-f">sorted</span>(<span class="t-f">zip</span>(merged, scores), key=<span class="t-k">lambda</span> p: -p[<span class="t-s">1</span>])[:keep]
+    <span class="t-k">return</span> [(by_id[c], <span class="t-f">float</span>(s)) <span class="t-k">for</span> c, s <span class="t-k">in</span> ranked]
+
+
+<span class="t-k">if</span> __name__ == <span class="t-s">&quot;__main__&quot;</span>:
+    <span class="t-k">import</span> sys
+    question = <span class="t-s">&quot; &quot;</span>.<span class="t-f">join</span>(sys.argv[<span class="t-s">1</span>:]) <span class="t-k">or</span> <span class="t-s">&quot;what is this document about&quot;</span>
+    <span class="t-k">for</span> row, score <span class="t-k">in</span> <span class="t-f">search</span>(question):
+        <span class="t-f">print</span>(f<span class="t-s">&quot;--- {row[1]} page {row[2]}  score {score:.2f}&quot;</span>)
+        <span class="t-f">print</span>(row[<span class="t-s">3</span>][:<span class="t-s">300</span>], <span class="t-s">&quot;\n&quot;</span>)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>chunks = db.execute(&quot;SELECT id, doc, page, text FROM chunks ORDER BY id&quot;).fetchall()</dt><dd>Pulls every chunk into memory as tuples of (id, doc, page, text). BM25 needs the whole corpus anyway so nothing is wasted here, but be clear that at a million chunks this single line is the thing that would run out of memory first.</dd>
+        <dt>by_id = {c[0]: c for c in chunks}</dt><dd>A lookup table from chunk id to the full row. RRF returns bare ids, so you need this to get the text and page back without firing off one extra SQL query per id.</dd>
+        <dt>lists = [vector_ids(db, query, pool)] then if use_bm25: lists.append(...)</dt><dd>This is the switch you flip in step 7. When use_bm25 is False, RRF receives a single list, and its output is then just the vector ranking in its original order, which is what makes the two runs directly comparable.</dd>
+        <dt>merged = rrf(lists)[:pool]</dt><dd>RRF returns every chunk it saw, which can be up to 40 distinct ids when two lists of 20 barely overlap. Slicing back down to pool (20) is what caps how much work the slow reranker has to do.</dd>
+        <dt>scores = RERANK.predict([(query, by_id[c][3]) for c in merged])</dt><dd>Builds 20 pairs of (question, chunk text) and runs the cross-encoder over all of them in one call. This is by a wide margin the slowest line in the file, and it is where the quality gain comes from.</dd>
+        <dt>ranked = sorted(zip(merged, scores), key=lambda p: -p[1])[:keep]</dt><dd>zip pairs each chunk id with its score, the minus sign in the key sorts highest first, and the slice keeps the best 5. float(s) on the next line converts the model's numpy number into a plain Python float so printing and comparing behave normally.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>What is that score, and why is it not a percentage?
+
+The cross-encoder ends in a single output number called a logit. A logit is what a model produces just before it would be squashed into a probability. You convert a logit into a probability with the sigmoid function:
+
+  probability = 1 / (1 + e^(-score))
+
+where e is 2.71828 and score is the number printed on screen.
+
+Worked examples:
+  score =  6.2  -&gt;  e^(-6.2) = 0.00203  -&gt;  1 / 1.00203 = 0.998
+  score =  0.0  -&gt;  e^(0)    = 1.0      -&gt;  1 / 2.0     = 0.500
+  score = -5.0  -&gt;  e^(5.0)  = 148.41   -&gt;  1 / 149.41  = 0.0067
+
+So this model's scores usually run from about -11 (certainly not relevant) up to about +11 (certainly relevant), with 0 sitting at a coin flip. A score of 6.2 is not &quot;6.2 out of 10&quot;, and the distance from 8 to 6 is not the same amount of confidence as the distance from 2 to 0. Compare scores against each other and against scores you have personally seen on your own documents, never against some fixed idea of what a good number looks like.
+
+Why only 20 pairs. The cross-encoder runs one full model pass per pair, so the work grows with however many pairs you hand it. On a laptop CPU this small model handles very roughly 30 to 100 pairs a second, and that range depends heavily on your machine:
+
+  20 pairs at 50 a second      = 0.4 seconds per query
+  50,000 pairs at 50 a second  = 1,000 seconds, about 17 minutes per query
+
+Intuitively: the cheap search narrows 50,000 chunks down to 20 in under a millisecond, and the expensive model then spends under a second putting those 20 into a much better order. That two stage shape is the biggest single quality gain in this lab for the fewest lines of code.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>The first run of this file pauses for up to a minute with no output while the cross-encoder downloads, so give it time before you assume it has frozen.</span></div>
+        </li>
+        <li><h3>Answer the question with citations</h3><p>Create <code>ask.py</code>, the third and last file. This is the generation half of RAG, and it is deliberately the smallest part of the lab: it numbers the five surviving chunks, pastes them into one prompt, and tells the model to mark every sentence with the number of the source it came from. The refusal line is a fixed exact string on purpose, so that later you can test for it with a plain string comparison rather than trying to detect whether the model &quot;sounded unsure&quot;. Run it with <code>python ask.py &quot;what is the warranty period&quot;</code>, keeping the quotes. The sources are printed underneath whatever the model says, together with their rerank scores, so you can always check the answer against the real text on the real page. Be honest with yourself about what this prompt can and cannot do: telling a model &quot;do not use any other knowledge&quot; reduces invented answers, it does not stop them, and the printed source list exists precisely because the instruction is not a guarantee.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># ask.py</span>
+<span class="t-k">import</span> sys
+<span class="t-k">from</span> pathlib <span class="t-k">import</span> Path
+
+sys.path.<span class="t-f">append</span>(<span class="t-f">str</span>(<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parents[<span class="t-s">1</span>] / <span class="t-s">&quot;_shared&quot;</span>))
+<span class="t-k">from</span> llm <span class="t-k">import</span> chat  <span class="t-c"># noqa: E402</span>
+
+<span class="t-k">from</span> search <span class="t-k">import</span> search  <span class="t-c"># noqa: E402</span>
+
+REFUSAL = <span class="t-s">&quot;I don't have that in these documents.&quot;</span>
+
+TEMPLATE = <span class="t-s">&quot;&quot;&quot;Answer the question using only the numbered sources below.
+After every sentence that uses a source, put its number in square brackets, like [2].
+Do not use any other knowledge.
+If the sources do not contain the answer, reply with exactly this line and nothing else:
+{refusal}
+
+Sources:
+{sources}
+
+Question: {question}&quot;&quot;&quot;</span>
+
+
+<span class="t-k">def</span> <span class="t-f">answer</span>(question):
+    hits = <span class="t-f">search</span>(question)
+    sources = <span class="t-s">&quot;\n\n&quot;</span>.<span class="t-f">join</span>(
+        f<span class="t-s">&quot;[{i}] {row[1]}, page {row[2]}\n{row[3]}&quot;</span>
+        <span class="t-k">for</span> i, (row, _) <span class="t-k">in</span> <span class="t-f">enumerate</span>(hits, start=<span class="t-s">1</span>)
+    )
+    reply = <span class="t-f">chat</span>(TEMPLATE.<span class="t-f">format</span>(refusal=REFUSAL, sources=sources, question=question))
+    <span class="t-f">print</span>(reply, <span class="t-s">&quot;\n&quot;</span>)
+    <span class="t-f">print</span>(<span class="t-s">&quot;Sources offered to the model:&quot;</span>)
+    <span class="t-k">for</span> i, (row, score) <span class="t-k">in</span> <span class="t-f">enumerate</span>(hits, start=<span class="t-s">1</span>):
+        <span class="t-f">print</span>(f<span class="t-s">&quot;[{i}] {row[1]}, page {row[2]}  (rerank {score:.2f})&quot;</span>)
+
+
+<span class="t-k">if</span> __name__ == <span class="t-s">&quot;__main__&quot;</span>:
+    <span class="t-f">answer</span>(<span class="t-s">&quot; &quot;</span>.<span class="t-f">join</span>(sys.argv[<span class="t-s">1</span>:]))</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>sys.path.append(str(Path(__file__).resolve().parents[1] / &quot;_shared&quot;))</dt><dd>Adds the my-work/labs/_shared folder to Python's import path so `from llm import chat` works from inside my-work/labs/lab10. parents[1] means &quot;two levels up from this file&quot;, which is the labs folder, and resolve() makes it an absolute path so it works whatever directory you launched from.</dd>
+        <dt>from llm import chat</dt><dd>The single place this whole course talks to a language model. You switch provider by editing LLM_PROVIDER in your .env file and never by editing this code, which is why no company name appears anywhere in ask.py.</dd>
+        <dt>REFUSAL = &quot;I don't have that in these documents.&quot;</dt><dd>One constant, used inside the prompt now and used again by the mini-project's checks later. If the string were typed out twice, the two copies would eventually drift apart by one character and your string comparison would silently stop matching.</dd>
+        <dt>the TEMPLATE string</dt><dd>Four instructions in a deliberate order: use only these sources, cite with [n], no outside knowledge, and here is the exact line to say when the answer is not present. The sources sit above the question because the question is then the last thing the model reads, which keeps it fresh.</dd>
+        <dt>f&quot;[{i}] {row[1]}, page {row[2]}\n{row[3]}&quot; with enumerate(hits, start=1)</dt><dd>Numbers the sources 1 to 5 for the model, and the same numbers are reprinted at the bottom for you, so [3] in the answer means the same thing in both places. Starting at 1 rather than 0 matters because [0] reads as a bug to a human and confuses a model.</dd>
+        <dt>print(reply, &quot;\n&quot;) followed by the source loop</dt><dd>The sources print every single time, whatever the model said, including when it refused. That unconditional printing is the receipt, and it is the difference between a demo and something you would let another person use.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>How big is this prompt, and what does it cost?
+
+A token is roughly three quarters of an English word. The usual rule of thumb:
+
+  tokens = words x 1.3
+
+Worked example with this lab's defaults (keep = 5 chunks of about 200 words each):
+
+  source text  = 5 x 200 = 1,000 words  -&gt;  1,000 x 1.3 = 1,300 tokens
+  template and source headers                          about  100 tokens
+  your question                                        about   15 tokens
+  total input                                          about 1,415 tokens
+
+At a price of $0.50 per million input tokens:
+
+  1,415 / 1,000,000 x $0.50 = $0.0007, so about seven hundredths of a cent per question.
+
+Now try keep = 20 instead of 5:
+
+  20 x 200 = 4,000 words -&gt; 5,200 tokens of sources, about 5,315 tokens in total
+  cost = 5,315 / 1,000,000 x $0.50 = $0.0027, about 3.8 times more
+
+The money is the cheap part of that trade. The expensive part is that answer quality often gets worse rather than better, because the one paragraph that mattered is now buried among nineteen that did not.
+
+Temperature. chat() sends temperature 0.2 by default. Temperature reshapes the model's probabilities for the next word:
+
+  probability(word) = e^(logit / T) / sum of e^(logit / T) over all candidate words
+
+Worked example with just two candidate words, logits 3.0 and 2.0:
+
+  T = 1.0:  e^3 = 20.09, e^2 = 7.39, total 27.48        -&gt;  73.1% and 26.9%
+  T = 0.2:  e^15 = 3,269,017, e^10 = 22,026, total 3,291,043  -&gt;  99.33% and 0.67%
+
+Intuitively: a low temperature makes the model far more likely to take its top choice at every step. That is exactly what you want when the job is copying facts out of sources you handed it, and it is why 0.2 rather than 1.0 is the default in this course.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>On Windows run it as python ask.py &quot;your question&quot; with the quotes, because without them a question mark or ampersand is swallowed by the shell, and running it with no question at all sends an empty string to the model and returns confident nonsense.</span></div>
+        </li>
+        <li><h3>Break it on purpose</h3><p>This step adds no code, and it is the most important one, because a RAG system nobody has tried to break is only a demo. Ask three deliberately different kinds of question and write down what happens each time, in a file you keep. First, a question whose answer you already know sits on one specific page, then check that the printed citation names that page, which proves retrieval and citation are wired together honestly rather than by luck. Second, a question containing an exact code, part number or surname: run it as is, then edit the last section of <code>search.py</code> so it calls <code>search(question, use_bm25=False)</code>, run the identical question again, and compare the top five results side by side. Third, a question your PDFs genuinely do not answer, such as the price of a train ticket to Manchester, and watch whether the system prints the exact refusal line or invents something plausible with a citation attached. Retrieval here is fully deterministic, so the same question always returns the same five chunks, and only the model's wording varies between runs. Keep all three results written down, because they are the direct input to the mini-project: you cannot pick a sensible refusal cut-off until you have seen what real scores look like on your own documents.</p>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Putting a number on &quot;the top five changed&quot;
+
+Two simple ways to compare the two lists of five chunk ids.
+
+  Overlap = (number of ids in both lists) / 5
+  Jaccard = (number of ids in both lists) / (number of distinct ids across both lists)
+
+Worked example. With BM25 on you get ids [12, 47, 3, 88, 91]. With BM25 off you get [47, 3, 205, 12, 60].
+
+  ids appearing in both:      12, 47, 3                  -&gt; 3
+  distinct ids across both:   12, 47, 3, 88, 91, 205, 60 -&gt; 7
+
+  Overlap = 3 / 5 = 0.60, so 60 percent of the top five survived
+  Jaccard = 3 / 7 = 0.43
+
+Intuitively: an overlap of 1.0 means BM25 bought you nothing at all on that question, and an overlap near 0 means the two searches disagree completely about what is relevant. For a plainly worded English question expect a high overlap. For a question containing a part number expect a low one, and that gap is the entire reason hybrid search exists. One number from one question proves nothing, so run three or four questions of each kind before you believe what you are seeing.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Only the model's wording should differ between two runs of the same question, so if the five retrieved chunks change too, something in your docs/ folder changed and ingest.py rebuilt the index behind you.</span></div>
+        </li>
+        </ol>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> You can ask a question in your own words, get back an answer with [1] style markers inside it, then open the named PDF at the named page and put your finger on the exact sentence the answer came from. You can also show one specific query where switching use_bm25 to False changes the top five results, and say by how much (for example three of the five ids survived, an overlap of 0.60), so you have seen with your own eyes what the keyword half actually bought you. And you have three written notes from step 7: the page-specific question with its citation checked, the exact-code question run both ways with both lists recorded, and the unanswerable question with exactly what the system said.</div></div>
+        </section>
+        <section class="section section--mini"><h2 class="section__h" data-stamp="hands on"><span>Mini-project: your turn</span></h2>
+        <p class="prose">Turn the lab into something you would trust: every claim points at chunk text you can read on screen, and the system refuses instead of guessing when your PDFs do not cover the question. You record what it did on ten fixed questions in my-work/labs/lab10/rag_report.json, and check.py verifies that file.</p>
+        <p class="small muted">No code given. Produce the file, then run the checker.</p>
+        <ol class="steps">
+        <li><p>Fix a test set of ten questions: five your PDFs answer, five they clearly do not (the price of a train ticket to Manchester, the capital of Peru). Give each an id from 1 to 10 and an answerable flag of true or false. check.py reports failures by id, so keep the ids stable.</p></li>
+        <li><p>Add a refusal gate that runs before chat(). Run search() on all ten questions, record the top rerank score for each, look at the two groups of numbers, and pick one threshold. When the top score falls below it, return the exact line &quot;I don't have that in these documents.&quot; and never call the model. check.py recomputes refused == (top_score &lt; threshold) on every row, so one threshold has to explain all ten.</p></li>
+        <li><p>Make citations carry text. Store each as {&quot;n&quot;: 1, &quot;doc&quot;: &quot;handbook.pdf&quot;, &quot;page&quot;: 7, &quot;chunk_text&quot;: &quot;...&quot;}, where chunk_text is the full chunk exactly as it sits in rag.db, not a 300 character preview. Every [n] marker in the answer needs a citation with that n. check.py matches chunk_text against rag.db word for word.</p></li>
+        <li><p>Judge each answered sentence. Send the sentence back with only its cited chunk and ask one yes or no question: does this chunk support this sentence. Record {&quot;sentence&quot;: &quot;...&quot;, &quot;cite&quot;: 1, &quot;supported&quot;: true} in a &quot;judged&quot; list, and keep supported a true or false, not a 1 to 5 score.</p></li>
+        <li><p>Write my-work/labs/lab10/rag_report.json with three top level keys: threshold (a number), questions (the ten rows, each with id, question, answerable, top_score, refused, answer, citations, judged), and rates holding the two rates separately, answered_when_answerable and refused_when_unanswerable, each a fraction out of 5. A refused row carries the exact refusal line as its answer, an empty citations list and an empty judged list.</p></li>
+        <li><p>Save check.py in my-work/labs/lab10 next to rag_report.json and rag.db, then run python check.py and fix what it names.</p></li>
+        </ol>
+        <div class="checker"><div class="checker__h">Check it yourself, automatically</div>
+        <p>Save this as <code>check.py</code> next to your work, then run <code>cd my-work/labs/lab10 &amp;&amp; python check.py</code>. It reads what you produced, tests it, and prints a line per check.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>check.py</span></div>
+<pre><span class="t-s">&quot;&quot;&quot;check.py - checks rag_report.json from the module 10 mini-project. Run it from
+my-work/labs/lab10 with: python check.py   It reads what your run recorded: no key, no internet.&quot;&quot;&quot;</span>
+<span class="t-k">import</span> json, os, re, sqlite3, sys
+
+REPORT = <span class="t-s">&quot;rag_report.json&quot;</span>
+REFUSAL = <span class="t-s">&quot;I don't have that in these documents.&quot;</span>  <span class="t-c"># must match REFUSAL in ask.py</span>
+fails = []
+
+<span class="t-k">def</span> <span class="t-f">check</span>(ok, msg, detail=<span class="t-s">&quot;&quot;</span>):
+    <span class="t-f">print</span>(<span class="t-s">&quot;PASS &quot;</span> + msg <span class="t-k">if</span> ok <span class="t-k">else</span> f<span class="t-s">&quot;FAIL {msg} -&gt; {detail}&quot;</span>)
+    <span class="t-k">if</span> <span class="t-k">not</span> ok: fails.<span class="t-f">append</span>(msg)
+num = <span class="t-k">lambda</span> x: x <span class="t-k">if</span> <span class="t-f">isinstance</span>(x, (int, float)) <span class="t-k">and</span> <span class="t-k">not</span> <span class="t-f">isinstance</span>(x, bool) <span class="t-k">else</span> <span class="t-k">None</span>
+norm = <span class="t-k">lambda</span> s: <span class="t-s">&quot; &quot;</span>.<span class="t-f">join</span>(<span class="t-f">str</span>(s <span class="t-k">or</span> <span class="t-s">&quot;&quot;</span>).<span class="t-f">split</span>())  <span class="t-c"># compare text, ignore whitespace</span>
+ids = <span class="t-k">lambda</span> rs: [r.<span class="t-f">get</span>(<span class="t-s">&quot;id&quot;</span>) <span class="t-k">for</span> r <span class="t-k">in</span> rs]
+
+<span class="t-k">if</span> <span class="t-k">not</span> os.path.<span class="t-f">exists</span>(REPORT):
+    sys.<span class="t-f">exit</span>(f<span class="t-s">&quot;FAIL {REPORT} is not in this folder. Run your ten questions and write it here.&quot;</span>)
+<span class="t-k">try</span>:
+    <span class="t-k">with</span> <span class="t-f">open</span>(REPORT, encoding=<span class="t-s">&quot;utf-8&quot;</span>) <span class="t-k">as</span> f:
+        data = json.<span class="t-f">load</span>(f)
+<span class="t-k">except</span> json.JSONDecodeError <span class="t-k">as</span> e:
+    sys.<span class="t-f">exit</span>(f<span class="t-s">&quot;FAIL {REPORT} is not valid JSON: {e}&quot;</span>)
+
+rows = data.<span class="t-f">get</span>(<span class="t-s">&quot;questions&quot;</span>) <span class="t-k">or</span> []
+thr = <span class="t-f">num</span>(data.<span class="t-f">get</span>(<span class="t-s">&quot;threshold&quot;</span>))
+yes = [r <span class="t-k">for</span> r <span class="t-k">in</span> rows <span class="t-k">if</span> r.<span class="t-f">get</span>(<span class="t-s">&quot;answerable&quot;</span>) <span class="t-k">is</span> <span class="t-k">True</span>]
+no = [r <span class="t-k">for</span> r <span class="t-k">in</span> rows <span class="t-k">if</span> r.<span class="t-f">get</span>(<span class="t-s">&quot;answerable&quot;</span>) <span class="t-k">is</span> <span class="t-k">False</span>]
+ans = [r <span class="t-k">for</span> r <span class="t-k">in</span> rows <span class="t-k">if</span> <span class="t-k">not</span> r.<span class="t-f">get</span>(<span class="t-s">&quot;refused&quot;</span>)]
+marks = <span class="t-k">lambda</span> r: <span class="t-f">set</span>(re.<span class="t-f">findall</span>(r<span class="t-s">&quot;\[(\d+)\]&quot;</span>, r.<span class="t-f">get</span>(<span class="t-s">&quot;answer&quot;</span>) <span class="t-k">or</span> <span class="t-s">&quot;&quot;</span>))
+cited = <span class="t-k">lambda</span> r: {<span class="t-f">str</span>(c.<span class="t-f">get</span>(<span class="t-s">&quot;n&quot;</span>)) <span class="t-k">for</span> c <span class="t-k">in</span> (r.<span class="t-f">get</span>(<span class="t-s">&quot;citations&quot;</span>) <span class="t-k">or</span> [])}
+
+<span class="t-c"># the test set itself</span>
+<span class="t-f">check</span>(thr <span class="t-k">is</span> <span class="t-k">not</span> <span class="t-k">None</span>, <span class="t-s">&quot;threshold is a number&quot;</span>, f<span class="t-s">&quot;got {data.get('threshold')!r}&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">len</span>(rows) == <span class="t-s">10</span>, <span class="t-s">&quot;ten questions recorded&quot;</span>, f<span class="t-s">&quot;got {len(rows)}&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">len</span>(yes) == <span class="t-s">5</span> <span class="t-k">and</span> <span class="t-f">len</span>(no) == <span class="t-s">5</span>, <span class="t-s">&quot;five answerable, five not&quot;</span>, f<span class="t-s">&quot;got {len(yes)} and {len(no)}&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">all</span>(<span class="t-f">num</span>(r.<span class="t-f">get</span>(<span class="t-s">&quot;top_score&quot;</span>)) <span class="t-k">is</span> <span class="t-k">not</span> <span class="t-k">None</span> <span class="t-k">for</span> r <span class="t-k">in</span> rows), <span class="t-s">&quot;every question records a top_score&quot;</span>,
+      <span class="t-s">&quot;at least one row has no numeric top_score&quot;</span>)
+
+<span class="t-c"># the refusal gate is one rule, applied the same way to every question</span>
+off = <span class="t-f">ids</span>([r <span class="t-k">for</span> r <span class="t-k">in</span> rows <span class="t-k">if</span> thr <span class="t-k">is</span> <span class="t-k">not</span> <span class="t-k">None</span> <span class="t-k">and</span> <span class="t-f">num</span>(r.<span class="t-f">get</span>(<span class="t-s">&quot;top_score&quot;</span>)) <span class="t-k">is</span> <span class="t-k">not</span> <span class="t-k">None</span>
+           <span class="t-k">and</span> <span class="t-f">bool</span>(r.<span class="t-f">get</span>(<span class="t-s">&quot;refused&quot;</span>)) != (r[<span class="t-s">&quot;top_score&quot;</span>] &lt; thr)])
+<span class="t-f">check</span>(<span class="t-k">not</span> off, <span class="t-s">&quot;refused always equals top_score &lt; threshold&quot;</span>, f<span class="t-s">&quot;ids {off} disagree with the rule&quot;</span>)
+leaked = <span class="t-f">ids</span>([r <span class="t-k">for</span> r <span class="t-k">in</span> no <span class="t-k">if</span> <span class="t-k">not</span> r.<span class="t-f">get</span>(<span class="t-s">&quot;refused&quot;</span>)])
+<span class="t-f">check</span>(<span class="t-k">not</span> leaked, <span class="t-s">&quot;all five unanswerable questions refused&quot;</span>, f<span class="t-s">&quot;ids {leaked} answered instead&quot;</span>)
+loud = <span class="t-f">ids</span>([r <span class="t-k">for</span> r <span class="t-k">in</span> rows <span class="t-k">if</span> r.<span class="t-f">get</span>(<span class="t-s">&quot;refused&quot;</span>) <span class="t-k">and</span> (r.<span class="t-f">get</span>(<span class="t-s">&quot;answer&quot;</span>) != REFUSAL <span class="t-k">or</span> r.<span class="t-f">get</span>(<span class="t-s">&quot;citations&quot;</span>))])
+<span class="t-f">check</span>(<span class="t-k">not</span> loud, <span class="t-s">&quot;refusals use the exact refusal line and cite nothing&quot;</span>, f<span class="t-s">&quot;ids {loud}&quot;</span>)
+
+<span class="t-c"># receipts: markers resolve, and each citation carries readable text</span>
+nocite = <span class="t-f">ids</span>([r <span class="t-k">for</span> r <span class="t-k">in</span> ans <span class="t-k">if</span> <span class="t-k">not</span> r.<span class="t-f">get</span>(<span class="t-s">&quot;citations&quot;</span>)])
+<span class="t-f">check</span>(<span class="t-k">not</span> nocite, <span class="t-s">&quot;every answered question lists its citations&quot;</span>, f<span class="t-s">&quot;ids {nocite} cite nothing&quot;</span>)
+bad = <span class="t-f">ids</span>([r <span class="t-k">for</span> r <span class="t-k">in</span> ans <span class="t-k">if</span> <span class="t-k">not</span> <span class="t-f">marks</span>(r) <span class="t-k">or</span> <span class="t-f">marks</span>(r) - <span class="t-f">cited</span>(r)])
+<span class="t-f">check</span>(<span class="t-k">not</span> bad, <span class="t-s">&quot;answers carry [n] markers and each matches a citation&quot;</span>, f<span class="t-s">&quot;ids {bad}&quot;</span>)
+thin = <span class="t-f">ids</span>([r <span class="t-k">for</span> r <span class="t-k">in</span> ans <span class="t-k">for</span> c <span class="t-k">in</span> (r.<span class="t-f">get</span>(<span class="t-s">&quot;citations&quot;</span>) <span class="t-k">or</span> []) <span class="t-k">if</span> <span class="t-f">len</span>(<span class="t-f">norm</span>(c.<span class="t-f">get</span>(<span class="t-s">&quot;chunk_text&quot;</span>))) &lt; <span class="t-s">50</span>])
+<span class="t-f">check</span>(<span class="t-k">not</span> thin, <span class="t-s">&quot;every citation carries its chunk text, 50 characters or more&quot;</span>, f<span class="t-s">&quot;ids {thin}&quot;</span>)
+
+<span class="t-c"># the judge pass, kept binary</span>
+verdicts = [j <span class="t-k">for</span> r <span class="t-k">in</span> ans <span class="t-k">for</span> j <span class="t-k">in</span> (r.<span class="t-f">get</span>(<span class="t-s">&quot;judged&quot;</span>) <span class="t-k">or</span> [])]
+<span class="t-f">check</span>(<span class="t-f">len</span>(verdicts) &gt;= <span class="t-f">len</span>(ans), <span class="t-s">&quot;every answered question has a judged sentence&quot;</span>,
+      f<span class="t-s">&quot;{len(verdicts)} verdicts for {len(ans)} answers&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">bool</span>(verdicts) <span class="t-k">and</span> <span class="t-f">all</span>(<span class="t-f">isinstance</span>(j.<span class="t-f">get</span>(<span class="t-s">&quot;supported&quot;</span>), bool) <span class="t-k">for</span> j <span class="t-k">in</span> verdicts),
+      <span class="t-s">&quot;judge verdicts are true or false, not a 1 to 5 score&quot;</span>, <span class="t-s">&quot;no verdicts, or one is not a boolean&quot;</span>)
+unlinked = <span class="t-f">ids</span>([r <span class="t-k">for</span> r <span class="t-k">in</span> ans <span class="t-k">for</span> j <span class="t-k">in</span> (r.<span class="t-f">get</span>(<span class="t-s">&quot;judged&quot;</span>) <span class="t-k">or</span> []) <span class="t-k">if</span> <span class="t-f">str</span>(j.<span class="t-f">get</span>(<span class="t-s">&quot;cite&quot;</span>)) <span class="t-k">not</span> <span class="t-k">in</span> <span class="t-f">cited</span>(r)])
+<span class="t-f">check</span>(<span class="t-k">not</span> unlinked, <span class="t-s">&quot;each judged sentence names a citation that exists&quot;</span>, f<span class="t-s">&quot;ids {unlinked}&quot;</span>)
+absent = <span class="t-f">ids</span>([r <span class="t-k">for</span> r <span class="t-k">in</span> ans <span class="t-k">for</span> j <span class="t-k">in</span> (r.<span class="t-f">get</span>(<span class="t-s">&quot;judged&quot;</span>) <span class="t-k">or</span> [])
+              <span class="t-k">if</span> j.<span class="t-f">get</span>(<span class="t-s">&quot;supported&quot;</span>) <span class="t-k">and</span> <span class="t-f">norm</span>(j.<span class="t-f">get</span>(<span class="t-s">&quot;sentence&quot;</span>)) <span class="t-k">not</span> <span class="t-k">in</span> <span class="t-f">norm</span>(r.<span class="t-f">get</span>(<span class="t-s">&quot;answer&quot;</span>))])
+<span class="t-f">check</span>(<span class="t-k">not</span> absent, <span class="t-s">&quot;supported sentences appear word for word in the answer&quot;</span>, f<span class="t-s">&quot;ids {absent}&quot;</span>)
+
+<span class="t-c"># the two rates, reported separately</span>
+rates = data.<span class="t-f">get</span>(<span class="t-s">&quot;rates&quot;</span>) <span class="t-k">or</span> {}
+<span class="t-k">for</span> key, group, hits <span class="t-k">in</span> [(<span class="t-s">&quot;answered_when_answerable&quot;</span>, yes, <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> r <span class="t-k">in</span> yes <span class="t-k">if</span> <span class="t-k">not</span> r.<span class="t-f">get</span>(<span class="t-s">&quot;refused&quot;</span>))),
+                         (<span class="t-s">&quot;refused_when_unanswerable&quot;</span>, no, <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> r <span class="t-k">in</span> no <span class="t-k">if</span> r.<span class="t-f">get</span>(<span class="t-s">&quot;refused&quot;</span>)))]:
+    want, got = (hits / <span class="t-f">len</span>(group) <span class="t-k">if</span> group <span class="t-k">else</span> -<span class="t-s">1</span>), <span class="t-f">num</span>(rates.<span class="t-f">get</span>(key))
+    <span class="t-f">check</span>(got <span class="t-k">is</span> <span class="t-k">not</span> <span class="t-k">None</span> <span class="t-k">and</span> <span class="t-f">abs</span>(got - want) &lt; <span class="t-s">0.005</span>, f<span class="t-s">&quot;rates.{key} matches the rows&quot;</span>,
+          f<span class="t-s">&quot;rows give {want:.2f}, report says {rates.get(key)!r}&quot;</span>)
+
+<span class="t-c"># trace the quoted text back to the index, when the index is here</span>
+stored = <span class="t-k">None</span>
+<span class="t-k">if</span> os.path.<span class="t-f">exists</span>(<span class="t-s">&quot;rag.db&quot;</span>):
+    <span class="t-k">try</span>: stored = {<span class="t-f">norm</span>(t[<span class="t-s">0</span>]) <span class="t-k">for</span> t <span class="t-k">in</span> sqlite3.<span class="t-f">connect</span>(<span class="t-s">&quot;rag.db&quot;</span>).<span class="t-f">execute</span>(<span class="t-s">&quot;SELECT text FROM chunks&quot;</span>)}
+    <span class="t-k">except</span> sqlite3.Error: <span class="t-k">pass</span>
+<span class="t-k">if</span> stored <span class="t-k">is</span> <span class="t-k">None</span>:
+    <span class="t-f">print</span>(<span class="t-s">&quot;SKIP no readable rag.db here, so citation text was not traced back to your index&quot;</span>)
+<span class="t-k">else</span>:
+    ghosts = <span class="t-f">ids</span>([r <span class="t-k">for</span> r <span class="t-k">in</span> ans <span class="t-k">for</span> c <span class="t-k">in</span> (r.<span class="t-f">get</span>(<span class="t-s">&quot;citations&quot;</span>) <span class="t-k">or</span> []) <span class="t-k">if</span> <span class="t-f">norm</span>(c.<span class="t-f">get</span>(<span class="t-s">&quot;chunk_text&quot;</span>)) <span class="t-k">not</span> <span class="t-k">in</span> stored])
+    <span class="t-f">check</span>(<span class="t-k">not</span> ghosts, <span class="t-s">&quot;every cited chunk appears word for word in rag.db&quot;</span>, f<span class="t-s">&quot;ids {ghosts} quote text not in the index&quot;</span>)
+
+<span class="t-f">print</span>(<span class="t-s">&quot;NOT CHECKED: whether each answer is factually right, and whether your threshold sits in the right place.&quot;</span>)
+<span class="t-f">print</span>(f<span class="t-s">&quot;{len(fails)} check(s) failed&quot;</span> <span class="t-k">if</span> fails <span class="t-k">else</span> <span class="t-s">&quot;ALL CHECKS PASSED&quot;</span>)
+sys.<span class="t-f">exit</span>(<span class="t-s">1</span> <span class="t-k">if</span> fails <span class="t-k">else</span> <span class="t-s">0</span>)
+</pre></div>
+        </div>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> check.py prints one PASS line per check and ends with ALL CHECKS PASSED, exit code 0. A failure names the rows, for example &quot;FAIL every citation carries its chunk text, 50 characters or more -&gt; ids [3, 7]&quot; or &quot;FAIL refused always equals top_score &lt; threshold -&gt; ids [9] disagree with the rule&quot;. It also prints a NOT CHECKED line, because whether each answer is factually right and whether your threshold sits in the right place are still yours to judge: read those two yourself.</div></div>
+        <div class="note" style="margin-top:12px"><div class="note__t">If you want more</div><p>Add contextual retrieval. Before embedding, ask a cheap model for one sentence saying where each chunk sits in its document, prepend it, rebuild rag.db, and re-run the same ten questions into rag_report_contextual.json. Point the checker at it by editing REPORT at the top of check.py, then compare the two rates against your first run. Anthropic reported 49% fewer retrieval failures from this on their own data, and it costs one model call per chunk, so try one PDF first.</p></div>
+        </section>
+        <section class="section section--quiz"><h2 class="section__h" data-stamp="on record"><span>Check yourself</span></h2>
+        <p class="small muted">Explained either way.</p>
+        <div class="quiz" data-quiz>
+        <div class="q" data-answer="0"><p class="q__q">You search for error code P019. The results are chunks about error handling in general, and not the page that lists P019 itself. What is most likely missing?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Keyword search (BM25) running alongside the vector search</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>A bigger embedding model</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>A larger chunk size</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>A stricter system prompt</span></button>
+        </div><div class="q__why" hidden>Embeddings compare meaning, and a code like P019 carries almost no meaning, so it gets treated as noise next to real words. BM25 scores rare exact terms highly and will surface the literal page. A bigger model or longer chunks does not change that mismatch, and no prompt wording can use text that was never retrieved.</div></div>
+        <div class="q" data-answer="1"><p class="q__q">Why do you rerank only the top 20 to 50 results with a cross-encoder instead of scoring your whole index with it?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Cross-encoders only work on short lists</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>It reads the question and each chunk together, which is accurate but far too slow to run on every chunk</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Reranking more than 50 chunks makes answers worse</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>The cross-encoder needs an API key and each call costs money</span></button>
+        </div><div class="q__why" hidden>A cross-encoder does one full model pass per question and chunk pair, so the work grows with the size of your whole corpus. The pattern is cheap retrieval to narrow 50,000 chunks down to 30, then the expensive model to reorder just those. The model in this lab runs on your own machine with no key, so the cost is your time, not a bill.</div></div>
+        <div class="q" data-answer="0"><p class="q__q">Your assistant answers &quot;reviews happen twice a year&quot; and cites page 4 of a handbook. That was true in 2023 and the policy changed since. The 2023 handbook is still in the index. What is happening?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Temporal drift: the retrieved text is still relevant but no longer true</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>The model hallucinated the answer</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>The chunk size is too small</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>RRF merged the two ranked lists incorrectly</span></button>
+        </div><div class="q__why" hidden>Nothing was invented, and that is what makes this hard to catch. The model faithfully reported text it was given, and the citation makes the wrong answer more believable rather than less. The fix is at ingestion time: store dates with chunks, prefer newer versions, and remove superseded documents from the index instead of leaving them searchable.</div></div>
+        </div></section>
+        <section class="section section--notes notes" data-notes><h2 class="section__h" data-stamp="on record"><span>Your notes</span></h2>
+        <p class="small muted">Saves as you type, in this browser.</p>
+        <label class="sr" for="n10">Notes for this module</label>
+        <textarea id="n10" placeholder="What clicked? What is still fuzzy? What do you want to come back to?"></textarea><div class="notes__status"></div></section>
+        <section class="section section--done"><h2 class="section__h" data-stamp="on record"><span>Mark it done</span></h2>
+        <div class="marks"><button class="mark" data-mark="read" aria-pressed="false"><span>Read the notes</span></button><button class="mark" data-mark="lab" aria-pressed="false"><span>Finished the lab</span></button><button class="mark" data-mark="mini" aria-pressed="false"><span>Finished the mini-project</span></button></div></section>
+        <section class="section section--docs"><h2 class="section__h" data-stamp="reference"><span>Go to the source</span></h2>
+        <p class="small muted">If this course and the docs disagree, the docs are newer.</p><ul class="prose">
+        <li><a href="https://alexgarcia.xyz/sqlite-vec/" target="_blank" rel="noopener">sqlite-vec documentation</a></li>
+        <li><a href="https://sbert.net/" target="_blank" rel="noopener">Sentence Transformers (embeddings and cross-encoders)</a></li>
+        <li><a href="https://pypdf.readthedocs.io/en/stable/" target="_blank" rel="noopener">pypdf documentation</a></li>
+        <li><a href="https://github.com/dorianbrown/rank_bm25" target="_blank" rel="noopener">rank_bm25 (the BM25 package used in the lab)</a></li>
+        <li><a href="https://www.anthropic.com/news/contextual-retrieval" target="_blank" rel="noopener">Anthropic: contextual retrieval</a></li>
+        <li><a href="https://research.trychroma.com/context-rot" target="_blank" rel="noopener">Chroma: context rot research</a></li>
+        </ul></section>
+    </div>
+    <nav data-chrome="pager"></nav>
+  </main>
+</div>
+
+<script src="../assets/data.js"></script>
+<script src="../assets/widgets.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

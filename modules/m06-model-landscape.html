@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>6. Picking a model, and what it costs</title>
+<meta name="description" content="Choose the right model for a job in 2026, and predict the bill before you get it.">
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+</head>
+<body data-module="m06" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="2">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+        <div data-chrome="modhead"></div>
+        <p class="prose">Two models can answer the same question equally well and differ twenty-five times in price. This module gives you the arithmetic to turn your own measured token counts into a bill, plus the two levers that move that bill most: where the changing part of your prompt sits, and which model gets which request.</p>
+        <section class="section section--watch"><h2 class="section__h" data-stamp="take in"><span>Watch this first</span></h2>
+        <div data-videos="core"></div></section>
+        <section class="section section--ideas"><h2 class="section__h" data-stamp="take in"><span>The ideas, in plain English</span></h2>
+        <p class="small muted">Each idea, then a worked example of it.</p>
+        <div class="concepts">
+        <div class="concept"><div class="concept__n" aria-hidden="true">1</div><h3 class="concept__t">Who makes the models now</h3><p class="concept__b">Four families cover almost everything you meet in August 2026. OpenAI ships GPT-5.6 in three sizes (Sol, Terra, Luna), Google ships Gemini 3.1 Pro and the cheaper Gemini 3.6 Flash, and xAI ships Grok 4.5. Open weight means you can download the actual model file and run it on your own hardware, and that group is led by <strong>Kimi K3</strong> for size and <strong>GLM-5.2</strong> for its MIT licence. Llama is no longer the open default, because Meta's April 2026 successor Muse Spark is closed weight, so 2025 advice naming Llama is stale.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>model</th><th>weights</th><th>why it is on the list</th></tr></thead><tbody><tr><td>GPT-5.6 Sol / Terra / Luna</td><td>closed</td><td>three price tiers of one family</td></tr><tr><td>Gemini 3.1 Pro</td><td>closed</td><td>Google's strong tier</td></tr><tr><td>Gemini 3.6 Flash</td><td>closed</td><td>Google's cheap tier</td></tr><tr><td>Grok 4.5</td><td>closed</td><td>xAI's current model</td></tr><tr><td>Kimi K3</td><td>open, downloadable</td><td>largest open weights</td></tr><tr><td>GLM-5.2</td><td>open, MIT licence</td><td>fewest licence restrictions</td></tr><tr><td>Muse Spark (Meta, Apr 2026)</td><td>closed</td><td>replaced Llama, so Llama advice is stale</td></tr></tbody></table><div class="eg__cap">The August 2026 shortlist, and which ones you can download and run yourself.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">2</div><h3 class="concept__t">The context window is a budget</h3><p class="concept__b">The context window is how much text the model holds in front of it at once, measured in tokens (chunks of roughly four characters). All three GPT-5.6 tiers hold one million, which sounds like a problem you can stop thinking about. You cannot: every token you send is billed on every call, and accuracy sags as the input grows. Chroma tested that second effect across 18 models and published it on 14 July 2025 as <strong>context rot</strong>, finding the drop is uneven and starts well before the advertised limit, with no single safe threshold.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre>window = <span class="t-s">1_000_000</span>            <span class="t-c"># every GPT-5.6 tier holds this</span>
+<span class="t-f">print</span>(window * <span class="t-s">5.00</span> / <span class="t-s">1e6</span>)    <span class="t-c"># Sol  at $5.00/M in  -&gt; 5.0   dollars per call</span>
+<span class="t-f">print</span>(window * <span class="t-s">0.20</span> / <span class="t-s">1e6</span>)    <span class="t-c"># Luna at $0.20/M in  -&gt; 0.2   dollars per call</span>
+<span class="t-f">print</span>(<span class="t-s">100</span> * <span class="t-s">5.0</span> * <span class="t-s">365</span>)        <span class="t-c"># 100 full-window Sol calls a day -&gt; 182500.0 a year</span></pre><p class="eg__say">Chroma's finding: accuracy falls as input grows, so you pay most where you score least.</p><div class="eg__cap">Filling a one million token window costs $5 a call on Sol, before any output.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">3</div><h3 class="concept__t">You pay twice at different rates</h3><p class="concept__b">Every call is billed in two parts: the tokens you send in, and the tokens the model writes back. Output costs roughly six times input, so Sol is $5 per million in and $30 out, while Luna is $0.20 in and $1.20 out. Agent work inverts which one matters, because an agent re-sends its whole history every turn, so one step often carries 50,000 to 500,000 input tokens against a few hundred output tokens. Sort your comparison table on input price.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>call shape</th><th>input tokens</th><th>output tokens</th><th>cost on Sol</th><th>input share of bill</th></tr></thead><tbody><tr><td>one chat question</td><td>912</td><td>58</td><td>$0.00630</td><td>72%</td></tr><tr><td>one agent step</td><td>60,000</td><td>58</td><td>$0.30174</td><td>99.4%</td></tr><tr><td>1,000 agent steps</td><td>60,000,000</td><td>58,000</td><td>$301.74</td><td>99.4%</td></tr></tbody></table><div class="eg__cap">Same model, same answer length. Input decides the bill once you are in an agent.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 640 230" role="img" aria-label="An agent request is mostly input tokens, billed at three different rates" xmlns="http://www.w3.org/2000/svg"><title>An agent request is mostly input tokens, billed at three different rates</title><defs><marker id="ah-cost" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><text x="320" y="22" text-anchor="middle" class="d-hi">one agent request</text><rect x="20" y="40" width="380" height="40" rx="6" class="d-fill"/><text x="210.0" y="65.0" text-anchor="middle" class="d-t"></text><text x="210" y="65" text-anchor="middle" class="d-t">input: 50,000 tokens</text><rect x="420" y="40" width="60" height="40" rx="6" class="d-box"/><text x="450.0" y="65.0" text-anchor="middle" class="d-t"></text><text x="450" y="65" text-anchor="middle" class="d-s">output</text><text x="450" y="96" text-anchor="middle" class="d-m">800</text><text x="210" y="100" text-anchor="middle" class="d-s">the documents, history, tool definitions, instructions</text><text x="320" y="140" text-anchor="middle" class="d-hi">you are billed at different rates</text><rect x="20" y="155" width="180" height="44" rx="6" class="d-ok"/><text x="110.0" y="173.0" text-anchor="middle" class="d-t">input</text><text x="110.0" y="190.0" text-anchor="middle" class="d-s">$0.20 per million</text><rect x="215" y="155" width="180" height="44" rx="6" class="d-ok"/><text x="305.0" y="173.0" text-anchor="middle" class="d-t">cached input</text><text x="305.0" y="190.0" text-anchor="middle" class="d-s">$0.02 per million</text><rect x="410" y="155" width="210" height="44" rx="6" class="d-warn"/><text x="515.0" y="173.0" text-anchor="middle" class="d-t">output</text><text x="515.0" y="190.0" text-anchor="middle" class="d-s">$1.20 per million</text><text x="320" y="220" text-anchor="middle" class="d-s">agents are input-heavy, so caching the unchanged part is the biggest lever</text></svg><figcaption><b>Where the money goes.</b> People assume output is what costs, because that is what you read. For agents it is the opposite: you resend a huge, nearly identical prompt every turn. Cached input costs about a tenth of fresh input, so keeping the front of your prompt byte-for-byte identical is usually worth more than switching model.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">4</div><h3 class="concept__t">Caching only reuses a prefix</h3><p class="concept__b">Providers keep the model's working-out for text they have already read and charge about a tenth of the normal price when you send that same text again. The match must start at the very first character and run forward without a break, so one changed character near the top makes everything after it new. Put stable instructions first, and anything that moves (a timestamp, a session ID, a user name) last.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre><span class="t-k">import</span> time
+SYSTEM = <span class="t-s">&quot;...your long, unchanging instructions...&quot;</span>   <span class="t-c"># the stable part, sent every call</span>
+BIG    = SYSTEM * <span class="t-s">2</span>   <span class="t-c"># most providers only cache prefixes above roughly 1,000 tokens</span>
+stamp  = f<span class="t-s">&quot;Request time: {time.time()}&quot;</span>   <span class="t-c"># different on every call</span>
+end    = BIG + <span class="t-s">&quot;\n&quot;</span> + stamp    <span class="t-c"># moving line LAST</span>
+start  = stamp + <span class="t-s">&quot;\n&quot;</span> + BIG    <span class="t-c"># moving line FIRST, identical characters</span></pre><p class="eg__say">Second call of each pair, counts reported by the provider:</p><pre class="eg__out"><span class="t-o">stamp at END   #2   input=1820  cached=1664  hit=91%</span>
+<span class="t-o">stamp at START #2   input=1820  cached=0     hit=0%</span></pre><div class="eg__cap">Same text, same length. Only the position of the changing line differs.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 640 210" role="img" aria-label="One moving value at the top of a prompt destroys the whole cache" xmlns="http://www.w3.org/2000/svg"><title>One moving value at the top of a prompt destroys the whole cache</title><defs><marker id="ah-cache" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><text x="160" y="22" text-anchor="middle" class="d-hi">timestamp at the top</text><rect x="20" y="32" width="280" height="26" rx="3" class="d-warn"/><text x="160.0" y="50.0" text-anchor="middle" class="d-t"></text><text x="160" y="50" text-anchor="middle" class="d-s">changes every call</text><rect x="20" y="62" width="280" height="26" rx="3" class="d-warn"/><text x="160.0" y="80.0" text-anchor="middle" class="d-t"></text><text x="160" y="80" text-anchor="middle" class="d-s">system prompt: wasted</text><rect x="20" y="92" width="280" height="26" rx="3" class="d-warn"/><text x="160.0" y="110.0" text-anchor="middle" class="d-t"></text><text x="160" y="110" text-anchor="middle" class="d-s">documents: wasted</text><text x="160" y="138" text-anchor="middle" class="d-t">0% reusable</text><text x="480" y="22" text-anchor="middle" class="d-hi">timestamp at the bottom</text><rect x="340" y="32" width="280" height="26" rx="3" class="d-ok"/><text x="480.0" y="50.0" text-anchor="middle" class="d-t"></text><text x="480" y="50" text-anchor="middle" class="d-s">system prompt: cached</text><rect x="340" y="62" width="280" height="26" rx="3" class="d-ok"/><text x="480.0" y="80.0" text-anchor="middle" class="d-t"></text><text x="480" y="80" text-anchor="middle" class="d-s">documents: cached</text><rect x="340" y="92" width="280" height="26" rx="3" class="d-warn"/><text x="480.0" y="110.0" text-anchor="middle" class="d-t"></text><text x="480" y="110" text-anchor="middle" class="d-s">changes every call</text><text x="480" y="138" text-anchor="middle" class="d-t">94% reusable</text><text x="320" y="178" text-anchor="middle" class="d-s">the cache keeps everything up to the first changed character, and throws away the rest</text><text x="320" y="198" text-anchor="middle" class="d-s">so put anything that moves at the end of your prompt</text></svg><figcaption><b>Prefix caching.</b> The saved work covers your prompt from the beginning up to the first character that changed. Put a timestamp on line one and everything after it has to be recomputed, at full price, every single call. Move it to the end and the expensive stable part is free.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">5</div><h3 class="concept__t">Cache hit rate is the number to watch</h3><p class="concept__b">Your <strong>cache hit rate</strong> is the share of input tokens served from the provider's store instead of billed at full price. Most providers report it in the response usage block as <code>cached_tokens</code>, so you can measure it rather than assume it. A stubborn zero usually means a prefix under the provider's minimum (often around 1,000 tokens), something changing at the top of your prompt, or a gap long enough that the cache expired. On an input-heavy agent, going from 0% to 90% cuts more than switching to a cheaper model usually does.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre>resp = <span class="t-f">chat_raw</span>([{<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: question}])   <span class="t-c"># chat_raw returns the whole reply, chat returns only the text</span>
+u = resp.usage
+cached = u.prompt_tokens_details.cached_tokens
+<span class="t-f">print</span>(u.prompt_tokens, cached, f<span class="t-s">&quot;{cached / u.prompt_tokens:.0%}&quot;</span>)</pre><p class="eg__say">1820 1664 91%</p><p class="eg__say">On Sol at $5.00/M fresh input and $0.50/M cached input:</p><pre class="eg__out"><span class="t-o">no cache  : 1820 * 5.00             / 1e6 = $0.009100</span>
+<span class="t-o">91% cache : (156*5.00 + 1664*0.50)  / 1e6 = $0.001612  -&gt; 82% off the input bill</span></pre><p class="eg__say">1664 not 1790 because many providers count cached tokens in blocks of 128, rounding down.</p><div class="eg__cap">Where cached_tokens sits in the response, and what a 91% hit saves on Sol.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">6</div><h3 class="concept__t">Reasoning effort is a money dial</h3><p class="concept__b">A reasoning model writes hidden thinking tokens before it answers, and you are billed for those at the output rate. Most providers expose an effort setting (usually low, medium or high) that controls how much thinking it does. High effort on a question that needed no thought is the most common way people waste money without noticing. Set it low by default and raise it only where you can show a measured accuracy gain.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>effort</th><th>thinking tokens</th><th>answer tokens</th><th>output cost on Sol</th><th>correct out of 20</th></tr></thead><tbody><tr><td>low</td><td>40</td><td>58</td><td>$0.00294</td><td>18</td></tr><tr><td>medium</td><td>320</td><td>61</td><td>$0.01143</td><td>19</td></tr><tr><td>high</td><td>1,900</td><td>63</td><td>$0.05889</td><td>19</td></tr></tbody></table><div class="eg__cap">Illustrative run, not measured: high cost 20x low and beat medium by nothing.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">7</div><h3 class="concept__t">Routing easy work to a cheap model</h3><p class="concept__b">Routing means deciding per request which model gets the job instead of sending everything to the strongest one. Most real traffic is easy (reformatting, extraction, short answers drawn from text you already supplied), so a cheap tier for that and the strong tier for hard cases often cuts the bill by half. Two honest costs come with it: your router can be wrong, and escalating a bad cheap answer means you paid twice for that request. Report the saving and the mistake count together, because the saving on its own means nothing.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>line</th><th>calls</th><th>cost</th><th>note</th></tr></thead><tbody><tr><td>strong only, all 20</td><td>20</td><td>$0.126000</td><td>the baseline you compare against</td></tr><tr><td>router sent to cheap</td><td>12</td><td>$0.003024</td><td>Luna at $0.20 in / $1.20 out</td></tr><tr><td>router sent to strong</td><td>8</td><td>$0.050400</td><td>Sol at $5.00 in / $30.00 out</td></tr><tr><td>escalations, redone on strong</td><td>3</td><td>$0.018900</td><td>these 3 were paid for twice</td></tr><tr><td>router total</td><td>23</td><td>$0.072324</td><td>42.6% saved, 3 cheap answers wrong</td></tr></tbody></table><div class="eg__cap">20 questions at 912 in / 58 out: 42.6% saved, and 3 paid for twice.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">8</div><h3 class="concept__t">Benchmarks stop separating models</h3><p class="concept__b">A benchmark is <strong>saturated</strong> when the good models bunch near the top and the gaps stop meaning anything. GPQA Diamond, a hard science question set, is in that state, so 92% against 93% tells you almost nothing. Humanity's Last Exam and ARC-AGI-3 still separate models in August 2026. Check who published the number too, because a vendor comparing itself with a rival picked the tasks, the prompts and the settings.</p>
+        <div class="eg"><div class="eg__h">Example</div><p>GPQA Diamond holds 198 questions. A vendor chart showing 93% against a rival's 92% is 184 correct against 182: a two-question gap, on a set whose prompts and settings the vendor chose. Now run your own 20 real inputs with answers you checked by hand. If one model gets 17 and the other 13, that is four questions on work you actually do, and it is the only number that answers your question.</p><div class="eg__cap">One point on GPQA Diamond is two questions out of 198.</div></div>
+        </div>
+        </div></section>
+        <section class="section section--try"><h2 class="section__h" data-stamp="hands on"><span>Try it yourself</span></h2>
+        <p class="small muted" style="margin-bottom:6px">Work out what your agent costs</p>
+        <div data-widget="cost"></div>
+        <p class="small muted" style="margin-bottom:6px">Break your own cache and watch it cost you</p>
+        <div data-widget="cacheprefix"></div>
+        </section>
+        <div class="note note--gap"><div class="note__t">Worth knowing</div><p>Any video about model prices is out of date within weeks, so treat the numbers here as a worked example rather than a current quote. Every price is a list price checked on 5 August 2026, and large customers negotiate below list, so re-check the provider's own pricing page before you commit to a budget. One figure in the lab table is openly an estimate: only the GPT-5.6 Sol cached input price ($0.50) is published, and the other cached prices apply the rough one tenth rule.</p></div>
+        <section class="section section--more"><h2 class="section__h" data-stamp="optional"><span>If you want to go deeper</span></h2>
+        <p class="small muted">Optional.</p>
+        <div data-videos="more"></div></section>
+        <section class="section section--lab"><h2 class="section__h" data-stamp="hands on"><span>Lab: follow along</span></h2>
+        <div data-setupbanner></div>
+        <div class="note note--warn" data-path="offline" hidden><div class="note__t">This lab changes on the offline path</div><p>Your model costs nothing per token, so there is no bill to reduce. Route between <b>two local models of different sizes</b> instead (for example <code>llama3.2:1b</code> as cheap and <code>llama3.2:3b</code> as strong), and measure two things: the real saving in <b>seconds</b>, and the <b>would-have-cost</b> if the same token counts had gone to hosted models at the published prices. The published prices are public, so this arithmetic is honest as long as you label it. Set <code>"path": "offline"</code> in <code>router_report.json</code> and the checker will accept zero real spend and require the seconds instead.</p></div>
+        <p class="prose">You will run one realistic task, read the exact token counts back out of the provider's response, and turn those counts into a dollar figure for five different models. Then you will move a single line in the prompt and watch the cached-token count change, which is the cheapest way to see why the order of your prompt costs you money. Everything runs through the shared helper at <code>my-work/labs/_shared/llm.py</code>, so you need no new key and no new account, and you switch model provider by editing <code>LLM_PROVIDER</code> in your <code>.env</code> file, never by editing lab code. Before you start, make sure <code>python llm.py</code> works, see <code>setup.html</code>.</p>
+        <p class="small muted">Code given, every line explained.</p>
+        <ol class="steps">
+        <li><h3>Make the folder and check your provider</h3><p>Create <code>my-work/labs/lab06</code> next to your other labs, then run this one small file before anything else. <code>whoami()</code> comes from the shared helper and prints four facts on one line: which provider you are pointed at, which model name will be sent, which address the call goes to, and whether your API key was found. You should see a line ending in <code>key=set</code>, or <code>key=none needed</code> if you chose a local model that runs on your own machine. If it ends in <code>key=MISSING</code>, every later step in this lab will fail on its first call with an error that looks like a code bug but is really a missing line in <code>.env</code>. Nothing here calls the model, so this costs you nothing and takes about a second. Run it first, because a wrong provider name here would waste the next twenty minutes.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab06/check.py</span>
+<span class="t-k">import</span> pathlib
+<span class="t-k">import</span> sys
+
+sys.path.<span class="t-f">append</span>(<span class="t-f">str</span>(pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parents[<span class="t-s">1</span>] / <span class="t-s">&quot;_shared&quot;</span>))
+<span class="t-k">from</span> llm <span class="t-k">import</span> whoami
+
+<span class="t-f">print</span>(<span class="t-f">whoami</span>())</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>sys.path.append(str(pathlib.Path(__file__).resolve().parents[1] / &quot;_shared&quot;))</dt><dd><code>__file__</code> is the path of this script and <code>.resolve()</code> turns it into a full path from the drive root, so it works no matter which folder you run the command from. <code>parents[0]</code> would be <code>lab06</code>, so <code>parents[1]</code> is <code>labs</code>, and joining <code>_shared</code> onto it points at the shared helper folder. Adding that folder to <code>sys.path</code> is what makes the next line able to find <code>llm.py</code>.</dd>
+        <dt>from llm import whoami</dt><dd>This pulls in just one function from the shared helper instead of the whole module. It only works because the line above put the shared folder on the import path first, which is why the import sits below the <code>sys.path</code> line rather than at the top with the others.</dd>
+        <dt>print(whoami())</dt><dd>Prints the provider, model, endpoint and key status as a single readable line. It makes no network call, so it tells you what you are about to use without spending anything or waiting for a server.</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>If the line ends in <code>key=MISSING</code>, your <code>.env</code> file was not found from the folder you ran the command in, because the helper starts looking for <code>.env</code> in your current directory and works upward.</span></div>
+        </li>
+        <li><h3>Write the task you are going to measure</h3><p>This step writes the one real task you will measure, and the shape of the prompt is the lesson rather than the words in it. A prompt cache is a store the provider keeps of the model's working-out for text it has already read, and it charges you roughly a tenth of the normal price when you send that same text again. The catch is that the reuse has to start at the very first character and run forward without a break, so the long unchanging policy block goes first and the short changing question goes last. The <code>usage_of</code> function then reads the real token counts out of the <code>usage</code> block that the provider attaches to its response, and falls back to a rough character count when there is no such block, so this file works on free tiers and on a model running on your own laptop. It hands back four things: input tokens, output tokens, cached input tokens, and a label saying whether those came from the provider or from the estimate, and that label matters more than the numbers do. Running this file prints the model's answer plus four counts, and writes them to <code>usage.json</code> so the next step can price them.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab06/measure.py</span>
+<span class="t-s">&quot;&quot;&quot;Measure what one real task costs in tokens. Writes usage.json.&quot;&quot;&quot;</span>
+<span class="t-k">import</span> json
+<span class="t-k">import</span> pathlib
+<span class="t-k">import</span> sys
+
+sys.path.<span class="t-f">append</span>(<span class="t-f">str</span>(pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parents[<span class="t-s">1</span>] / <span class="t-s">&quot;_shared&quot;</span>))
+<span class="t-k">from</span> llm <span class="t-k">import</span> chat_raw, whoami  <span class="t-c"># noqa: E402</span>
+
+RULES = <span class="t-s">&quot;&quot;&quot;\
+- Returns are accepted within 30 days of delivery with proof of purchase.
+- Faulty items carry a 24 month warranty starting on the delivery date.
+- A warranty claim needs the order number and a photo of the fault.
+- Refunds go back to the original payment method within 5 working days.
+- Delivery charges are refunded only if the item arrived faulty.
+- Never promise a replacement before the warranty check is done.
+&quot;&quot;&quot;</span>
+
+CATEGORIES = [<span class="t-s">&quot;blenders&quot;</span>, <span class="t-s">&quot;kettles&quot;</span>, <span class="t-s">&quot;toasters&quot;</span>, <span class="t-s">&quot;vacuum cleaners&quot;</span>,
+              <span class="t-s">&quot;fans&quot;</span>, <span class="t-s">&quot;heaters&quot;</span>, <span class="t-s">&quot;microwaves&quot;</span>, <span class="t-s">&quot;coffee machines&quot;</span>]
+
+<span class="t-c"># The long, unchanging part goes FIRST. That is the bit a cache can reuse.</span>
+SYSTEM = <span class="t-s">&quot;You are the support assistant for a home appliance shop.\n\n&quot;</span> + <span class="t-s">&quot;\n&quot;</span>.<span class="t-f">join</span>(
+    f<span class="t-s">&quot;Policy for {c}:\n{RULES}&quot;</span> <span class="t-k">for</span> c <span class="t-k">in</span> CATEGORIES
+)
+
+QUESTION = (<span class="t-s">&quot;A customer bought a blender 40 days ago and it has stopped &quot;</span>
+            <span class="t-s">&quot;working. What do we do? Answer in under 60 words.&quot;</span>)
+
+
+<span class="t-k">def</span> <span class="t-f">usage_of</span>(resp, sent: str, got: str):
+    <span class="t-s">&quot;&quot;&quot;Real numbers if the provider reports them, a rough count if it does not.&quot;&quot;&quot;</span>
+    u = <span class="t-f">getattr</span>(resp, <span class="t-s">&quot;usage&quot;</span>, <span class="t-k">None</span>)
+    <span class="t-k">if</span> u <span class="t-k">and</span> <span class="t-f">getattr</span>(u, <span class="t-s">&quot;prompt_tokens&quot;</span>, <span class="t-k">None</span>):
+        details = <span class="t-f">getattr</span>(u, <span class="t-s">&quot;prompt_tokens_details&quot;</span>, <span class="t-k">None</span>)
+        cached = (<span class="t-f">getattr</span>(details, <span class="t-s">&quot;cached_tokens&quot;</span>, <span class="t-s">0</span>) <span class="t-k">or</span> <span class="t-s">0</span>) <span class="t-k">if</span> details <span class="t-k">else</span> <span class="t-s">0</span>
+        <span class="t-k">return</span> u.prompt_tokens, u.completion_tokens, cached, <span class="t-s">&quot;reported&quot;</span>
+    <span class="t-c"># Four characters per token is a rough English rule, usually within ~20%.</span>
+    <span class="t-k">return</span> <span class="t-f">len</span>(sent) // <span class="t-s">4</span>, <span class="t-f">len</span>(got) // <span class="t-s">4</span>, <span class="t-s">0</span>, <span class="t-s">&quot;estimated&quot;</span>
+
+
+<span class="t-k">if</span> __name__ == <span class="t-s">&quot;__main__&quot;</span>:
+    <span class="t-f">print</span>(<span class="t-f">whoami</span>())
+    resp = <span class="t-f">chat_raw</span>(
+        [{<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;system&quot;</span>, <span class="t-s">&quot;content&quot;</span>: SYSTEM},
+         {<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: QUESTION}],
+        temperature=<span class="t-s">0</span>, max_tokens=<span class="t-s">200</span>,
+    )
+    answer = (resp.choices[<span class="t-s">0</span>].message.content <span class="t-k">or</span> <span class="t-s">&quot;&quot;</span>).<span class="t-f">strip</span>()
+    i, o, cached, how = <span class="t-f">usage_of</span>(resp, SYSTEM + QUESTION, answer)
+
+    pathlib.<span class="t-f">Path</span>(<span class="t-s">&quot;usage.json&quot;</span>).<span class="t-f">write_text</span>(json.<span class="t-f">dumps</span>(
+        {<span class="t-s">&quot;model&quot;</span>: <span class="t-f">getattr</span>(resp, <span class="t-s">&quot;model&quot;</span>, <span class="t-s">&quot;unknown&quot;</span>), <span class="t-s">&quot;counts&quot;</span>: how,
+         <span class="t-s">&quot;input_tokens&quot;</span>: i, <span class="t-s">&quot;output_tokens&quot;</span>: o, <span class="t-s">&quot;cached_input_tokens&quot;</span>: cached},
+        indent=<span class="t-s">2</span>), encoding=<span class="t-s">&quot;utf-8&quot;</span>)
+
+    <span class="t-f">print</span>(<span class="t-s">&quot;\nanswer:&quot;</span>, answer)
+    <span class="t-f">print</span>(f<span class="t-s">&quot;\ninput tokens : {i}  ({how})&quot;</span>)
+    <span class="t-f">print</span>(f<span class="t-s">&quot;output tokens: {o}&quot;</span>)
+    <span class="t-f">print</span>(f<span class="t-s">&quot;cached input : {cached}&quot;</span>)
+    <span class="t-f">print</span>(f<span class="t-s">&quot;ratio        : {i / max(o, 1):.1f} input tokens per output token&quot;</span>)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>SYSTEM = &quot;You are the support assistant for a home appliance shop.\n\n&quot; + &quot;\n&quot;.join(f&quot;Policy for {c}:\n{RULES}&quot; for c in CATEGORIES)</dt><dd>This glues one copy of the same rules onto the prompt for each of the eight categories, which is a realistic way that real system prompts get long. It is written as a loop so you get roughly 900 tokens of stable prefix without typing 3,500 characters by hand. That length is deliberate, because a prompt too short to cache would make step 6 pointless.</dd>
+        <dt>u = getattr(resp, &quot;usage&quot;, None)</dt><dd><code>getattr</code> with a default reads an attribute that may not be there and hands back <code>None</code> instead of crashing. Some OpenAI-compatible servers, especially local ones, return no usage block at all, and a plain <code>resp.usage</code> would raise <code>AttributeError</code> and end the lab.</dd>
+        <dt>cached = (getattr(details, &quot;cached_tokens&quot;, 0) or 0) if details else 0</dt><dd>The cached count lives one level down, inside <code>prompt_tokens_details</code>, so this reads it only if that object exists. The <code>or 0</code> converts a reported <code>None</code> into a real zero, so the division in the last print line cannot fail later.</dd>
+        <dt>return len(sent) // 4, len(got) // 4, 0, &quot;estimated&quot;</dt><dd>This is the fallback when the provider reports nothing, using the rough rule of four characters per token. <code>//</code> is integer division, so you get a whole number of tokens rather than a decimal, and the label <code>estimated</code> travels with the numbers so you can never mistake a guess for a measurement.</dd>
+        <dt>temperature=0, max_tokens=200</dt><dd>Temperature controls how much randomness the model uses when picking each next word, and 0 makes the answer as repeatable as it can be, so two runs are comparable. <code>max_tokens</code> caps how much the model may write, which stops one rambling answer from distorting your output count and your bill.</dd>
+        <dt>if __name__ == &quot;__main__&quot;:</dt><dd>Everything that actually calls the model sits behind this guard, so the call only happens when you run the file directly. That is what lets step 6 import <code>SYSTEM</code>, <code>QUESTION</code> and <code>usage_of</code> from this file without firing an extra paid request.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>The fallback estimate uses one formula:
+
+  estimated_tokens = number_of_characters / 4
+
+Symbols:
+  number_of_characters = every character in the text, including spaces, punctuation and newlines
+  4 = the average number of characters per token for ordinary English text
+  a token = a chunk of text the model reads as one unit, often a word or part of a word
+
+Worked example, using the exact strings in this file:
+  RULES is 416 characters.
+  Each category block is &quot;Policy for &lt;name&gt;:&quot; plus a newline plus RULES, so about 429 characters plus the length of the name.
+  Eight blocks plus the opening sentence gives SYSTEM = 3,571 characters.
+  QUESTION = 108 characters.
+  Total sent = 3,571 + 108 = 3,679 characters.
+  3,679 / 4 = 919 estimated tokens.
+  The provider in the sample run reported 912 tokens.
+  Difference = 919 - 912 = 7 tokens, which is 7 / 912 = 0.008, so 0.8% off.
+
+Intuition: the four-characters rule is close enough to sketch a budget with, and wrong enough that you should never quote it as if you had measured it.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span><code>pathlib.Path(&quot;usage.json&quot;)</code> writes to the folder you are standing in, not next to the script, so run this from inside <code>my-work/labs/lab06</code> or step 4 will not find the file.</span></div>
+        </li>
+        <li><h3>Run it and look at the ratio</h3><p>Run <code>python measure.py</code> and read the four numbers it prints. Expect input in the high hundreds and output well under a hundred, giving a ratio of roughly fifteen input tokens for every output token. That ratio is the most useful number in this lab, because it tells you which of the two price columns actually decides your bill. Output tokens cost about six times more each than input tokens, so any ratio above six means the input column is the bigger half, and yours is around fifteen. Your exact numbers will differ from the ones shown here, because different providers split text into tokens differently and the model writes a slightly different answer each time. If the label says <code>estimated</code>, your provider returned no usage block, so the counts came from the four-characters-per-token approximation and you should say so every time you quote them.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>python measure.py
+
+input tokens : <span class="t-s">912</span>  (reported)
+output tokens: <span class="t-s">58</span>
+cached input : <span class="t-s">0</span>
+ratio        : <span class="t-s">15.7</span> input tokens per output token</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>input tokens : 912  (reported)</dt><dd>This counts the whole system prompt, the question, and the small amount of formatting the provider wraps around your messages. The word <code>reported</code> means these came from the provider's own counter, so you can quote them as facts rather than estimates.</dd>
+        <dt>output tokens: 58</dt><dd>Only the words the model wrote back are counted here. You asked for under 60 words and got 58 tokens, so words and tokens land close together in short English answers, but they are not the same thing.</dd>
+        <dt>cached input : 0</dt><dd>Zero is the expected answer on a first run, because nothing identical has been sent yet, so there is nothing stored to reuse. Step 6 is where this number is supposed to move.</dd>
+        <dt>ratio        : 15.7 input tokens per output token</dt><dd>This is simply input divided by output, printed to one decimal place by the <code>:.1f</code> format. It is the single number you carry into the pricing step, because it tells you whether input price or output price is the one to shop on.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Two pieces of arithmetic sit behind this line.
+
+1) The ratio
+  ratio = input_tokens / output_tokens
+  912 / 58 = 15.7 input tokens for every output token.
+
+2) Which price column dominates
+  input_share_of_bill = (input_tokens x price_in) / (input_tokens x price_in + output_tokens x price_out)
+
+Symbols:
+  price_in = dollars per million input tokens
+  price_out = dollars per million output tokens
+
+Worked example with GPT-5.6 Sol at $5 in and $30 out per million:
+  input part  = 912 x 5  = 4,560
+  output part = 58 x 30   = 1,740
+  total       = 6,300
+  input share = 4,560 / 6,300 = 0.724, so 72% of the bill is input.
+
+The break-even rule:
+  input dominates whenever ratio &gt; price_out / price_in
+  For Sol that is 30 / 5 = 6. Your ratio is 15.7, which is above 6, so input wins.
+
+Intuition: each output token costs more, but you send far more input than you get back, so the side you send is usually the side you pay for.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If the label says <code>estimated</code>, your ratio is a guess divided by a guess, so do not put it into a budget without writing the word estimated next to it.</span></div>
+        </li>
+        <li><h3>Write the price table</h3><p>This step turns tokens into money, and it is short because the cost model really is one line of arithmetic. Prices are always quoted per million tokens, so every figure has to be divided by 1,000,000 at the end, and forgetting that is the most common mistake in this whole lab. <code>PRICES</code> holds five models with three numbers each: the input price, the output price, and the cached input price, all in dollars per million tokens. These are list prices checked on 5 August 2026, and large customers negotiate below list, so treat the whole table as a worked example rather than a live quote. There is no context window column, because only the GPT-5.6 figure (one million tokens for all three tiers) is confirmed here, and you should read each provider's own page for the rest. Be honest about one thing when you use this: only the GPT-5.6 Sol cached price is published, and the other four cached figures apply the rough one tenth rule, so they are estimates.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab06/price.py</span>
+<span class="t-s">&quot;&quot;&quot;Turn tokens into money.&quot;&quot;&quot;</span>
+<span class="t-k">import</span> json
+<span class="t-k">import</span> pathlib
+
+<span class="t-c"># Dollars per MILLION tokens, list prices checked 5 August 2026.</span>
+<span class="t-c"># The GPT-5.6 Sol cached price is published. The other cached figures use the</span>
+<span class="t-c"># rough &quot;cached input costs about a tenth&quot; rule, so treat them as estimates.</span>
+PRICES = {
+    <span class="t-s">&quot;GPT-5.6 Sol&quot;</span>:      {<span class="t-s">&quot;in&quot;</span>: <span class="t-s">5.00</span>, <span class="t-s">&quot;out&quot;</span>: <span class="t-s">30.00</span>, <span class="t-s">&quot;cached_in&quot;</span>: <span class="t-s">0.50</span>},
+    <span class="t-s">&quot;GPT-5.6 Terra&quot;</span>:    {<span class="t-s">&quot;in&quot;</span>: <span class="t-s">2.00</span>, <span class="t-s">&quot;out&quot;</span>: <span class="t-s">12.00</span>, <span class="t-s">&quot;cached_in&quot;</span>: <span class="t-s">0.20</span>},
+    <span class="t-s">&quot;GPT-5.6 Luna&quot;</span>:     {<span class="t-s">&quot;in&quot;</span>: <span class="t-s">0.20</span>, <span class="t-s">&quot;out&quot;</span>: <span class="t-s">1.20</span>,  <span class="t-s">&quot;cached_in&quot;</span>: <span class="t-s">0.02</span>},
+    <span class="t-s">&quot;Gemini 3.1 Pro&quot;</span>:   {<span class="t-s">&quot;in&quot;</span>: <span class="t-s">2.00</span>, <span class="t-s">&quot;out&quot;</span>: <span class="t-s">12.00</span>, <span class="t-s">&quot;cached_in&quot;</span>: <span class="t-s">0.20</span>},
+    <span class="t-s">&quot;Gemini 3.6 Flash&quot;</span>: {<span class="t-s">&quot;in&quot;</span>: <span class="t-s">1.50</span>, <span class="t-s">&quot;out&quot;</span>: <span class="t-s">7.50</span>,  <span class="t-s">&quot;cached_in&quot;</span>: <span class="t-s">0.15</span>},
+}
+
+
+<span class="t-k">def</span> <span class="t-f">cost</span>(in_tok, out_tok, p, hit=<span class="t-s">0.0</span>):
+    <span class="t-s">&quot;&quot;&quot;Cost of one call in dollars. hit = share of input served from cache.&quot;&quot;&quot;</span>
+    fresh = in_tok * (<span class="t-s">1</span> - hit)
+    reused = in_tok * hit
+    <span class="t-k">return</span> (fresh * p[<span class="t-s">&quot;in&quot;</span>] + reused * p[<span class="t-s">&quot;cached_in&quot;</span>] + out_tok * p[<span class="t-s">&quot;out&quot;</span>]) / <span class="t-s">1e6</span>
+
+
+<span class="t-k">def</span> <span class="t-f">table</span>(title, in_tok, out_tok, runs=<span class="t-s">1000</span>, hit=<span class="t-s">0.0</span>):
+    <span class="t-f">print</span>(f<span class="t-s">&quot;\n{title}: {in_tok:,} in / {out_tok:,} out, &quot;</span>
+          f<span class="t-s">&quot;{runs:,} runs, cache hit {hit:.0%}&quot;</span>)
+    <span class="t-f">print</span>(f<span class="t-s">&quot;{'model':&lt;18}{'per call':&gt;12}{'per 1k runs':&gt;14}&quot;</span>)
+    <span class="t-k">for</span> name, p <span class="t-k">in</span> PRICES.<span class="t-f">items</span>():
+        one = <span class="t-f">cost</span>(in_tok, out_tok, p, hit)
+        <span class="t-f">print</span>(f<span class="t-s">&quot;{name:&lt;18}{'$' + format(one, '.5f'):&gt;12}&quot;</span>
+              f<span class="t-s">&quot;{'$' + format(one * runs, '.2f'):&gt;14}&quot;</span>)
+
+
+path = pathlib.<span class="t-f">Path</span>(<span class="t-s">&quot;usage.json&quot;</span>)
+<span class="t-k">if</span> <span class="t-k">not</span> path.<span class="t-f">exists</span>():
+    <span class="t-k">raise</span> <span class="t-f">SystemExit</span>(<span class="t-s">&quot;Run measure.py first - it writes usage.json.&quot;</span>)
+u = json.<span class="t-f">loads</span>(path.<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>))
+i, o = u[<span class="t-s">&quot;input_tokens&quot;</span>], u[<span class="t-s">&quot;output_tokens&quot;</span>]
+
+<span class="t-f">table</span>(<span class="t-s">&quot;Your measured task&quot;</span>, i, o)
+<span class="t-f">table</span>(<span class="t-s">&quot;Same task, 90% of the input cached&quot;</span>, i, o, hit=<span class="t-s">0.90</span>)
+<span class="t-c"># An agent re-sends its whole history and its tool results on every turn.</span>
+<span class="t-f">table</span>(<span class="t-s">&quot;The same job inside an agent loop&quot;</span>, <span class="t-s">60_000</span>, o)
+<span class="t-f">table</span>(<span class="t-s">&quot;Agent loop with a stable prefix cached&quot;</span>, <span class="t-s">60_000</span>, o, hit=<span class="t-s">0.90</span>)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>&quot;GPT-5.6 Sol&quot;:      {&quot;in&quot;: 5.00, &quot;out&quot;: 30.00, &quot;cached_in&quot;: 0.50},</dt><dd>Three prices per model, all in dollars per million tokens. Notice the pattern that holds across every row: output is about six times input, and cached input is about a tenth of input, which is where the two rules of thumb in this module come from.</dd>
+        <dt>fresh = in_tok * (1 - hit)  /  reused = in_tok * hit</dt><dd><code>hit</code> is your cache hit rate written as a fraction between 0 and 1, so 0.90 means 90% of your input was already stored. These two lines split the input tokens into the part billed at full price and the part billed at the cheap cached price, which is exactly how providers bill it.</dd>
+        <dt>return (fresh * p[&quot;in&quot;] + reused * p[&quot;cached_in&quot;] + out_tok * p[&quot;out&quot;]) / 1e6</dt><dd>This single line is the whole cost model. The three products are the three things you are charged for, and the <code>/ 1e6</code> converts from per-million prices into actual dollars for this one call.</dd>
+        <dt>print(f&quot;{'model':&lt;18}{'per call':&gt;12}{'per 1k runs':&gt;14}&quot;)</dt><dd><code>&amp;lt;18</code> pads a value to 18 characters and lines it up on the left, while <code>&amp;gt;12</code> pads to 12 and lines it up on the right. Numbers only compare easily when their last digits sit in the same column, which is the only reason this formatting exists.</dd>
+        <dt>if not path.exists(): raise SystemExit(&quot;Run measure.py first - it writes usage.json.&quot;)</dt><dd><code>SystemExit</code> stops the program with a plain sentence instead of a stack trace. It matters because the most likely failure here is skipping step 3, and a readable message points you straight at the fix.</dd>
+        <dt>table(&quot;The same job inside an agent loop&quot;, 60_000, o)</dt><dd>This keeps your own measured output count but swaps the input for 60,000 tokens, which is what one step of a modest agent carries once it re-sends its history and its tool results. The underscore in <code>60_000</code> is only a digit separator that Python ignores, there to make the number readable.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>The full cost model, in ordinary characters:
+
+  cost_dollars = ( in_tok x (1 - hit) x price_in
+                 + in_tok x hit x price_cached
+                 + out_tok x price_out ) / 1,000,000
+
+Symbols:
+  in_tok      = input tokens you send on this call
+  out_tok     = output tokens the model writes back
+  hit         = share of input served from cache, 0 to 1 (0.90 means 90%)
+  price_in    = dollars per million fresh input tokens
+  price_cached= dollars per million cached input tokens
+  price_out   = dollars per million output tokens
+  1,000,000   = because every published price is per million tokens
+
+Worked example, your measured 912 in and 58 out, no cache, on GPT-5.6 Sol:
+  fresh input  = 912 x (1 - 0) = 912, and 912 x 5 = 4,560
+  reused input = 912 x 0 = 0, and 0 x 0.50 = 0
+  output       = 58 x 30 = 1,740
+  sum          = 4,560 + 0 + 1,740 = 6,300
+  cost         = 6,300 / 1,000,000 = $0.00630 per call
+  per 1,000 runs = $0.00630 x 1,000 = $6.30
+
+Same numbers on GPT-5.6 Luna at $0.20 in and $1.20 out:
+  912 x 0.20 = 182.4, and 58 x 1.20 = 69.6, sum 252
+  252 / 1,000,000 = $0.000252 per call, so $0.25 per 1,000 runs
+
+Spread between them = 6,300 / 252 = 25.0, so exactly twenty-five to one.
+
+Intuition: only five numbers decide your bill, two of which you measured yourself, so this is arithmetic rather than guesswork.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Prices are per million, so if a per call figure comes out in whole dollars instead of fractions of a cent, you dropped the <code>/ 1e6</code> and every number is a million times too big.</span></div>
+        </li>
+        <li><h3>Read the four tables</h3><p>Run <code>python price.py</code> and read the four tables in order, because each one changes exactly one thing from the one before it. The first is your real job at list price, and the gap between the dearest and cheapest row is twenty-five to one for the identical 912 tokens. The second changes nothing except assuming 90% of the input is served from cache, and the total drops by more than half. The third replaces your input count with 60,000 tokens, which is roughly what one step of a modest agent carries once it re-sends its conversation history and its tool results, and the per-thousand figure jumps from single dollars into the hundreds. The fourth applies the cache to that agent, and on Sol it saves more money than downgrading Sol to Terra would have saved you. One warning before you quote any of it: this table prices five named models no matter which model you actually called, so the top row is not a receipt for what you just spent.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>Your measured task: <span class="t-s">912</span> <span class="t-k">in</span> / <span class="t-s">58</span> out, <span class="t-s">1</span>,<span class="t-s">000</span> runs, cache hit <span class="t-s">0</span>%
+model                 per call   per <span class="t-s">1k</span> runs
+GPT-<span class="t-s">5.6</span> Sol           $<span class="t-s">0.00630</span>         $<span class="t-s">6.30</span>
+GPT-<span class="t-s">5.6</span> Luna          $<span class="t-s">0.00025</span>         $<span class="t-s">0.25</span>
+
+The same job inside an agent loop: <span class="t-s">60</span>,<span class="t-s">000</span> <span class="t-k">in</span> / <span class="t-s">58</span> out, <span class="t-s">1</span>,<span class="t-s">000</span> runs, cache hit <span class="t-s">0</span>%
+GPT-<span class="t-s">5.6</span> Sol           $<span class="t-s">0.30174</span>       $<span class="t-s">301.74</span>
+GPT-<span class="t-s">5.6</span> Luna          $<span class="t-s">0.01207</span>        $<span class="t-s">12.07</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>Your measured task: 912 in / 58 out, 1,000 runs, cache hit 0%</dt><dd>The header repeats every assumption behind the rows below it. That is deliberate, because a cost table pasted into a document without its assumptions is a number nobody can check, including you in three months.</dd>
+        <dt>GPT-5.6 Sol           $0.00630         $6.30</dt><dd>Two columns for the same fact: what one call costs, and what a thousand calls cost. The per call figure is too small for anyone to reason about, which is exactly why the second column is there.</dd>
+        <dt>GPT-5.6 Luna          $0.00025         $0.25</dt><dd>Identical task, identical token counts, twenty-five times cheaper. This is the row that shows why measuring first is worth doing, because the choice between these two is worth real money only once you know your token counts.</dd>
+        <dt>The same job inside an agent loop: 60,000 in / 58 out</dt><dd>Only the input number changed, from 912 to 60,000, and the output stayed at your measured 58. That is what makes the comparison honest, since the model is doing the same size of thinking with a much bigger pile of context in front of it.</dd>
+        <dt>GPT-5.6 Sol           $0.30174       $301.74</dt><dd>The same shape of task now costs about 48 times more, purely because of input. This is the number that explains why agent builders shop on input price and cache hit rate rather than on benchmark scores.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Compare the four tables with the same cost formula from step 4.
+
+1) Your task on Sol, no cache
+  912 x 5 = 4,560 plus 58 x 30 = 1,740, total 6,300, so $6.30 per 1,000 runs.
+  Input share = 4,560 / 6,300 = 72%.
+
+2) Your task on Sol at 90% cache
+  fresh  = 912 x 0.10 = 91.2, and 91.2 x 5 = 456
+  reused = 912 x 0.90 = 820.8, and 820.8 x 0.50 = 410.4
+  output = 58 x 30 = 1,740
+  total  = 2,606.4, so $2.61 per 1,000 runs
+  Saving = 1 - (2,606.4 / 6,300) = 0.586, so 59% off.
+
+3) Agent loop on Sol, no cache
+  60,000 x 5 = 300,000 plus 1,740 = 301,740, so $301.74 per 1,000 runs.
+  Input share = 300,000 / 301,740 = 99.4%, so output is now a rounding error.
+  That is 301.74 / 6.30 = 48 times your original task.
+
+4) Agent loop on Sol at 90% cache
+  fresh  = 6,000 x 5 = 30,000
+  reused = 54,000 x 0.50 = 27,000
+  output = 1,740
+  total  = 58,740, so $58.74 per 1,000 runs, an 80.5% cut.
+
+Now the comparison that matters. The same agent moved down to Terra with no caching:
+  60,000 x 2 = 120,000 plus 58 x 12 = 696, total 120,696, so $120.70 per 1,000 runs.
+  Caching on the expensive model ($58.74) beats downgrading to the mid model ($120.70).
+
+The general rule behind that, for any model:
+  fraction saved on input = hit x (1 - price_cached / price_in)
+  at 90% hit and a one tenth cached price: 0.9 x (1 - 0.1) = 0.81, so 81% off the input part.
+
+Intuition: changing how you send the prompt often saves more than changing which model reads it.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>The model column is a fixed list of five names, so if you ran this on a free Groq key or a local model your real spend was zero and none of these rows describes what you actually paid.</span></div>
+        </li>
+        <li><h3>Prove the prefix rule with your own money</h3><p>This is the step where you test the prefix rule instead of taking it on trust. The script sends the same text four times and changes exactly one thing: whether a timestamp sits at the end of the system prompt or at the start. With the timestamp at the end, the second call should report cached tokens, because everything before the timestamp matched the previous call character for character. With it at the start, the very first characters differ on every call, so nothing after them can be reused and the cached count should stay at zero, even though the text is the same length and says the same things. The system prompt is doubled first, because most providers only cache prefixes above roughly 1,000 tokens and your original prompt sits just under that line at about 900. If every number comes back zero, do not conclude the rule is wrong, because your provider may not report cached tokens at all or may not cache at this size, so check its documentation before deciding anything.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab06/cache_test.py</span>
+<span class="t-s">&quot;&quot;&quot;Show that a cache only reuses a matching prefix.&quot;&quot;&quot;</span>
+<span class="t-k">import</span> pathlib
+<span class="t-k">import</span> sys
+<span class="t-k">import</span> time
+
+sys.path.<span class="t-f">append</span>(<span class="t-f">str</span>(pathlib.<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parents[<span class="t-s">1</span>] / <span class="t-s">&quot;_shared&quot;</span>))
+<span class="t-k">from</span> llm <span class="t-k">import</span> chat_raw  <span class="t-c"># noqa: E402</span>
+<span class="t-k">from</span> measure <span class="t-k">import</span> QUESTION, SYSTEM, usage_of  <span class="t-c"># noqa: E402</span>
+
+BIG = SYSTEM * <span class="t-s">2</span>  <span class="t-c"># most providers only cache prefixes above roughly 1000 tokens</span>
+
+
+<span class="t-k">def</span> <span class="t-f">run</span>(label: str, system: str) -&gt; <span class="t-k">None</span>:
+    resp = <span class="t-f">chat_raw</span>([{<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;system&quot;</span>, <span class="t-s">&quot;content&quot;</span>: system},
+                     {<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: QUESTION}],
+                    temperature=<span class="t-s">0</span>, max_tokens=<span class="t-s">120</span>)
+    got = (resp.choices[<span class="t-s">0</span>].message.content <span class="t-k">or</span> <span class="t-s">&quot;&quot;</span>).<span class="t-f">strip</span>()
+    i, _o, cached, _how = <span class="t-f">usage_of</span>(resp, system + QUESTION, got)
+    <span class="t-f">print</span>(f<span class="t-s">&quot;{label:&lt;22} input={i:&lt;7} cached={cached:&lt;7} hit={cached / max(i, 1):.0%}&quot;</span>)
+
+
+<span class="t-k">for</span> n <span class="t-k">in</span> (<span class="t-s">1</span>, <span class="t-s">2</span>):  <span class="t-c"># first call warms the cache, second call should reuse it</span>
+    stamp = f<span class="t-s">&quot;Request time: {time.time()}&quot;</span>
+    <span class="t-f">run</span>(f<span class="t-s">&quot;stamp at END   #{n}&quot;</span>, BIG + <span class="t-s">&quot;\n&quot;</span> + stamp)
+
+<span class="t-k">for</span> n <span class="t-k">in</span> (<span class="t-s">1</span>, <span class="t-s">2</span>):
+    stamp = f<span class="t-s">&quot;Request time: {time.time()}&quot;</span>
+    <span class="t-f">run</span>(f<span class="t-s">&quot;stamp at START #{n}&quot;</span>, stamp + <span class="t-s">&quot;\n&quot;</span> + BIG)
+
+<span class="t-f">print</span>(<span class="t-s">&quot;\nSame text, same length, one difference: where the changing line sits.&quot;</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;If every number is 0, your provider does not report cached tokens or&quot;</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;does not cache at this size. Check its docs before concluding anything.&quot;</span>)</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>BIG = SYSTEM * 2</dt><dd>Multiplying a string by 2 in Python just repeats it, so this turns 3,571 characters into 7,142. That pushes the prefix from about 900 tokens to about 1,785, which clears the roughly 1,000 token minimum most providers require before they will cache anything at all.</dd>
+        <dt>from measure import QUESTION, SYSTEM, usage_of</dt><dd>This reuses the exact prompt and the exact counting code from step 2, so nothing can quietly differ between the two experiments. It costs you no extra API call only because <code>measure.py</code> keeps its own run behind the <code>if __name__ == &quot;__main__&quot;:</code> guard.</dd>
+        <dt>for n in (1, 2):</dt><dd>Two calls per arrangement, on purpose. The first call is what puts the text into the cache, and the second is the only one that can possibly hit it, so a single call would always show zero and prove nothing.</dd>
+        <dt>stamp = f&quot;Request time: {time.time()}&quot;</dt><dd><code>time.time()</code> returns the seconds since 1970 as a decimal number with fractions, so this line is guaranteed to be different on every single call. That is the whole point, because it stands in for the real-world timestamps, session IDs and user names that people put at the top of system prompts without thinking.</dd>
+        <dt>BIG + &quot;\n&quot; + stamp  versus  stamp + &quot;\n&quot; + BIG</dt><dd>Same characters, same total length, same meaning to the model. The only difference is which end the changing line sits at, and that difference is the entire experiment.</dd>
+        <dt>hit={cached / max(i, 1):.0%}</dt><dd>Cached tokens divided by input tokens, formatted as a whole percentage by <code>:.0%</code>. <code>max(i, 1)</code> guards against dividing by zero if a provider reports an input count of 0, which would crash the script rather than print a useful line.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>The number this step prints:
+
+  cache_hit_rate = cached_input_tokens / input_tokens
+
+Symbols:
+  cached_input_tokens = the part of your input the provider served from its stored working-out
+  input_tokens        = all input tokens on that call, cached and fresh together
+
+Size check first, so you know the test can work at all:
+  SYSTEM is 3,571 characters, so BIG is 7,142 characters.
+  7,142 / 4 = about 1,785 tokens, comfortably above the usual 1,024 token minimum.
+  Your original 3,571 character prompt was about 893 tokens, which is below it, and that is why the doubling exists.
+
+Worked example, using plausible reported numbers:
+  input reported  = 1,820
+  cached reported = 1,664
+  hit rate = 1,664 / 1,820 = 0.914, so 91%
+
+What that saves on GPT-5.6 Sol at $5 in and $0.50 cached in per million:
+  no cache: 1,820 x 5 = 9,100, so $0.00910 per call
+  with cache: fresh 156 x 5 = 780, plus cached 1,664 x 0.50 = 832, total 1,612, so $0.001612 per call
+  saving = 1 - (1,612 / 9,100) = 0.82, so 82% off the input bill
+
+Why 1,664 and not the exact prefix length: many providers count cached tokens in blocks of 128 and round down, so a 1,790 token prefix reports as 13 blocks, and 13 x 128 = 1,664. That block size is common but not universal, so check your provider's documentation rather than assuming it.
+
+Intuition: watch the percentage, not the raw count, because the percentage is what multiplies your input bill.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If several minutes pass between the two calls, the stored prefix may have expired and both lines show zero for a reason that has nothing to do with where you put the timestamp.</span></div>
+        </li>
+        <li><h3>Write the decision down with a date</h3><p>This is the step people skip and later regret, and it takes about two minutes. Add a short <code>README.md</code> to <code>my-work/labs/lab06</code> with four lines: the model you would pick for this task, the cost per thousand runs, the cache hit rate you assumed, and what would make you change your mind. Put the date on it, because list prices move every few months and an undated number is a trap for whoever reads it next, including you. The last line is the important one, because a named trigger and a named fallback turn a number into a decision someone else can re-check, while a vague note to revisit later helps nobody. Notice that the assumption line records what you did not do as well as what you did, in this case no caching, because the policy block is only about 900 tokens and sits under the usual cache minimum. If you cannot fill in all four lines from your own output, go back to the step that produced the missing one.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab06/README.md</span>
+Decision, <span class="t-s">5</span> Aug <span class="t-s">2026</span>
+Model:        GPT-<span class="t-s">5.6</span> <span class="t-f">Luna</span> (measured <span class="t-s">912</span> <span class="t-k">in</span> / <span class="t-s">58</span> out)
+Cost:         $<span class="t-s">0.25</span> per <span class="t-s">1</span>,<span class="t-s">000</span> runs at <span class="t-s">0</span>% cache hit
+Assumed:      no caching yet, policy block <span class="t-k">is</span> only ~<span class="t-s">900</span> tokens
+Would change: <span class="t-k">if</span> answers start missing the <span class="t-s">30</span> day rule, retest on Terra</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>Decision, 5 Aug 2026</dt><dd>The date is the load-bearing part of this file. Model prices change every few months, so a cost figure without a date cannot be checked by anyone, and a reader has no way to know whether to trust it or redo it.</dd>
+        <dt>Model:        GPT-5.6 Luna (measured 912 in / 58 out)</dt><dd>It names the model and the measurement the choice came from, in the same line. That means someone with new prices can redo the arithmetic in thirty seconds instead of re-running the whole lab.</dd>
+        <dt>Assumed:      no caching yet, policy block is only ~900 tokens</dt><dd>This records the assumption behind the cost, and the reason for it. The same job at 90% cache is a completely different number, so a cost quoted without its cache assumption is not reproducible.</dd>
+        <dt>Would change: if answers start missing the 30 day rule, retest on Terra</dt><dd>A named symptom and a named next step. It is the difference between a decision and an opinion, because it tells the next reader exactly what evidence would overturn it.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Scale your per-call number up until it is big enough to feel:
+
+  cost_per_year = (cost_per_1000_runs / 1,000) x runs_per_day x 365
+
+Symbols:
+  cost_per_1000_runs = the second column from your price table
+  runs_per_day = how many times this task really runs in a day
+  365 = days in a year
+
+Worked example at 10,000 runs a day:
+  Luna: 0.25 / 1,000 = $0.00025 per run
+        $0.00025 x 10,000 = $2.50 a day
+        $2.50 x 365 = $912.50 a year
+  Sol:  6.30 / 1,000 = $0.00630 per run
+        $0.00630 x 10,000 = $63.00 a day
+        $63.00 x 365 = $22,995 a year
+  Difference = 22,995 - 912.50 = about $22,000 a year, for the same 912 tokens.
+
+Intuition: $0.0063 per call is too small to argue about, and $22,000 a year is not, so always write the decision down at the scale you will actually run it.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Writing the cost line without the cache assumption beside it makes the figure impossible to reproduce, because the same task at 90% cache costs a different amount on every row of the table.</span></div>
+        </li>
+        </ol>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> You can state, from measured numbers rather than guesses, what one thousand runs of your task would cost on five named models. Concretely: <code>my-work/labs/lab06/usage.json</code> exists and holds your own input and output token counts with the <code>reported</code> or <code>estimated</code> label attached, <code>python price.py</code> prints four tables built from those counts, and <code>python cache_test.py</code> has shown you a cached-token count that differs between the stamp-at-end runs and the stamp-at-start runs. If every cached number was zero, you are still done, provided you can point at the line in your provider's documentation that explains why it does not cache or does not report caching. Your <code>README.md</code> has all four lines filled in, with a date on the top one.</div></div>
+        </section>
+        <section class="section section--mini"><h2 class="section__h" data-stamp="hands on"><span>Mini-project: your turn</span></h2>
+        <p class="prose">Build a router that sends easy questions to a cheap model and hard ones to a strong one, then prove in numbers what it saved and what it cost you in quality. It produces my-work/labs/lab06/router.py and my-work/labs/lab06/router_report.json, and check.py re-runs your router against that report so the numbers cannot be typed in by hand.</p>
+        <p class="small muted">No code given. Produce the file, then run the checker.</p>
+        <ol class="steps">
+        <li><p>Write 20 questions from work you actually care about, numbered id 1 to 20, ten you expect to be easy and ten you expect to be hard. Label each one &quot;easy&quot; or &quot;hard&quot; by hand before you write any code. That hand label is your only ground truth, and check.py requires exactly ten of each.</p></li>
+        <li><p>Write my-work/labs/lab06/router.py with route(question: str) -&gt; str returning &quot;cheap&quot; or &quot;strong&quot;. Use rules you can say out loud, like question length or the presence of &quot;why&quot;, &quot;compare&quot;, &quot;step by step&quot;. Keep any run code behind if __name__ == &quot;__main__&quot;:, because check.py imports this file and must not trigger an API call.</p></li>
+        <li><p>Run each question twice: once through route() to the model it picked, once through the strong model alone. Read the in and out token counts for every call with usage_of from measure.py, so the counts are the provider's rather than your guess.</p></li>
+        <li><p>Escalate. If a cheap answer comes back empty, hedging, or failing a check you write yourself, redo it on the strong model, set &quot;escalated&quot;: true, and append that strong call to router_calls so the double payment lands in the total.</p></li>
+        <li><p>Read every cheap answer and set &quot;cheap_correct&quot;: true or false. For questions routed straight to strong, set it to null. Then write my-work/labs/lab06/router_report.json in exactly this shape: {&quot;date&quot;: &quot;2026-08-05&quot;, &quot;prices_used&quot;: {&quot;cheap&quot;: {&quot;in&quot;: 0.20, &quot;out&quot;: 1.20}, &quot;strong&quot;: {&quot;in&quot;: 5.00, &quot;out&quot;: 30.00}}, &quot;questions&quot;: [{&quot;id&quot;: 1, &quot;text&quot;: &quot;...&quot;, &quot;label&quot;: &quot;easy&quot;, &quot;routed_to&quot;: &quot;cheap&quot;, &quot;escalated&quot;: false, &quot;cheap_correct&quot;: true, &quot;router_calls&quot;: [{&quot;model&quot;: &quot;cheap&quot;, &quot;in&quot;: 912, &quot;out&quot;: 58}], &quot;strong_only_call&quot;: {&quot;model&quot;: &quot;strong&quot;, &quot;in&quot;: 912, &quot;out&quot;: 58}}], &quot;totals&quot;: {&quot;cost_routed&quot;: 0.072324, &quot;cost_strong_only&quot;: 0.126000, &quot;percent_saved&quot;: 42.6, &quot;misrouted_count&quot;: 3}}. Token counts are whole numbers, costs are dollars rounded to 6 decimal places, percent_saved to 1.</p></li>
+        <li><p>Save check.py next to those files and run python check.py from inside my-work/labs/lab06.</p></li>
+        </ol>
+        <div class="checker"><div class="checker__h">Check it yourself, automatically</div>
+        <p>Save this as <code>check.py</code> next to your work, then run <code>python check.py   (run it from inside my-work/labs/lab06)</code>. It reads what you produced, tests it, and prints a line per check.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>check.py</span></div>
+<pre><span class="t-s">&quot;&quot;&quot;check.py - verify the lab 06 router mini-project. Run it from my-work/labs/lab06.&quot;&quot;&quot;</span>
+<span class="t-k">import</span> importlib.util
+<span class="t-k">import</span> json
+<span class="t-k">import</span> pathlib
+<span class="t-k">import</span> sys
+
+REPORT = pathlib.<span class="t-f">Path</span>(<span class="t-s">&quot;router_report.json&quot;</span>)
+ROUTER = pathlib.<span class="t-f">Path</span>(<span class="t-s">&quot;router.py&quot;</span>)
+fails = []
+
+<span class="t-k">def</span> <span class="t-f">check</span>(ok, msg):
+    <span class="t-f">print</span>((<span class="t-s">&quot;PASS &quot;</span> <span class="t-k">if</span> ok <span class="t-k">else</span> <span class="t-s">&quot;FAIL &quot;</span>) + msg)
+    <span class="t-k">if</span> <span class="t-k">not</span> ok:
+        fails.<span class="t-f">append</span>(msg)
+
+<span class="t-k">def</span> <span class="t-f">die</span>(msg):
+    <span class="t-f">print</span>(<span class="t-s">&quot;FAIL &quot;</span> + msg)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+
+<span class="t-k">def</span> <span class="t-f">cost</span>(calls):
+    <span class="t-k">return</span> <span class="t-f">sum</span>((c[<span class="t-s">&quot;in&quot;</span>] * prices[c[<span class="t-s">&quot;model&quot;</span>]][<span class="t-s">&quot;in&quot;</span>]
+                + c[<span class="t-s">&quot;out&quot;</span>] * prices[c[<span class="t-s">&quot;model&quot;</span>]][<span class="t-s">&quot;out&quot;</span>]) / <span class="t-s">1e6</span> <span class="t-k">for</span> c <span class="t-k">in</span> calls)
+
+<span class="t-k">def</span> <span class="t-f">ok_call</span>(c):
+    <span class="t-k">return</span> (c.<span class="t-f">get</span>(<span class="t-s">&quot;model&quot;</span>) <span class="t-k">in</span> prices <span class="t-k">and</span> <span class="t-f">isinstance</span>(c.<span class="t-f">get</span>(<span class="t-s">&quot;in&quot;</span>), int) <span class="t-k">and</span> c[<span class="t-s">&quot;in&quot;</span>] &gt; <span class="t-s">0</span>
+            <span class="t-k">and</span> <span class="t-f">isinstance</span>(c.<span class="t-f">get</span>(<span class="t-s">&quot;out&quot;</span>), int) <span class="t-k">and</span> c[<span class="t-s">&quot;out&quot;</span>] &gt;= <span class="t-s">0</span>)
+
+<span class="t-c"># Load both artefacts. Plain messages, never a traceback.</span>
+<span class="t-k">if</span> <span class="t-k">not</span> REPORT.<span class="t-f">exists</span>():
+    <span class="t-f">die</span>(<span class="t-s">&quot;router_report.json not found. Run this from my-work/labs/lab06.&quot;</span>)
+<span class="t-k">if</span> <span class="t-k">not</span> ROUTER.<span class="t-f">exists</span>():
+    <span class="t-f">die</span>(<span class="t-s">&quot;router.py not found. It must define route(question) -&gt; 'cheap' or 'strong'.&quot;</span>)
+<span class="t-k">try</span>:
+    r = json.<span class="t-f">loads</span>(REPORT.<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>))
+<span class="t-k">except</span> json.JSONDecodeError <span class="t-k">as</span> e:
+    <span class="t-f">die</span>(f<span class="t-s">&quot;router_report.json is not valid JSON: {e}&quot;</span>)
+prices = r.<span class="t-f">get</span>(<span class="t-s">&quot;prices_used&quot;</span>, {})
+<span class="t-k">if</span> <span class="t-k">not</span> {<span class="t-s">&quot;cheap&quot;</span>, <span class="t-s">&quot;strong&quot;</span>} &lt;= <span class="t-f">set</span>(prices):
+    <span class="t-f">die</span>(<span class="t-s">&quot;prices_used needs a 'cheap' and a 'strong' entry, each with 'in' and 'out'.&quot;</span>)
+spec = importlib.util.<span class="t-f">spec_from_file_location</span>(<span class="t-s">&quot;router&quot;</span>, ROUTER)
+mod = importlib.util.<span class="t-f">module_from_spec</span>(spec)
+<span class="t-k">try</span>:
+    spec.loader.<span class="t-f">exec_module</span>(mod)
+<span class="t-k">except</span> Exception <span class="t-k">as</span> e:
+    <span class="t-f">die</span>(f<span class="t-s">&quot;router.py would not import: {type(e).__name__}: {e}&quot;</span>)
+<span class="t-k">if</span> <span class="t-k">not</span> <span class="t-f">callable</span>(<span class="t-f">getattr</span>(mod, <span class="t-s">&quot;route&quot;</span>, <span class="t-k">None</span>)):
+    <span class="t-f">die</span>(<span class="t-s">&quot;router.py has no route() function.&quot;</span>)
+
+qs = r.<span class="t-f">get</span>(<span class="t-s">&quot;questions&quot;</span>, [])
+<span class="t-f">check</span>(<span class="t-f">len</span>(qs) == <span class="t-s">20</span>, f<span class="t-s">&quot;20 questions recorded (found {len(qs)})&quot;</span>)
+easy = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> q <span class="t-k">in</span> qs <span class="t-k">if</span> q.<span class="t-f">get</span>(<span class="t-s">&quot;label&quot;</span>) == <span class="t-s">&quot;easy&quot;</span>)
+hard = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> q <span class="t-k">in</span> qs <span class="t-k">if</span> q.<span class="t-f">get</span>(<span class="t-s">&quot;label&quot;</span>) == <span class="t-s">&quot;hard&quot;</span>)
+<span class="t-f">check</span>(easy == <span class="t-s">10</span> <span class="t-k">and</span> hard == <span class="t-s">10</span>, f<span class="t-s">&quot;10 easy + 10 hard hand labels (found {easy} + {hard})&quot;</span>)
+cheap_n = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> q <span class="t-k">in</span> qs <span class="t-k">if</span> q.<span class="t-f">get</span>(<span class="t-s">&quot;routed_to&quot;</span>) == <span class="t-s">&quot;cheap&quot;</span>)
+<span class="t-f">check</span>(<span class="t-s">0</span> &lt; cheap_n &lt; <span class="t-f">len</span>(qs), f<span class="t-s">&quot;router splits traffic ({cheap_n} cheap, {len(qs)-cheap_n} strong)&quot;</span>)
+<span class="t-c"># Re-run the learner's own router. The report must be reproducible from it.</span>
+<span class="t-k">try</span>:
+    off = [q.<span class="t-f">get</span>(<span class="t-s">&quot;id&quot;</span>) <span class="t-k">for</span> q <span class="t-k">in</span> qs <span class="t-k">if</span> mod.<span class="t-f">route</span>(q.<span class="t-f">get</span>(<span class="t-s">&quot;text&quot;</span>, <span class="t-s">&quot;&quot;</span>)) != q.<span class="t-f">get</span>(<span class="t-s">&quot;routed_to&quot;</span>)]
+<span class="t-k">except</span> Exception <span class="t-k">as</span> e:
+    <span class="t-f">die</span>(f<span class="t-s">&quot;route() raised on one of your questions: {type(e).__name__}: {e}&quot;</span>)
+<span class="t-f">check</span>(<span class="t-k">not</span> off, f<span class="t-s">&quot;route() reproduces every recorded decision (mismatched ids: {off})&quot;</span>)
+bad = <span class="t-f">sorted</span>({q.<span class="t-f">get</span>(<span class="t-s">&quot;id&quot;</span>) <span class="t-k">for</span> q <span class="t-k">in</span> qs <span class="t-k">for</span> c <span class="t-k">in</span>
+              <span class="t-f">list</span>(q.<span class="t-f">get</span>(<span class="t-s">&quot;router_calls&quot;</span>, [])) + [q.<span class="t-f">get</span>(<span class="t-s">&quot;strong_only_call&quot;</span>, {})] <span class="t-k">if</span> <span class="t-k">not</span> <span class="t-f">ok_call</span>(c)})
+<span class="t-f">check</span>(<span class="t-k">not</span> bad, f<span class="t-s">&quot;every call names a model and whole token counts (bad ids: {bad})&quot;</span>)
+<span class="t-k">if</span> bad:
+    <span class="t-f">die</span>(<span class="t-s">&quot;Fix the calls above. The cost checks cannot run without them.&quot;</span>)
+
+routed = <span class="t-f">sum</span>(<span class="t-f">cost</span>(q[<span class="t-s">&quot;router_calls&quot;</span>]) <span class="t-k">for</span> q <span class="t-k">in</span> qs)
+alone = <span class="t-f">sum</span>(<span class="t-f">cost</span>([q[<span class="t-s">&quot;strong_only_call&quot;</span>]]) <span class="t-k">for</span> q <span class="t-k">in</span> qs)
+t = r.<span class="t-f">get</span>(<span class="t-s">&quot;totals&quot;</span>, {})
+<span class="t-f">check</span>(<span class="t-f">abs</span>(routed - t.<span class="t-f">get</span>(<span class="t-s">&quot;cost_routed&quot;</span>, -<span class="t-s">1</span>)) &lt; <span class="t-s">1e</span>-<span class="t-s">6</span>,
+      f<span class="t-s">&quot;cost_routed matches the calls (yours {t.get('cost_routed')}, recomputed {routed:.6f})&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">abs</span>(alone - t.<span class="t-f">get</span>(<span class="t-s">&quot;cost_strong_only&quot;</span>, -<span class="t-s">1</span>)) &lt; <span class="t-s">1e</span>-<span class="t-s">6</span>,
+      f<span class="t-s">&quot;cost_strong_only matches (yours {t.get('cost_strong_only')}, recomputed {alone:.6f})&quot;</span>)
+saved = <span class="t-s">100</span> * (<span class="t-s">1</span> - routed / alone) <span class="t-k">if</span> alone <span class="t-k">else</span> <span class="t-s">0.0</span>
+<span class="t-f">check</span>(<span class="t-f">abs</span>(saved - t.<span class="t-f">get</span>(<span class="t-s">&quot;percent_saved&quot;</span>, -<span class="t-s">999</span>)) &lt; <span class="t-s">0.1</span>,
+      f<span class="t-s">&quot;percent_saved matches (yours {t.get('percent_saved')}, recomputed {saved:.1f})&quot;</span>)
+wrong = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> q <span class="t-k">in</span> qs <span class="t-k">if</span> q.<span class="t-f">get</span>(<span class="t-s">&quot;routed_to&quot;</span>) == <span class="t-s">&quot;cheap&quot;</span> <span class="t-k">and</span> q.<span class="t-f">get</span>(<span class="t-s">&quot;cheap_correct&quot;</span>) <span class="t-k">is</span> <span class="t-k">False</span>)
+<span class="t-f">check</span>(wrong == t.<span class="t-f">get</span>(<span class="t-s">&quot;misrouted_count&quot;</span>),
+      f<span class="t-s">&quot;misrouted_count matches your flags (yours {t.get('misrouted_count')}, counted {wrong})&quot;</span>)
+esc = [q.<span class="t-f">get</span>(<span class="t-s">&quot;id&quot;</span>) <span class="t-k">for</span> q <span class="t-k">in</span> qs <span class="t-k">if</span> q.<span class="t-f">get</span>(<span class="t-s">&quot;escalated&quot;</span>)
+       <span class="t-k">and</span> (<span class="t-f">len</span>(q.<span class="t-f">get</span>(<span class="t-s">&quot;router_calls&quot;</span>, [])) &lt; <span class="t-s">2</span> <span class="t-k">or</span> q[<span class="t-s">&quot;router_calls&quot;</span>][-<span class="t-s">1</span>][<span class="t-s">&quot;model&quot;</span>] != <span class="t-s">&quot;strong&quot;</span>)]
+<span class="t-f">check</span>(<span class="t-k">not</span> esc, f<span class="t-s">&quot;escalated questions are billed for both calls (bad ids: {esc})&quot;</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;\nNot checked automatically: whether your easy/hard labels are fair, and whether your\n&quot;</span>
+      <span class="t-s">&quot;cheap_correct flags are right. Those are your reading of the answers.&quot;</span>)
+<span class="t-k">if</span> fails:
+    <span class="t-f">print</span>(f<span class="t-s">&quot;\n{len(fails)} CHECK(S) FAILED&quot;</span>)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;\nALL CHECKS PASSED&quot;</span>)
+</pre></div>
+        </div>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> Ten PASS lines and a final ALL CHECKS PASSED, with exit code 0. Two of them do the real work. &quot;route() reproduces every recorded decision&quot; re-runs your own route() on all 20 questions and fails with the mismatched ids if you edited a routing decision by hand. The three cost lines recompute cost_routed, cost_strong_only and percent_saved from your token counts and your price table, so a total you typed in yourself will not match. The checker also prints one line naming what it did not check: whether your easy/hard labels are fair, and whether your cheap_correct flags are right.</div></div>
+        <div class="note" style="margin-top:12px"><div class="note__t">If you want more</div><p>Replace the rule based router with the cheapest model itself: one short call that must reply with only the word easy or hard. Add that routing call to router_calls so check.py bills you for it, then see whether the saving survives. On short questions it often does not.</p></div>
+        </section>
+        <section class="section section--quiz"><h2 class="section__h" data-stamp="on record"><span>Check yourself</span></h2>
+        <p class="small muted">Explained either way.</p>
+        <div class="quiz" data-quiz>
+        <div class="q" data-answer="2"><p class="q__q">One call sends 100,000 input tokens and gets back 500 output tokens. On GPT-5.6 Sol, at $5 per million in and $30 per million out, roughly what does that call cost?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>About $0.02</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>About $5.00</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>About $0.52</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>About $35.00</span></button>
+        </div><div class="q__why" hidden>Input is 100,000 divided by a million, times $5, which is 50 cents. Output is 500 divided by a million, times $30, which is about 1.5 cents. So even though output costs six times as much per token, input is 200 times bigger and ends up as roughly 97% of the bill. That is exactly why agent workloads make you shop on input price and cache hit rate.</div></div>
+        <div class="q" data-answer="2"><p class="q__q">You put a line reading 'Current time: 14:32:07' at the very top of a 20,000 token system prompt that is otherwise identical on every call. What happens to your prompt cache?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Nothing, caches know to ignore timestamps</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Only the timestamp line is billed at full price</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>You lose the discount on almost all 20,000 tokens, on every call</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>The cache still works, but the answers get less accurate</span></button>
+        </div><div class="q__why" hidden>A cache matches a prefix, meaning a run of text starting at the very first character. Change something at the top and nothing after it can be reused, so the whole prompt is billed at full price every time. Move the timestamp to the end and those 20,000 stable tokens are reused at about a tenth of the price, with no change to the answer.</div></div>
+        <div class="q" data-answer="1"><p class="q__q">A vendor's chart shows their new model at 93% on GPQA Diamond against a rival at 92%. How much should that change your model choice?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>A lot, one point is a real gap at that level</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Very little, that benchmark is saturated and the vendor chose the setup</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>It depends only on the price difference between them</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Nothing, benchmark scores are never useful</span></button>
+        </div><div class="q__why" hidden>GPQA Diamond is saturated, meaning strong models all cluster near the ceiling and small gaps stop carrying information. Humanity's Last Exam and ARC-AGI-3 still separate models in 2026, so those numbers say more. The vendor also picked the prompts and settings for its own comparison, so the test that actually answers your question is twenty of your own inputs with answers you checked by hand.</div></div>
+        </div></section>
+        <section class="section section--notes notes" data-notes><h2 class="section__h" data-stamp="on record"><span>Your notes</span></h2>
+        <p class="small muted">Saves as you type, in this browser.</p>
+        <label class="sr" for="n6">Notes for this module</label>
+        <textarea id="n6" placeholder="What clicked? What is still fuzzy? What do you want to come back to?"></textarea><div class="notes__status"></div></section>
+        <section class="section section--done"><h2 class="section__h" data-stamp="on record"><span>Mark it done</span></h2>
+        <div class="marks"><button class="mark" data-mark="read" aria-pressed="false"><span>Read the notes</span></button><button class="mark" data-mark="lab" aria-pressed="false"><span>Finished the lab</span></button><button class="mark" data-mark="mini" aria-pressed="false"><span>Finished the mini-project</span></button></div></section>
+        <section class="section section--docs"><h2 class="section__h" data-stamp="reference"><span>Go to the source</span></h2>
+        <p class="small muted">If this course and the docs disagree, the docs are newer.</p><ul class="prose">
+        <li><a href="https://platform.openai.com/docs/pricing" target="_blank" rel="noopener">OpenAI API pricing (per million tokens, including cached input)</a></li>
+        <li><a href="https://platform.openai.com/docs/guides/prompt-caching" target="_blank" rel="noopener">OpenAI prompt caching guide (prefix rules and minimum sizes)</a></li>
+        <li><a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener">Gemini API pricing</a></li>
+        <li><a href="https://docs.claude.com/en/docs/build-with-claude/prompt-caching" target="_blank" rel="noopener">Anthropic prompt caching documentation</a></li>
+        <li><a href="https://research.trychroma.com/context-rot" target="_blank" rel="noopener">Chroma, Context Rot research report (July 2025)</a></li>
+        <li><a href="https://openrouter.ai/models" target="_blank" rel="noopener">OpenRouter model list, for side by side prices across providers</a></li>
+        </ul></section>
+    </div>
+    <nav data-chrome="pager"></nav>
+  </main>
+</div>
+
+<script src="../assets/data.js"></script>
+<script src="../assets/widgets.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+1	i_LwzRVP7bg	Machine Learning for Everybody – Full Course	freeCodeCamp.org	10253468	14033	2022-09-26
+1	BUTjcAjfMgY	ML Foundations for AI Engineers (in 34 Minutes)	Shaw Talebi	446080	2090	2025-05-11
+1	AMdG7IjgSPM	Python Tutorial: UV - A Faster, All-in-One Package Manager to Replace Pip and Venv	Corey Schafer	273372	1621	2025-04-30
+1	U07MHi4Suj8	How to Actually Learn LLMs in 2026 | Ex-Google, Microsoft Engineer	Aishwarya Srinivasan	124416	812	2026-02-04
+2	aircAruvnKk	But what is a neural network? | Deep learning chapter 1	3Blue1Brown	23833921	1120	2017-10-05
+2	IHZwWFHWa-w	Gradient descent, how neural networks learn | Deep Learning Chapter 2	3Blue1Brown	9419092	1233	2017-10-16
+2	Ilg3gGewQ5U	Backpropagation, intuitively | Deep Learning Chapter 3	3Blue1Brown	6154992	767	2017-11-03
+2	tIeHLnjs5U8	Backpropagation calculus | Deep Learning Chapter 4	3Blue1Brown	3871982	617	2017-11-03
+2	VMj-3S1tku0	The spelled-out intro to neural networks and backpropagation: building micrograd	Andrej Karpathy	3878022	8752	2022-08-16
+3	zduSFxRajkE	Let's build the GPT Tokenizer	Andrej Karpathy	1161030	8014	2024-02-20
+3	gl1r1XV0SLw	What is a Vector Database? Powering Semantic Search & AI Applications	IBM Technology	909567	588	2025-03-24
+3	viZrOnJclY0	Word Embedding and Word2Vec, Clearly Explained!!!	StatQuest with Josh Starmer	584306	971	2023-03-12
+3	nKSk_TiR8YA	Most devs don't understand how LLM tokens work	Matt Pocock	330146	657	2025-09-19
+3	wgfSDrqYMJ4	What are Word Embeddings?	IBM Technology	260433	518	2024-08-20
+4	wjZofJX0v4M	Transformers, the tech behind LLMs | Deep Learning Chapter 5	3Blue1Brown	10837072	1634	2024-04-01
+4	eMlx5fFNoYc	Attention in transformers, step-by-step | Deep Learning Chapter 6	3Blue1Brown	4369296	1569	2024-04-07
+4	9-Jl0dxWQs8	How might LLMs store facts | Deep Learning Chapter 7	3Blue1Brown	2173236	1362	2024-08-31
+4	zxQyTK8quyY	Transformer Neural Networks, ChatGPT's foundation, Clearly Explained!!!	StatQuest with Josh Starmer	1161820	2175	2023-07-23
+4	kCc8FmEb1nY	Let's build GPT: from scratch, in code, spelled out.	Andrej Karpathy	7609153	6980	2023-01-17
+5	7xTGNNLPyMI	Deep Dive into LLMs like ChatGPT	Andrej Karpathy	8386781	12683	2025-02-05
+5	gY4Z-9QlZ64	DeepSeek is a Game Changer for AI - Computerphile	Computerphile	1552215	1197	2025-01-28
+5	hhiLw5Q_UFg	John Schulman - Reinforcement Learning from Human Feedback: Progress and Challenges	UC Berkeley EECS	87248	3812	2023-04-19
+5	qPN_XZcJf_s	Reinforcement Learning with Human Feedback (RLHF), Clearly Explained!!!	StatQuest with Josh Starmer	64313	1081	2025-05-04
+5	K5WPr5dtne0	State of LLMs 2026: RLVR, GRPO, Inference Scaling — Sebastian Raschka	The MAD Podcast with Matt Turck	22388	4100	2026-01-29
+6	-0HRzXk8vlk	Why AI Tokens are so Expensive - Computerphile	Computerphile	702677	1522	2026-07-02
+6	pYax2rupKEY	How to Choose Large Language Models: A Developer’s Guide to LLMs	IBM Technology	111228	416	2025-05-14
+6	u57EnkQaUTY	What is Prompt Caching? Optimize LLM Latency with AI Transformers	IBM Technology	99696	546	2026-02-07
+6	AVQzG2MY858	LLM vs. SLM vs. FM: Choosing the Right AI Model	IBM Technology	77572	849	2026-01-24
+6	fjd2hm6-qtM	What is OpenRouter | All about OpenRouter in 10 minutes	codebasics	35563	608	2026-03-25
+7	_ZvnD73m40o	Prompt Engineering Tutorial – Master ChatGPT and LLM Responses	freeCodeCamp.org	2744565	2496	2023-09-05
+7	EWvNQjAaOHw	How I use LLMs	Andrej Karpathy	2616829	7872	2025-02-27
+7	ysPbXH0LpIE	Prompting 101 | Code w/ Claude	Anthropic	473270	1492	2025-07-31
+8	-uW5-TaVXu4	Most devs don’t understand how context windows work	Matt Pocock	258496	573	2025-10-22
+8	jLuwLJBQkIs	Context Engineering Clearly Explained	Tina Huang	208214	768	2025-08-01
+8	TUjQuC4ugak	Context Rot: How Increasing Input Tokens Impacts LLM Performance	Chroma	185896	476	2025-07-14
+8	vtugjs2chdA	Context Engineering Our Way to Long-Horizon Agents: LangChain’s Harrison Chase	Sequoia Capital	115484	2387	2026-01-21
+8	6_BcCthVvb8	Context Engineering for AI Agents with LangChain and Manus	LangChain	68174	3653	2025-10-14
+8	_IlTcWciEC4	Context Engineering for Agents - Lance Martin, LangChain	Latent Space	42908	3798	2025-09-11
+9	y5EmRr1O1h4	Structured Output in LangChain | Generative AI using LangChain | Video 5 | CampusX	CampusX	219658	4092	2025-03-03
+9	kE4BkATIl9c	OpenAI DevDay 2024 | Structured outputs for reliable applications	OpenAI	96532	2439	2024-12-17
+9	EzYaFF7ahKw	Tool Calling in LangChain | Generative AI using LangChain | Video 17 | CampusX	CampusX	95243	3526	2025-04-26
+9	3xUW1Do9zOs	Instructor and Pydantic - Structured LLM outputs for easy data extraction!	BugBytes	4885	989	2025-08-18
+10	T-D1OfcDW1M	What is Retrieval-Augmented Generation (RAG)?	IBM Technology	1918635	395	2023-08-23
+10	sVcwVQRHIc8	Learn RAG From Scratch – Python AI Tutorial from a LangChain Engineer	freeCodeCamp.org	1499794	9191	2024-04-17
+10	XvKiTfd6Xvo	The Complete Guide to Hybrid Search in RAG (BM25 + Embeddings + Reranker)	Dave Ebbelaar	21197	3557	2026-05-14
+10	nZnwExutgsY	GraphRAG in Python: Agentic AI with Knowledge Graphs	NeuralNine	7036	1521	2026-07-17
+11	1CIpzeNxIhU	How AI Image Generators Work (Stable Diffusion / Dall-E) - Computerphile	Computerphile	1062164	1070	2022-10-04
+11	pTaSDVz0gok	EASIEST Way to Fine-Tune a LLM and Use It With Ollama	Tech With Tim	345342	1322	2025-06-27
+11	t1caDsMzWBk	LoRA & QLoRA Fine-tuning Explained In-Depth	Mark Hennings	181296	879	2023-12-14
+11	lOD_EE96jhM	What Are Vision Language Models? How AI Sees & Understands Images	IBM Technology	129247	588	2025-05-19
+11	CcrC5zSv1iA	LLM Fine-Tuning Course – From Supervised FT to RLHF, LoRA, and Multimodal	freeCodeCamp.org	85990	42986	2026-03-10
+12	F8NKVhkZZWI	What are AI Agents?	IBM Technology	1746419	748	2024-07-15
+12	bZzyPscbtI8	Building AI Agents in Pure Python - Beginner Course	Dave Ebbelaar	443848	2804	2025-02-01
+12	sal78ACtGTc	What's next for AI agentic workflows ft. Andrew Ng of AI Fund	Sequoia Capital	411150	820	2024-03-26
+12	ZVPlLaehjLk	Agentic AI Frameworks Explained: Workflows, Multi-Agent, & Production	IBM Technology	41110	713	2026-07-09
+13	7j_NE6Pjv-E	Model Context Protocol (MCP), clearly explained (why it matters)	Greg Isenberg	1319813	1218	2025-03-14
+13	5xqFjh56AwM	MCP Crash Course: What Python Developers Need to Know	Dave Ebbelaar	257797	3466	2025-04-19
+13	kOhLoixrJXo	MCP In 26 Minutes (Model Context Protocol)	Tina Huang	240059	1583	2025-10-15
+13	cGuyrANVi4A	How Model Context Protocol (MCP) actually works	Google Cloud Tech	250953	478	2026-06-24
+13	GAyNvq6Ayps	Running LLMs Locally Just Got Way Better - Ollama + MCP	Tech With Tim	152405	1311	2026-04-12
+13	DosHnyq78xY	Intro to MCP Servers – Model Context Protocol with Python Course	freeCodeCamp.org	103319	4362	2025-10-15
+13	Y0tZ35dFFx4	10 - MCP Inspector: Test and Debug your MCP Server Locally	AI Anytime	23218	502	2025-04-04
+13	N3vHJcHBS-w	Model Context Protocol (MCP) Explained in 20 Minutes	Shaw Talebi	217668	1189	2025-04-27
+13	tlAxnGTkBEg	Breaking Down The NEW Stateless MCP Spec	Agentic Intelligence w/ Michael Levan	54	463	2026-08-01
+14	TD2ihEBkdkY	Building Intelligent Agents with Strands: A Hands-On Guide	AWS Developers	241529	630	2025-06-24
+14	LSk5KaEGVk4	Agentic AI Engineering: Complete 4-Hour Workshop feat. MCP, CrewAI and OpenAI Agents SDK	Jon Krohn	222565	12856	2025-06-11
+14	ChaQ_tZDBFg	You Can Build The Craziest Things with Claudes Agent SDK	Traversy Media	51539	865	2026-03-23
+14	JngWQLylFX8	Getting Started with Microsoft Agent Framework: Build Practical AI Agents	Microsoft Reactor	6929	4025	2026-05-12
+14	0Z0GUDakR_A	Intro to multi-agent systems with ADK	Google Cloud Tech	16775	712	2026-06-08
+15	Fbr_Solax1w	Introduction to Agent2Agent (A2A) Protocol	Google Cloud Tech	87753	479	2026-02-06
+15	BM39OouLNsM	Build an End-to-End Multi-Agent AI System with LangGraph, MCP, Supervisor, Guardrails Safety & HITL	DSwithBappy	12245	18852	2026-07-31
+16	d5EltXhbcfA	Building and evaluating AI Agents — Sayash Kapoor, AI Snake Oil	AI Engineer	239553	1199	2025-04-17
+16	BsWxPI9UM4c	Why AI evals are the hottest new skill for product builders | Hamel Husain & Shreya Shankar	Lenny's Podcast	129115	6393	2025-09-25
+16	a3SMraZWNNs	How to Systematically Setup LLM Evals (Metrics, Unit Tests, LLM-as-a-Judge)	Dave Ebbelaar	82253	3302	2025-09-04
+16	pnlT_xatpVQ	LLM-as-a-Judge 101	Arize AI	3366	2628	2025-11-12
+16	wcYnzHJlUR0	LLM Eval Tools Compared: Arize Phoenix	Hamel Husain	3054	1960	2025-10-01
+16	wQ5ivl44mQw	Observing and Improving AI Agents with Langfuse	ClickHouse	446	3487	2026-07-08
+17	Qvx2sVgQ-u0	Hacking AI is TOO EASY (this should be illegal)	NetworkChuck	1273294	1599	2025-08-12
+17	rAEqP9VEhe8	Generative AI's Greatest Flaw - Computerphile	Computerphile	604740	742	2025-02-27
+17	gUNXZMcd2jU	OWASP's Top 10 Ways to Attack LLMs: AI Vulnerabilities Exposed	IBM Technology	275228	1511	2026-03-07
+17	5ZA1lTxTH3c	Securing AI Agents: How to Prevent Hidden Prompt Injection Attacks	IBM Technology	27352	607	2026-01-10
+17	7Z7ID5BbZU4	Containers Don't Make Your AI Agent Safe	Web Dev Simplified	38815	2176	2026-06-30
+17	cNE7P5FkqR8	Andrew Bullen - Breaking the Lethal Trifecta (Without Ruining Your Agents) | [un]prompted 2026	unprompted	673	1141	2026-03-25
+18	E8zpgNPx8jE	Build a Complete End-to-End GenAI Project in 3 Hours	Dave Ebbelaar	139262	10707	2025-11-15
+18	LSk5KaEGVk4	Agentic AI Engineering: Complete 4-Hour Workshop feat. MCP, CrewAI and OpenAI Agents SDK	Jon Krohn	222565	12856	2025-06-11
+18	BM39OouLNsM	Build an End-to-End Multi-Agent AI System with LangGraph, MCP, Supervisor, Guardrails Safety & HITL	DSwithBappy	12245	18852	2026-07-31

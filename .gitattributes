@@ -1,0 +1,16 @@
+# Keep line endings predictable, because this course is meant to be opened on
+# Windows, macOS and Linux from the same folder.
+* text=auto
+
+# Shell scripts must keep LF. Given CRLF, the shebang line becomes "/bin/sh\r"
+# and the shell reports "bad interpreter", which is a confusing way to fail.
+*.sh text eol=lf
+
+# Batch files are the mirror image: cmd.exe wants CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Leave binary-ish course data alone.
+*.png binary
+*.jpg binary
+*.pt binary

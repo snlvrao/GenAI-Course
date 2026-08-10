@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2. How a neural network learns</title>
+<meta name="description" content="Understand what a neural network really is and how it teaches itself, so that nothing later in the course has to feel like magic.">
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+</head>
+<body data-module="m02" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="1">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+        <div data-chrome="modhead"></div>
+        <p class="prose">You build a neural network from scratch in NumPy and watch its error fall: multiply, add, bend, measure the error, nudge. Every model you call over an API later in this course is those same five steps at a much larger scale.</p>
+        <section class="section section--watch"><h2 class="section__h" data-stamp="take in"><span>Watch this first</span></h2>
+        <div data-videos="core"></div></section>
+        <section class="section section--ideas"><h2 class="section__h" data-stamp="take in"><span>The ideas, in plain English</span></h2>
+        <p class="small muted">Each idea, then a worked example of it.</p>
+        <div class="concepts">
+        <div class="concept"><div class="concept__n" aria-hidden="true">1</div><h3 class="concept__t">What one neuron computes</h3><p class="concept__b">A neuron multiplies each input by a <strong>weight</strong> (a number training is allowed to change), adds the products, then adds one more number called the <strong>bias</strong>. In the lab a layer of eight neurons is the single line <code>X @ W1 + b1</code>, because one matrix multiply does all eight weighted sums at once. Learning changes those weights and biases and nothing else.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre><span class="t-k">import</span> numpy <span class="t-k">as</span> np</pre><pre>x = np.<span class="t-f">array</span>([<span class="t-s">2.0</span>, <span class="t-s">3.0</span>, <span class="t-s">1.0</span>])     <span class="t-c"># three inputs</span>
+w = np.<span class="t-f">array</span>([<span class="t-s">0.5</span>, -<span class="t-s">1.0</span>, <span class="t-s">2.0</span>])    <span class="t-c"># this neuron's three weights</span>
+b = <span class="t-s">0.5</span>                           <span class="t-c"># its bias</span></pre><pre>z = x @ w + b                     <span class="t-c"># 1.0 + (-3.0) + 2.0 + 0.5</span>
+<span class="t-f">print</span>(z)                          <span class="t-c"># 0.5</span>
+<span class="t-f">print</span>(np.<span class="t-f">tanh</span>(z))                 <span class="t-c"># 0.46211715726000974</span></pre><div class="eg__cap">One neuron on three inputs: multiply, sum, add bias, bend.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 640 240" role="img" aria-label="How one neuron turns several inputs into one output" xmlns="http://www.w3.org/2000/svg"><title>How one neuron turns several inputs into one output</title><defs><marker id="ah-neuron" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><rect x="20" y="30" width="78" height="34" rx="6" class="d-box"/><text x="59.0" y="52.0" text-anchor="middle" class="d-t">x1 = 2.0</text><rect x="20" y="95" width="78" height="34" rx="6" class="d-box"/><text x="59.0" y="117.0" text-anchor="middle" class="d-t">x2 = 3.0</text><rect x="20" y="160" width="78" height="34" rx="6" class="d-box"/><text x="59.0" y="182.0" text-anchor="middle" class="d-t">x3 = 1.0</text><path d="M98 47 L250 100" class="d-arrow" marker-end="url(#ah-neuron)"/><path d="M98 112 L250 112" class="d-arrow" marker-end="url(#ah-neuron)"/><path d="M98 177 L250 124" class="d-arrow" marker-end="url(#ah-neuron)"/><text x="175" y="62" text-anchor="middle" class="d-s">x w1 = 0.5</text><text x="175" y="105" text-anchor="middle" class="d-s">x w2 = -1.0</text><text x="175" y="172" text-anchor="middle" class="d-s">x w3 = 2.0</text><rect x="250" y="88" width="120" height="48" rx="6" class="d-fill"/><text x="310.0" y="108.0" text-anchor="middle" class="d-t">add it up</text><text x="310.0" y="125.0" text-anchor="middle" class="d-s">+ bias 0.5</text><path d="M370 112 L430 112" class="d-arrow" marker-end="url(#ah-neuron)"/><rect x="430" y="88" width="100" height="48" rx="6" class="d-fill"/><text x="480.0" y="108.0" text-anchor="middle" class="d-t">squash it</text><text x="480.0" y="125.0" text-anchor="middle" class="d-s">activation</text><path d="M530 112 L560 112" class="d-arrow" marker-end="url(#ah-neuron)"/><rect x="560" y="88" width="70" height="48" rx="6" class="d-box"/><text x="595.0" y="108.0" text-anchor="middle" class="d-t">0.62</text><text x="595.0" y="125.0" text-anchor="middle" class="d-s">output</text><text x="310" y="196" text-anchor="middle" class="d-m">2.0(0.5) + 3.0(-1.0) + 1.0(2.0) + 0.5 = 0.5</text><text x="310" y="217" text-anchor="middle" class="d-s">then squashed into a number between 0 and 1</text></svg><figcaption><b>One neuron.</b> Multiply each input by its own weight, add them up, add a bias, then squash the result. Training just means nudging those weights and the bias. That is the entire unit, and a large model is millions of these arranged in layers.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">2</div><h3 class="concept__t">The bend that stops the collapse</h3><p class="concept__b">Feed a weighted sum into another weighted sum and you still have a weighted sum, so stacked layers with no bend can only split data with one straight line. An <strong>activation function</strong> puts a small bend on every neuron's output, and the lab uses <code>tanh</code>, which squashes any number into the range -1 to 1. Step 7 of the lab switches the bend off and the identical 33 weights fall to coin flipping.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>setting</th><th>final loss after 3000 epochs</th><th>accuracy</th></tr></thead><tbody><tr><td>tanh on, 33 weights</td><td>0.0136</td><td>99.5%</td></tr><tr><td>tanh off, same 33 weights</td><td>0.6931</td><td>50.2%</td></tr><tr><td>answering 0.5 to everything, no training</td><td>0.6931</td><td>50%</td></tr></tbody></table><div class="eg__cap">Lab step 7: removing the bend costs everything, weight count unchanged.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">3</div><h3 class="concept__t">The forward pass: input to guess</h3><p class="concept__b">The <strong>forward pass</strong> is one trip through the network, from input numbers to a prediction. Each layer does its weighted sums, applies its bend, and hands the result on; the final layer uses <code>sigmoid</code> to squeeze the answer into 0 to 1 so you can read it as a probability. Nothing is learned here, and at the start the weights are random, so the first answers are noise.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">after lab step 3, with W1 (2,8), b1 (1,8), W2 (8,1), b2 (1,1)</p><pre>one = X[:<span class="t-s">1</span>]                       <span class="t-c"># [[1.044, 0.9538]]</span>
+a1 = np.<span class="t-f">tanh</span>(one @ W1 + b1)       <span class="t-c"># (1, 8) hidden outputs</span>
+z2 = a1 @ W2 + b2                 <span class="t-c"># (1, 1)</span>
+p  = <span class="t-s">1</span> / (<span class="t-s">1</span> + np.<span class="t-f">exp</span>(-z2))
+<span class="t-f">print</span>(a1.shape, <span class="t-f">round</span>(z2.<span class="t-f">item</span>(), <span class="t-s">4</span>), <span class="t-f">round</span>(p.<span class="t-f">item</span>(), <span class="t-s">4</span>))</pre><p class="eg__say">(1, 8) 0.617 0.6495</p><div class="eg__cap">Real lab numbers: 2 inputs to 8 hidden to one probability, 0.6495.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">4</div><h3 class="concept__t">Loss: wrong as one number</h3><p class="concept__b">The <strong>loss</strong> crushes a whole batch of mistakes into one number you can try to lower. The lab uses binary cross entropy, which punishes confident wrong answers hardest: when the truth is 1, predicting 0.99 costs 0.01 while predicting 0.01 costs 4.61. Answering 0.5 to everything scores 0.6931, so treat that as your do-nothing line.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>true y</th><th>prediction p</th><th>score, -ln of the right term</th></tr></thead><tbody><tr><td>1</td><td>0.90</td><td>0.105</td></tr><tr><td>1</td><td>0.60</td><td>0.511</td></tr><tr><td>0</td><td>0.20</td><td>0.223</td></tr><tr><td>0</td><td>0.70</td><td>1.204</td></tr><tr><td>mean over the 4 points</td><td></td><td>0.511</td></tr></tbody></table><div class="eg__cap">The one confident wrong point costs more than the other three combined.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">5</div><h3 class="concept__t">Gradient descent: which way is downhill</h3><p class="concept__b">The <strong>gradient</strong> holds one number per weight, answering: if this weight rose slightly, would the loss rise or fall, and how fast. Subtract a small fraction of each gradient number from its weight and the loss drops. Repeat a few thousand times, which is all your training loop does.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre>w, lr = <span class="t-s">1.0</span>, <span class="t-s">0.1</span>              <span class="t-c"># toy loss = w**2, so gradient = 2*w</span>
+<span class="t-k">for</span> step <span class="t-k">in</span> <span class="t-f">range</span>(<span class="t-s">4</span>):
+    g = <span class="t-s">2</span> * w
+    w = w - lr * g            <span class="t-c"># the one line that learns</span>
+    <span class="t-f">print</span>(step, <span class="t-f">round</span>(w, <span class="t-s">4</span>), <span class="t-f">round</span>(w ** <span class="t-s">2</span>, <span class="t-s">4</span>))</pre><pre class="eg__out"><span class="t-o">0 0.8    0.64</span>
+<span class="t-o">1 0.64   0.4096</span>
+<span class="t-o">2 0.512  0.2621</span>
+<span class="t-o">3 0.4096 0.1678</span></pre><div class="eg__cap">Four steps downhill: each subtracts the learning rate times the slope.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">6</div><h3 class="concept__t">Backpropagation is blame backwards</h3><p class="concept__b"><strong>Backpropagation</strong> produces the whole gradient in one backward sweep. You start at the output, where the error is just prediction minus truth, and push it back a layer at a time, splitting the blame by how much each weight contributed. The obvious alternative, nudging one weight and re-running, costs a full pass per weight, which is why it never leaves the toy stage.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>method</th><th>passes per update, 33-weight net</th><th>passes per update, 1-billion-weight net</th></tr></thead><tbody><tr><td>nudge each weight and re-run</td><td>34</td><td>1,000,000,001</td></tr><tr><td>backpropagation</td><td>about 2</td><td>about 2</td></tr></tbody></table><div class="eg__cap">Cost of getting every gradient once, by method. Backprop does not grow.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 640 210" role="img" aria-label="Forward pass makes a guess, backpropagation sends the blame backwards" xmlns="http://www.w3.org/2000/svg"><title>Forward pass makes a guess, backpropagation sends the blame backwards</title><defs><marker id="ah-backprop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><rect x="30" y="40" width="100" height="44" rx="6" class="d-box"/><text x="80.0" y="67.0" text-anchor="middle" class="d-t">input</text><rect x="180" y="40" width="100" height="44" rx="6" class="d-box"/><text x="230.0" y="67.0" text-anchor="middle" class="d-t">layer 1</text><rect x="330" y="40" width="100" height="44" rx="6" class="d-box"/><text x="380.0" y="67.0" text-anchor="middle" class="d-t">layer 2</text><rect x="480" y="40" width="130" height="44" rx="6" class="d-box"/><text x="545.0" y="67.0" text-anchor="middle" class="d-t">guess: 0.9</text><path d="M130 62 L178 62" class="d-arrow" marker-end="url(#ah-backprop)"/><path d="M280 62 L328 62" class="d-arrow" marker-end="url(#ah-backprop)"/><path d="M430 62 L478 62" class="d-arrow" marker-end="url(#ah-backprop)"/><text x="320" y="26" text-anchor="middle" class="d-hi">forward: data flows this way</text><rect x="480" y="130" width="130" height="44" rx="6" class="d-warn"/><text x="545.0" y="157.0" text-anchor="middle" class="d-t">truth: 0.2</text><text x="545" y="112" text-anchor="middle" class="d-s">loss = how wrong</text><path d="M470 152 L440 152 L440 100 L390 100" class="d-dash" marker-end="url(#ah-backprop)"/><path d="M330 100 L240 100" class="d-dash" marker-end="url(#ah-backprop)"/><path d="M180 100 L100 100" class="d-dash" marker-end="url(#ah-backprop)"/><text x="300" y="196" text-anchor="middle" class="d-hi">backward: blame flows this way, and each weight learns its share</text></svg><figcaption><b>Backpropagation.</b> The network makes a guess, you measure how wrong it was, then you work backwards asking every weight how much of that error was its fault. Weights that pushed hardest in the wrong direction get changed most. Nothing mystical is happening: it is the chain rule from calculus applied layer by layer.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">7</div><h3 class="concept__t">Learning rate: how big a step</h3><p class="concept__b">The <strong>learning rate</strong> is the fraction of the gradient you actually subtract from each weight. Too small and the network barely moves, too large and every step overshoots the bottom and lands higher up the far side. No formula hands you the right value, so you try several across orders of magnitude, plot them together, and keep the curve that falls fastest and stays down.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>learning rate</th><th>final loss after 3000 epochs</th><th>what happened</th></tr></thead><tbody><tr><td>0.001</td><td>0.6860</td><td>started at 0.6994, so it barely moved</td></tr><tr><td>0.05</td><td>0.0477</td><td>working, just slowly</td></tr><tr><td>0.5</td><td>0.0136</td><td>best of the four</td></tr><tr><td>500</td><td>0.8073</td><td>overshoots, worse than untrained</td></tr></tbody></table><div class="eg__cap">Lab step 8: same data, same seed, same network, only the rate changed.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">8</div><h3 class="concept__t">Why depth helps, and what is unsettled</h3><p class="concept__b">Extra layers let a network build its answer in stages: in image models the first layer finds edges, the next corners and textures, the next whole objects. One hidden layer made wide enough can approximate almost any function (the universal approximation theorem), so depth is not strictly required. In practice deep and narrow usually matches or beats wide and shallow with far fewer weights, and why that is true is still open research, so distrust confident one-line answers.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>design for a 100-input, 1-output classifier</th><th>hidden layers</th><th>weights and biases</th></tr></thead><tbody><tr><td>wide and shallow</td><td>1 layer of 512</td><td>52,225</td></tr><tr><td>deep and narrow</td><td>4 layers of 64</td><td>19,009</td></tr></tbody></table><div class="eg__cap">Count them yourself: 100x512+512+512+1 against 100x64+64, three 64x64+64, 64+1.</div></div>
+        </div>
+        </div></section>
+        <section class="section section--try"><h2 class="section__h" data-stamp="hands on"><span>Try it yourself</span></h2>
+        <p class="small muted" style="margin-bottom:6px">Set three numbers and make a neuron fire</p>
+        <div data-widget="neuron"></div>
+        </section>
+        <div class="note note--gap"><div class="note__t">Worth knowing</div><p>Almost every video on this topic jumps straight to PyTorch, where a single call to loss.backward() hides the exact six lines you write in step 5, so the backward pass is the part with the weakest beginner coverage anywhere. The 3Blue1Brown series is the clearest explanation available, but it uses squared error and sigmoid on handwritten digits while this lab uses cross entropy and tanh on XOR, so its formulas will not line up with your code. And the question of why depth beats width is genuinely unsettled research, not a fact anyone can hand you.</p></div>
+        <section class="section section--more"><h2 class="section__h" data-stamp="optional"><span>If you want to go deeper</span></h2>
+        <p class="small muted">Optional.</p>
+        <div data-videos="more"></div></section>
+        <section class="section section--lab"><h2 class="section__h" data-stamp="hands on"><span>Lab: follow along</span></h2>
+        <div data-setupbanner></div>
+        
+        <p class="prose">You are going to write a neural network from scratch with NumPy, teach it XOR, and watch the error fall. Nothing here calls a model over the internet, so there is no API key, no account and no bill of any kind. XOR means the answer is 1 when the two inputs disagree and 0 when they agree, and no single straight line can split that pattern, so a network that solves it has genuinely learned a curve. Every model in this course, including the large ones you call over an API later, is built from the same five moves you are about to write yourself: multiply, add, bend, measure the error, nudge.</p>
+        <p class="small muted">Code given, every line explained.</p>
+        <ol class="steps">
+        <li><h3>Set up the folder and the two libraries</h3><p>This lab makes no model calls, so you can ignore the shared llm.py helper for once. Make a folder for the module, then create one empty file called <code>xor_net.py</code>. You will paste each following step onto the end of that same file and re-run the whole file, so by step 8 the file holds the entire network. NumPy is the library that does fast arithmetic on whole tables of numbers at once, and that is what lets a layer of eight neurons be a single line of code instead of a loop. Matplotlib is the library that draws charts, and you need it because most of what you learn in this lab you learn by looking at a picture, not by reading a number. Run the install and expect pip to print either a download line or a message saying the requirement is already satisfied, and both of those are fine.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>python -m pip install numpy matplotlib
+
+<span class="t-c"># then create my-work/labs/lab02/xor_net.py and add the code from step 2 onwards</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>python -m pip install numpy matplotlib</dt><dd>The <code>python -m pip</code> form runs pip using the exact Python you just typed, so the two libraries land in the interpreter you will actually run the script with. Typing plain <code>pip</code> can install into a different Python on the same machine, which is the usual cause of a ModuleNotFoundError two minutes later.</dd>
+        <dt># then create my-work/labs/lab02/xor_net.py and add the code from step 2 onwards</dt><dd>The <code>#</code> makes this a comment, so Python ignores it completely. It is there to tell you the plan: one file, in a folder for this module, grown step by step until it holds the whole network.</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>If <code>import numpy</code> fails right after a successful install, you almost certainly installed into a different Python, so re-run the install with <code>python -m pip</code> from the same terminal you run the script in.</span></div>
+        </li>
+        <li><h3>Make the data, and look at it before you train</h3><p>XOR means the answer is 1 when the two inputs disagree in sign and 0 when they agree. You build 400 points in four fuzzy clusters, one per corner of a square, and opposite corners share a label. The clusters are fuzzy on purpose, because a network that only ever sees four exact points can memorise those four points, and you want it to learn the shape instead. Always plot your data before training anything, because a picture catches mistakes that a shape check never will. The printed share of 1s should be exactly 0.5, which tells you the two classes are balanced, and that in turn tells you 50% accuracy means the network has learned nothing at all. You should see <code>inputs: (400, 2)  answers: (400, 1)  share of 1s: 0.5</code>, and when you open data.png you will see two colours sitting in diagonally opposite corners.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-k">import</span> numpy <span class="t-k">as</span> np
+<span class="t-k">import</span> matplotlib.pyplot <span class="t-k">as</span> plt
+
+rng = np.random.<span class="t-f">default_rng</span>(<span class="t-s">0</span>)
+
+<span class="t-k">def</span> <span class="t-f">make_xor</span>(n=<span class="t-s">100</span>):
+    corners = [(<span class="t-s">1</span>, <span class="t-s">1</span>, <span class="t-s">0</span>), (-<span class="t-s">1</span>, -<span class="t-s">1</span>, <span class="t-s">0</span>), (<span class="t-s">1</span>, -<span class="t-s">1</span>, <span class="t-s">1</span>), (-<span class="t-s">1</span>, <span class="t-s">1</span>, <span class="t-s">1</span>)]
+    xs, ys = [], []
+    <span class="t-k">for</span> cx, cy, label <span class="t-k">in</span> corners:
+        xs.<span class="t-f">append</span>(rng.<span class="t-f">normal</span>([cx, cy], <span class="t-s">0.35</span>, size=(n, <span class="t-s">2</span>)))
+        ys.<span class="t-f">append</span>(np.<span class="t-f">full</span>((n, <span class="t-s">1</span>), label, dtype=float))
+    <span class="t-k">return</span> np.<span class="t-f">vstack</span>(xs), np.<span class="t-f">vstack</span>(ys)
+
+X, y = <span class="t-f">make_xor</span>()
+<span class="t-f">print</span>(<span class="t-s">&quot;inputs:&quot;</span>, X.shape, <span class="t-s">&quot; answers:&quot;</span>, y.shape, <span class="t-s">&quot; share of 1s:&quot;</span>, y.<span class="t-f">mean</span>())
+
+plt.<span class="t-f">scatter</span>(X[:, <span class="t-s">0</span>], X[:, <span class="t-s">1</span>], c=y.<span class="t-f">ravel</span>(), s=<span class="t-s">12</span>, edgecolor=<span class="t-s">&quot;k&quot;</span>, linewidth=<span class="t-s">0.3</span>)
+plt.<span class="t-f">title</span>(<span class="t-s">&quot;XOR data: opposite corners share a label&quot;</span>)
+plt.<span class="t-f">savefig</span>(<span class="t-s">&quot;data.png&quot;</span>, dpi=<span class="t-s">120</span>)
+plt.<span class="t-f">close</span>()</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>rng = np.random.default_rng(0)</dt><dd>This creates a random number generator with a fixed starting point, called a seed. The seed 0 means you get exactly the same random points on every run, which is why the numbers quoted in this lab match the numbers on your screen.</dd>
+        <dt>corners = [(1, 1, 0), (-1, -1, 0), (1, -1, 1), (-1, 1, 1)]</dt><dd>Each group of three is a centre x, a centre y, and the label for that corner. Matching signs give label 0 and opposite signs give label 1, which is exactly the XOR rule written as data.</dd>
+        <dt>rng.normal([cx, cy], 0.35, size=(n, 2))</dt><dd>This draws 100 points scattered around the corner (cx, cy) with a spread of 0.35 in each direction. Real data is never exact, and that scatter is what forces the network to learn a region of the plane rather than memorise four points.</dd>
+        <dt>np.full((n, 1), label, dtype=float)</dt><dd>This makes a column of 100 copies of that corner's label. The shape is (100, 1) and not (100,) on purpose, so it lines up with the network's output column later without NumPy silently reshaping anything.</dd>
+        <dt>np.vstack(xs), np.vstack(ys)</dt><dd>vstack stacks the four blocks on top of each other, giving one (400, 2) input table and one (400, 1) answer column. Every later line in this lab assumes exactly those two shapes.</dd>
+        <dt>c=y.ravel()</dt><dd>This colours each dot by its label. ravel flattens the (400, 1) column into a flat list of 400 numbers, because scatter wants one colour value per dot and will not accept a column.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>The formula: each point is drawn from a normal distribution, also called a bell curve, written normal(mean, sd).
+Symbols: mean is the centre of the bell, here a corner such as (1, 1). sd is the standard deviation, which measures the spread, here 0.35.
+Rule of thumb: about 68% of draws land within 1 sd of the mean, 95% within 2 sd, and 99.7% within 3 sd.
+
+Worked example, one corner:
+For the corner centred at x = 1 with sd = 0.35, three standard deviations is 3 * 0.35 = 1.05.
+So almost every point in that cluster has an x between 1 - 1.05 = -0.05 and 1 + 1.05 = 2.05.
+To cross to the wrong side of x = 0 a point must sit (1 - 0) / 0.35 = 2.86 standard deviations below its centre, and the chance of that is about 0.002, which is 2 points in every 1000.
+
+Balance check:
+2 of the 4 corners carry label 1, and each corner has 100 points, so the share of 1s is 200 / 400 = 0.5 exactly.
+
+What it means: 0.35 is wide enough that the data looks messy like real data, and narrow enough that the four corners stay clearly separate. If you raised it to 1.0 the clusters would smear into each other and no network could reach 99%.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>The generator <code>rng</code> is shared by later steps, so if you add extra random calls before step 3, or call make_xor twice in one session, your points and every printed number after them will differ from the ones quoted here.</span></div>
+        </li>
+        <li><h3>Write the forward pass</h3><p>The forward pass is one trip through the network, from the two input numbers out to a single prediction between 0 and 1. <code>W1</code> is 2 by 8 because you have 2 inputs and 8 hidden neurons, and <code>W2</code> is 8 by 1 because those 8 neurons feed one output. The starting weights are random on purpose: if you set them all to zero, every neuron in a layer would compute the same thing and receive the same blame forever, so they could never specialise into different jobs. <code>tanh</code> is the bend that stops the two layers collapsing into one, and <code>sigmoid</code> squashes the final number into the range 0 to 1 so you can read it as a probability. The <code>USE_ACTIVATION</code> flag looks pointless now, but step 7 flips it to prove what the bend is worth. Your first printed guesses will be <code>[0.65 0.657 0.666 0.68 0.599]</code> and they mean nothing at all, because the weights are still random, and that is exactly what an untrained network should look like.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre>USE_ACTIVATION = <span class="t-k">True</span>
+
+<span class="t-k">def</span> <span class="t-f">sigmoid</span>(z):
+    <span class="t-k">return</span> <span class="t-s">1</span> / (<span class="t-s">1</span> + np.<span class="t-f">exp</span>(-z))
+
+<span class="t-k">def</span> <span class="t-f">forward</span>(X, W1, b1, W2, b2):
+    z1 = X @ W1 + b1
+    a1 = np.<span class="t-f">tanh</span>(z1) <span class="t-k">if</span> USE_ACTIVATION <span class="t-k">else</span> z1
+    z2 = a1 @ W2 + b2
+    p = <span class="t-f">sigmoid</span>(z2)
+    <span class="t-k">return</span> a1, p
+
+H = <span class="t-s">8</span>
+W1 = rng.<span class="t-f">normal</span>(<span class="t-s">0</span>, <span class="t-s">1</span>, (<span class="t-s">2</span>, H)) * np.<span class="t-f">sqrt</span>(<span class="t-s">1</span> / <span class="t-s">2</span>)
+b1 = np.<span class="t-f">zeros</span>((<span class="t-s">1</span>, H))
+W2 = rng.<span class="t-f">normal</span>(<span class="t-s">0</span>, <span class="t-s">1</span>, (H, <span class="t-s">1</span>)) * np.<span class="t-f">sqrt</span>(<span class="t-s">1</span> / H)
+b2 = np.<span class="t-f">zeros</span>((<span class="t-s">1</span>, <span class="t-s">1</span>))
+
+a1, p = <span class="t-f">forward</span>(X, W1, b1, W2, b2)
+<span class="t-f">print</span>(<span class="t-s">&quot;first five guesses:&quot;</span>, p[:<span class="t-s">5</span>].<span class="t-f">ravel</span>().<span class="t-f">round</span>(<span class="t-s">3</span>))</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>z1 = X @ W1 + b1</dt><dd><code>@</code> is matrix multiply. This one line does all 8 weighted sums for all 400 points at once and hands back a (400, 8) table. b1 has shape (1, 8) and NumPy repeats it down all 400 rows automatically, which is called broadcasting.</dd>
+        <dt>a1 = np.tanh(z1) if USE_ACTIVATION else z1</dt><dd>tanh is the bend, and it squashes any number into the range -1 to 1 along a smooth S shape. The <code>else z1</code> branch passes the number straight through untouched, and that is the switch step 7 uses to remove the bend without editing any other line.</dd>
+        <dt>p = sigmoid(z2)</dt><dd>sigmoid squeezes any number into the range 0 to 1, so the output reads as a probability that the answer is 1. Without it the network could output 7.3 or -12, which you cannot compare against a label that is only ever 0 or 1.</dd>
+        <dt>W1 = rng.normal(0, 1, (2, H)) * np.sqrt(1 / 2)</dt><dd>This fills W1 with random numbers of average size 1 and then shrinks them by sqrt(1/2), where 2 is the number of inputs feeding each neuron. The shrink stops the weighted sums from starting too large, which would push tanh straight to its flat ends where almost no learning happens.</dd>
+        <dt>b1 = np.zeros((1, H))</dt><dd>The biases start at exactly zero. They do not suffer the all-identical problem that zeroed weights do, because the random weights have already made every neuron different from its neighbours.</dd>
+        <dt>return a1, p</dt><dd>The function hands back the hidden layer output as well as the prediction. The backward pass in step 5 needs a1 to work out how much each hidden neuron contributed, so throwing it away here would force you to recompute it.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>One neuron: z = x1*w1 + x2*w2 + b
+Symbols: x1 and x2 are the two input numbers for one point, w1 and w2 are that neuron's weights, b is its bias.
+Worked example with the real first point and the real first hidden neuron from your run:
+x = (1.0440, 0.9538) and w = (-0.5205, -0.4991), b = 0.
+z = 1.0440 * -0.5205 + 0.9538 * -0.4991 = -0.5434 + -0.4761 = -1.0195
+tanh(-1.0195) = -0.7696, and that is neuron 0's output for point 0.
+
+Sigmoid: sigmoid(z) = 1 / (1 + e^-z), where e is about 2.71828.
+Worked example: the eight hidden outputs times W2 plus b2 give z2 = 0.617 for that first point.
+e^-0.617 = 0.5396, so sigmoid(0.617) = 1 / (1 + 0.5396) = 1 / 1.5396 = 0.6495, which prints as 0.65.
+sigmoid(0) = 0.5 exactly, a large positive z goes to 1, a large negative z goes to 0.
+
+Initialisation scale: sd of the weights = sqrt(1 / fan_in)
+Symbols: fan_in is how many numbers feed into each neuron of that layer.
+Layer 1: fan_in = 2, so sqrt(1/2) = 0.7071.
+Layer 2: fan_in = 8, so sqrt(1/8) = 0.3536.
+Reason in one line: adding up fan_in independent terms multiplies the spread of the result by fan_in, so dividing the weight variance by fan_in keeps each layer's output roughly the same size as its input.
+
+Parameter count: W1 holds 2 * 8 = 16 numbers, b1 holds 8, W2 holds 8 * 1 = 8, b2 holds 1.
+Total = 16 + 8 + 8 + 1 = 33 numbers, and training changes only those 33. Nothing else in the file ever changes.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span><code>USE_ACTIVATION</code> must stay a module-level variable, because forward() reads it fresh on every call, so setting it inside a function without the <code>global</code> keyword silently does nothing at all.</span></div>
+        </li>
+        <li><h3>Score how wrong it is</h3><p>You cannot improve something you cannot measure, so you crush all 400 mistakes into one single number called the loss. This one is binary cross entropy, which punishes confident wrong answers far harder than unsure ones. When the true answer is 1 the term <code>y * log(p)</code> is all that survives, and it grows painful as <code>p</code> heads towards 0. The <code>np.clip</code> is not decoration: <code>log(0)</code> is negative infinity, and one infinity spreads into every number downstream and turns your whole training run into nan. You should see 0.7429 printed. That is worse than the 0.6931 you would get by answering 0.5 to everything, and that is normal at this point, because the weights are random and random confidence is worse than honest uncertainty.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-k">def</span> <span class="t-f">loss_fn</span>(p, y):
+    p = np.<span class="t-f">clip</span>(p, <span class="t-s">1e</span>-<span class="t-s">9</span>, <span class="t-s">1</span> - <span class="t-s">1e</span>-<span class="t-s">9</span>)
+    <span class="t-k">return</span> -np.<span class="t-f">mean</span>(y * np.<span class="t-f">log</span>(p) + (<span class="t-s">1</span> - y) * np.<span class="t-f">log</span>(<span class="t-s">1</span> - p))
+
+<span class="t-f">print</span>(<span class="t-s">&quot;loss before any training:&quot;</span>, <span class="t-f">round</span>(<span class="t-f">loss_fn</span>(p, y), <span class="t-s">4</span>))</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>p = np.clip(p, 1e-9, 1 - 1e-9)</dt><dd>This forces every probability into the range 0.000000001 to 0.999999999 before the logarithm ever sees it. sigmoid can return a number that rounds to exactly 0 or 1 in floating point, and log of 0 is negative infinity, which would make the loss nan and destroy every gradient after it.</dd>
+        <dt>y * np.log(p) + (1 - y) * np.log(1 - p)</dt><dd>This is an if-statement written as arithmetic. When y is 1 the second term is multiplied by 0 and vanishes, and when y is 0 the first term vanishes, so each point is scored only against its own true answer.</dd>
+        <dt>-np.mean(...)</dt><dd>The minus sign flips the score so that lower is better, because the log of any number below 1 is negative. The mean averages over all 400 points, so the loss keeps the same scale even if you later change how many points you have.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>The formula: loss = -(1/N) * sum over all points of [ y*ln(p) + (1-y)*ln(1-p) ]
+Symbols: N is the number of points, 400 here. y is the true label, either 0 or 1. p is the network's predicted probability that the answer is 1. ln is the natural logarithm.
+
+Worked example with 4 small points.
+True answers y = 1, 1, 0, 0 and predictions p = 0.9, 0.6, 0.2, 0.7.
+Point 1: y = 1, score = -ln(0.9) = 0.1054
+Point 2: y = 1, score = -ln(0.6) = 0.5108
+Point 3: y = 0, score = -ln(1 - 0.2) = -ln(0.8) = 0.2231
+Point 4: y = 0, score = -ln(1 - 0.7) = -ln(0.3) = 1.2040
+Sum = 2.0433, mean over 4 points = 0.5108
+Notice point 4. It was wrong and confident, and on its own it contributed more than the other three added together. That is the whole personality of cross entropy.
+
+The 0.6931 baseline:
+If you answer 0.5 for every single point, every score is -ln(0.5) = 0.6931, so the mean is 0.6931.
+Treat that as your do-nothing line. Anything above it means your network is doing worse than shrugging.
+
+Your actual first point:
+y = 0 and p = 0.6495, so its score is -ln(1 - 0.6495) = -ln(0.3505) = 1.048.
+Averaged over all 400 points this comes to 0.7429, which is the number that prints.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If <code>y</code> ever ends up with shape (400,) instead of (400, 1), NumPy will broadcast it against p into a 400 by 400 table and the loss will still print a believable looking number that is completely wrong.</span></div>
+        </li>
+        <li><h3>Work out the blame and take one step</h3><p>This is backpropagation, and it is six lines. Backpropagation works out, for each of the 33 numbers in the network, how much the loss would change if you nudged only that number, and it gets all 33 answers by pushing blame backwards from the output rather than by testing each weight one at a time. <code>dz2 = (p - y) / N</code> is the error at the output, divided by the number of points because the loss is a mean. Each line after it carries that blame one stage earlier: through <code>W2</code> to reach the hidden layer, then through <code>(1 - a1 ** 2)</code>, which is the slope of tanh, and finally onto <code>W1</code>. Then you subtract a small fraction of each gradient from its weight, which is one gradient descent step. The loss should tick down from 0.7429 to 0.7219 on that single step, which is a small move and exactly what one nudge should give you.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-k">def</span> <span class="t-f">backward</span>(X, y, a1, p, W2):
+    N = X.shape[<span class="t-s">0</span>]
+    dz2 = (p - y) / N
+    dW2 = a1.T @ dz2
+    db2 = dz2.<span class="t-f">sum</span>(axis=<span class="t-s">0</span>, keepdims=<span class="t-k">True</span>)
+    da1 = dz2 @ W2.T
+    dz1 = da1 * (<span class="t-s">1</span> - a1 ** <span class="t-s">2</span>) <span class="t-k">if</span> USE_ACTIVATION <span class="t-k">else</span> da1
+    dW1 = X.T @ dz1
+    db1 = dz1.<span class="t-f">sum</span>(axis=<span class="t-s">0</span>, keepdims=<span class="t-k">True</span>)
+    <span class="t-k">return</span> dW1, db1, dW2, db2
+
+dW1, db1, dW2, db2 = <span class="t-f">backward</span>(X, y, a1, p, W2)
+lr = <span class="t-s">0.5</span>
+W1 -= lr * dW1
+b1 -= lr * db1
+W2 -= lr * dW2
+b2 -= lr * db2
+_, p = <span class="t-f">forward</span>(X, W1, b1, W2, b2)
+<span class="t-f">print</span>(<span class="t-s">&quot;loss after ONE step:&quot;</span>, <span class="t-f">round</span>(<span class="t-f">loss_fn</span>(p, y), <span class="t-s">4</span>))</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>dz2 = (p - y) / N</dt><dd>This is the whole error signal at the output, and it is this simple because the sigmoid and the cross entropy cancel each other out when you differentiate them together. Dividing by N is there because the loss is an average and not a sum, so the gradient has to be averaged too.</dd>
+        <dt>dW2 = a1.T @ dz2</dt><dd>A hidden neuron that was strongly active gets a bigger share of the blame, so you multiply the error by that neuron's output. The <code>.T</code> transposes a1 from (400, 8) to (8, 400) so the answer comes out shaped (8, 1), which is the same shape as W2 and therefore usable by the update line.</dd>
+        <dt>db2 = dz2.sum(axis=0, keepdims=True)</dt><dd>The bias is added to every point equally, so its gradient is just the errors summed down all 400 rows. <code>keepdims=True</code> stops NumPy collapsing the result into a flat array, holding it at shape (1, 1) so it matches b2.</dd>
+        <dt>da1 = dz2 @ W2.T</dt><dd>This sends the output error backwards through the second layer of weights. A hidden neuron joined to the output by a large weight receives a large share of the blame, which is exactly the rule you would guess by hand.</dd>
+        <dt>dz1 = da1 * (1 - a1 ** 2)</dt><dd>1 - tanh(z)^2 is the slope of tanh at that point, and blame only passes backwards in proportion to that slope. A neuron sitting near -1 or +1 has an almost flat slope, so it barely learns, and that condition is called saturation.</dd>
+        <dt>W1 -= lr * dW1</dt><dd>This is the only line in the step where anything is actually learned. You move each weight a little way in the downhill direction, and <code>lr = 0.5</code> decides how far a little way is.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Where dz2 comes from.
+For one point the loss is -[ y*ln(p) + (1-y)*ln(1-p) ] and p = sigmoid(z2).
+d(loss)/dp = -(y/p) + (1-y)/(1-p)
+d(p)/dz2 = p * (1 - p), which is the slope of sigmoid.
+Multiply the two and every term cancels down to just (p - y). Then divide by N because the loss averages over N points.
+Worked example: the first point has y = 0 and p = 0.6495, with N = 400.
+dz2 = (0.6495 - 0) / 400 = 0.001624
+It is positive, which says raising z2 would raise the loss, so the update pushes z2 down and p towards 0. That is correct, because the true answer for that point is 0.
+
+The tanh slope.
+tanh'(z) = 1 - tanh(z)^2, and since a1 already holds tanh(z1) you can write it as 1 - a1**2 and recompute nothing.
+Worked example: neuron 0's output for point 0 is a1 = -0.7696.
+slope = 1 - (-0.7696)^2 = 1 - 0.5923 = 0.4077, so about 41% of the blame gets through.
+If a1 were 0 the slope would be 1 and all the blame passes.
+If a1 were 0.99 the slope would be 1 - 0.9801 = 0.0199, so only 2% passes and that neuron is nearly stuck.
+
+One full chain for one weight, all real numbers from your run.
+dz2 = 0.001624, and W2 for hidden neuron 0 is 0.083.
+da1 = 0.001624 * 0.083 = 0.0001348
+dz1 = 0.0001348 * 0.4077 = 0.0000550
+That is one point's contribution. The matrix multiply adds up all 400 of them in a single operation.
+
+The update rule: new_weight = old_weight - lr * gradient
+Worked example: a weight of 0.70 with a gradient of 0.02 and lr = 0.5 becomes 0.70 - 0.5 * 0.02 = 0.69.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>This block takes exactly one step every time the file runs, so if you accidentally run it twice the printed loss after ONE step will not be 0.7219 and every number after it drifts.</span></div>
+        </li>
+        <li><h3>Loop it, and plot the loss falling</h3><p>An epoch is one pass over all your data, and this loop does 3000 of them, using all 400 points every single time. Training is now just five things on repeat: forward, record the loss, backward, subtract, go again. Note that <code>train()</code> builds its own fresh weights from a seed, so it does not continue from the weights you made in steps 3 and 5, it starts over from scratch. You should see the loss start at 0.6994 and finish at 0.0136, with the printed checkpoints falling to 0.0316 by epoch 500 and then crawling from there. Open loss.png and you will see a curve that drops like a cliff and then flattens into a long tail. That flattening is normal and not a bug, because once the easy points are right the remaining gradient is small, so each step moves the weights less.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-k">def</span> <span class="t-f">train</span>(X, y, H=<span class="t-s">8</span>, lr=<span class="t-s">0.5</span>, epochs=<span class="t-s">3000</span>, seed=<span class="t-s">0</span>, quiet=<span class="t-k">False</span>):
+    r = np.random.<span class="t-f">default_rng</span>(seed)
+    W1 = r.<span class="t-f">normal</span>(<span class="t-s">0</span>, <span class="t-s">1</span>, (X.shape[<span class="t-s">1</span>], H)) * np.<span class="t-f">sqrt</span>(<span class="t-s">1</span> / X.shape[<span class="t-s">1</span>])
+    b1 = np.<span class="t-f">zeros</span>((<span class="t-s">1</span>, H))
+    W2 = r.<span class="t-f">normal</span>(<span class="t-s">0</span>, <span class="t-s">1</span>, (H, <span class="t-s">1</span>)) * np.<span class="t-f">sqrt</span>(<span class="t-s">1</span> / H)
+    b2 = np.<span class="t-f">zeros</span>((<span class="t-s">1</span>, <span class="t-s">1</span>))
+    history = []
+    <span class="t-k">for</span> epoch <span class="t-k">in</span> <span class="t-f">range</span>(epochs):
+        a1, p = <span class="t-f">forward</span>(X, W1, b1, W2, b2)
+        history.<span class="t-f">append</span>(<span class="t-f">loss_fn</span>(p, y))
+        dW1, db1, dW2, db2 = <span class="t-f">backward</span>(X, y, a1, p, W2)
+        W1 -= lr * dW1
+        b1 -= lr * db1
+        W2 -= lr * dW2
+        b2 -= lr * db2
+        <span class="t-k">if</span> <span class="t-k">not</span> quiet <span class="t-k">and</span> epoch % <span class="t-s">500</span> == <span class="t-s">0</span>:
+            <span class="t-f">print</span>(f<span class="t-s">&quot;epoch {epoch:5d}  loss {history[-1]:.4f}&quot;</span>)
+    <span class="t-k">return</span> (W1, b1, W2, b2), history
+
+params, history = <span class="t-f">train</span>(X, y)
+<span class="t-f">print</span>(<span class="t-s">&quot;final loss:&quot;</span>, <span class="t-f">round</span>(history[-<span class="t-s">1</span>], <span class="t-s">4</span>))
+
+plt.<span class="t-f">plot</span>(history)
+plt.<span class="t-f">xlabel</span>(<span class="t-s">&quot;epoch (one pass over all the data)&quot;</span>)
+plt.<span class="t-f">ylabel</span>(<span class="t-s">&quot;loss (lower is better)&quot;</span>)
+plt.<span class="t-f">title</span>(<span class="t-s">&quot;The loss falling&quot;</span>)
+plt.<span class="t-f">savefig</span>(<span class="t-s">&quot;loss.png&quot;</span>, dpi=<span class="t-s">120</span>)
+plt.<span class="t-f">close</span>()</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>r = np.random.default_rng(seed)</dt><dd>The function makes its own generator with its own seed instead of borrowing the global <code>rng</code>. That is what makes every call to train() start from identical weights, so when you change the learning rate in step 8 the learning rate really is the only difference.</dd>
+        <dt>W1 = r.normal(0, 1, (X.shape[1], H)) * np.sqrt(1 / X.shape[1])</dt><dd><code>X.shape[1]</code> is the number of input columns, read from your data rather than hard-coded as 2. That is why the same train() will work unchanged on the mini-project data at the end without you touching a line.</dd>
+        <dt>history.append(loss_fn(p, y))</dt><dd>The loss is recorded before the update, so history[0] is the loss of the completely untrained network. Keeping the whole list is what lets you draw the curve instead of only ever seeing the final number.</dd>
+        <dt>the four -= lines</dt><dd>These are one gradient descent step applied to all 33 numbers in the network. This is the only place in the entire lab where anything is learned, and everything else exists to feed these four lines.</dd>
+        <dt>if not quiet and epoch % 500 == 0</dt><dd><code>%</code> is the remainder after division, so this is true on epoch 0, 500, 1000 and so on. Printing all 3000 lines would bury the useful output, and the <code>quiet</code> flag lets steps 7 and 8 call train() with no printing at all.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>What one epoch costs here.
+This is full-batch gradient descent, meaning every update uses all 400 points, so 3000 epochs is exactly 3000 weight updates.
+Total point evaluations = 3000 epochs * 400 points = 1,200,000 forward passes through a 33 number network, which takes a second or two on a laptop CPU.
+
+Why the curve flattens.
+The size of each step is lr * gradient, and the gradient at the output is (p - y) / N.
+Worked example: a point with y = 1 that the network currently calls p = 0.3 contributes (0.3 - 1) / 400 = -0.00175.
+The same point once p has climbed to 0.98 contributes (0.98 - 1) / 400 = -0.00005, which is 35 times smaller.
+So the network slows itself down as it gets things right, and no extra code makes that happen.
+
+Reading your own numbers.
+The loss falls from 0.6994 to 0.0316 across the first 500 epochs, then only from 0.0316 to 0.0136 across the remaining 2500.
+Fraction of the total improvement done in the first 500 epochs = (0.6994 - 0.0316) / (0.6994 - 0.0136) = 0.6678 / 0.6858 = 0.97.
+About 97% of the learning happened in the first sixth of the run.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>train() creates brand new weights inside itself, so if you expected it to carry on from step 5 and are puzzled that the loss restarts near 0.70 instead of 0.72, that is the reason.</span></div>
+        </li>
+        <li><h3>Check accuracy, then break it on purpose</h3><p>Loss is the thing you optimise, but accuracy is the thing you understand, so measure both. Accuracy turns each probability into a yes or a no by asking whether it is above 0.5, then counts how often that matches the truth, and you should get 99.5%. Now set <code>USE_ACTIVATION = False</code> and train the identical network again, with the same starting weights, the same loss and the same learning rate. It parks at 0.6931 and about 50.2% accuracy, which is the coin-flip baseline from step 4. Nothing about the network's size changed, it still has all 33 numbers and all 8 hidden neurons, so the only thing you took away was the bend. That single experiment is the whole argument for activation functions, and it is worth running twice before you believe it.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-k">def</span> <span class="t-f">accuracy</span>(params, X, y):
+    _, p = <span class="t-f">forward</span>(X, *params)
+    <span class="t-k">return</span> <span class="t-f">float</span>(((p &gt; <span class="t-s">0.5</span>) == (y &gt; <span class="t-s">0.5</span>)).<span class="t-f">mean</span>()) * <span class="t-s">100</span>
+
+<span class="t-f">print</span>(<span class="t-s">&quot;accuracy with tanh:&quot;</span>, <span class="t-f">round</span>(<span class="t-f">accuracy</span>(params, X, y), <span class="t-s">1</span>), <span class="t-s">&quot;%&quot;</span>)
+
+USE_ACTIVATION = <span class="t-k">False</span>
+flat_params, flat_history = <span class="t-f">train</span>(X, y, quiet=<span class="t-k">True</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;no activation -&gt; loss&quot;</span>, <span class="t-f">round</span>(flat_history[-<span class="t-s">1</span>], <span class="t-s">4</span>),
+      <span class="t-s">&quot; accuracy&quot;</span>, <span class="t-f">round</span>(<span class="t-f">accuracy</span>(flat_params, X, y), <span class="t-s">1</span>), <span class="t-s">&quot;%&quot;</span>)
+USE_ACTIVATION = <span class="t-k">True</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>_, p = forward(X, *params)</dt><dd>The star unpacks the tuple (W1, b1, W2, b2) into four separate arguments for forward. The underscore is the usual Python way of saying you are deliberately throwing away the first returned value, which here is the hidden layer you do not need.</dd>
+        <dt>(p &gt; 0.5) == (y &gt; 0.5)</dt><dd>Both sides turn into tables of True and False, and <code>==</code> compares them point by point. Writing <code>y &gt; 0.5</code> instead of <code>y == 1</code> sidesteps the floating point trap of testing a decimal number for exact equality with a whole number.</dd>
+        <dt>.mean()) * 100</dt><dd>In NumPy True counts as 1 and False counts as 0, so the mean of a True/False table is simply the fraction that were correct. Multiplying by 100 turns that fraction into a percentage.</dd>
+        <dt>USE_ACTIVATION = False ... USE_ACTIVATION = True</dt><dd>This flips the global flag, retrains the same network with no bend, then flips it back. Putting it back is not optional, because step 8 calls train() again and would otherwise be quietly measuring four straight-line models.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Why removing the bend costs everything.
+With no activation the hidden layer is just a1 = X*W1 + b1, so the output becomes
+z2 = (X*W1 + b1)*W2 + b2 = X*(W1*W2) + (b1*W2 + b2)
+W1 is 2 by 8 and W2 is 8 by 1, so W1*W2 is a single 2 by 1 matrix. Eight neurons collapse into one straight line, and adding eight hundred more would still collapse into one straight line.
+
+What your run actually learned:
+W1*W2 came out as (0.0167, -0.0041) with a combined bias of 0.0004.
+So the prediction is sigmoid(0.0167*x1 - 0.0041*x2 + 0.0004).
+For a typical point with x1 = 1 and x2 = 1 that is sigmoid(0.0130) = 0.5032, which is 0.5 for all practical purposes.
+The loss of answering 0.5 everywhere is -ln(0.5) = 0.6931, exactly the number that printed.
+
+Accuracy arithmetic:
+400 points, 201 of them happened to land on the correct side of a boundary that is essentially noise.
+201 / 400 = 0.5025, which rounds to the 50.2% you see.
+
+Being honest about one detail: a straight line placed by hand could reach 75% on XOR by slicing off one corner. Gradient descent never finds it, because this data is balanced in every direction, so for any line the mirror-image line scores exactly the same, and the only stable point the optimiser can settle on is the do-nothing solution in the middle.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Forgetting the final <code>USE_ACTIVATION = True</code> is the classic mistake here, and the symptom is that all four curves in step 8 come out flat and equally useless.</span></div>
+        </li>
+        <li><h3>Change only the learning rate</h3><p>Same data, same network, same 3000 epochs, one number different each time. The learning rate is the fraction of the gradient you actually subtract from each weight, and it is the setting people get wrong more often than any other. You should see 0.001 finish at 0.6860, which means it never really started, 0.05 at 0.0477, 0.5 at 0.0136, and 500 at 0.8073, which is worse than an untrained network. The log scale on the y axis is there so the good curve and the terrible curve both fit on one chart, because 0.0136 and 0.8 are too far apart to read on an ordinary scale. The huge rate may also print a RuntimeWarning about overflow in <code>exp</code>, which is a symptom of numbers blowing up rather than a crash, and it is another sign your step size is wrong. No formula hands you the right value, so you try several, plot them together, and keep the one whose curve falls fastest and stays down.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-k">for</span> lr_try <span class="t-k">in</span> [<span class="t-s">0.001</span>, <span class="t-s">0.05</span>, <span class="t-s">0.5</span>, <span class="t-s">500.0</span>]:
+    _, h = <span class="t-f">train</span>(X, y, lr=lr_try, quiet=<span class="t-k">True</span>)
+    plt.<span class="t-f">plot</span>(h, label=f<span class="t-s">&quot;lr={lr_try}&quot;</span>)
+    <span class="t-f">print</span>(f<span class="t-s">&quot;lr={lr_try:&lt;8} final loss {h[-1]:.4f}&quot;</span>)
+plt.<span class="t-f">legend</span>()
+plt.<span class="t-f">yscale</span>(<span class="t-s">&quot;log&quot;</span>)
+plt.<span class="t-f">xlabel</span>(<span class="t-s">&quot;epoch&quot;</span>)
+plt.<span class="t-f">ylabel</span>(<span class="t-s">&quot;loss&quot;</span>)
+plt.<span class="t-f">title</span>(<span class="t-s">&quot;Same network, four learning rates&quot;</span>)
+plt.<span class="t-f">savefig</span>(<span class="t-s">&quot;learning_rates.png&quot;</span>, dpi=<span class="t-s">120</span>)
+plt.<span class="t-f">close</span>()</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>for lr_try in [0.001, 0.05, 0.5, 500.0]</dt><dd>These four values span about six orders of magnitude, because learning rates are searched by multiplying, not by adding. Trying 0.001, 0.002 and 0.003 would tell you almost nothing, since they all behave the same way.</dd>
+        <dt>_, h = train(X, y, lr=lr_try, quiet=True)</dt><dd>Only <code>lr</code> changes between runs, and the fixed seed inside train() guarantees identical starting weights every time. <code>quiet=True</code> suppresses the per-epoch printing so you get four clean summary lines instead of twenty-four.</dd>
+        <dt>plt.plot(h, label=f&quot;lr={lr_try}&quot;)</dt><dd>Each curve is drawn onto the same figure, and the label is the text that <code>plt.legend()</code> picks up afterwards. There is no <code>plt.figure()</code> call between the plots, which is exactly why all four land on one chart.</dd>
+        <dt>plt.yscale(&quot;log&quot;)</dt><dd>A log y axis puts the same screen distance between 0.01 and 0.1 as between 0.1 and 1. Without it the curve that drops to 0.0136 would be a flat line squashed against the bottom edge and you could not tell the good runs apart.</dd>
+        <dt>f&quot;lr={lr_try:&lt;8} final loss {h[-1]:.4f}&quot;</dt><dd>The <code>:&amp;lt;8</code> pads the rate out to eight characters on the left so the four printed lines line up in the terminal. The <code>:.4f</code> prints exactly four decimal places, which is enough to compare 0.0136 against 0.0477.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>A one-weight model of what is going on.
+Imagine the loss is a simple bowl: loss = a * w^2.
+Symbols: w is a single weight, a says how steep the bowl is, lr is the learning rate.
+The gradient is 2*a*w, so the update is w_new = w - lr*2*a*w = w * (1 - 2*a*lr).
+All the behaviour lives in that one multiplier, (1 - 2*a*lr).
+
+Worked example with a = 1 and a starting w = 1.
+lr = 0.1 gives multiplier 1 - 0.2 = 0.8, so w goes 1, 0.8, 0.64, 0.512 and settles at 0. Healthy.
+lr = 1.0 gives multiplier 1 - 2 = -1, so w goes 1, -1, 1, -1 forever and never improves.
+lr = 1.5 gives multiplier 1 - 3 = -2, so w goes 1, -2, 4, -8, 16 and explodes. This is your lr = 500 curve finishing at 0.8073.
+
+The rule: you converge when the multiplier sits between -1 and 1, which means lr must be below 1 / a. You never know a, so you test several values.
+
+Why 0.001 stalls: in this toy bowl 3000 tiny steps do eventually arrive. On the real XOR loss surface the gradients are far smaller than 2*w, so after the same 3000 steps the loss has only crept from 0.6994 to 0.6860, a total move of 0.013.
+
+Why the overflow warning appears: sigmoid computes e^-z, and a float64 number cannot hold anything bigger than about 1.8e308. ln(1.8e308) = 709.78, so the moment -z climbs past roughly 710 the exponential overflows to infinity and NumPy warns you. That only happens once the weights have already blown up.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If you skipped the <code>plt.close()</code> at the end of step 6, all four learning rate curves get drawn on top of the old loss curve and the chart becomes unreadable.</span></div>
+        </li>
+        </ol>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> Your module folder holds three PNG files: data.png, loss.png and learning_rates.png. Your terminal shows a final loss of 0.0136 and the line 'accuracy with tanh: 99.5 %'. The no-activation run prints a loss of 0.6931 and about 50.2%, which is the coin flip. loss.png shows one curve dropping from about 0.70 to under 0.02, and learning_rates.png shows four curves in which lr=0.001 is a nearly flat line across the top and lr=500.0 bounces around above all the rest.</div></div>
+        </section>
+        <section class="section section--mini"><h2 class="section__h" data-stamp="hands on"><span>Mini-project: your turn</span></h2>
+        <p class="prose">Train the lab's network on two concentric rings, then save the trained weights and both data splits so a program can verify the result instead of you eyeballing it. Your script writes rings_result.json and rings_boundary.png, and check.py reads both.</p>
+        <p class="small muted">No code given. Produce the file, then run the checker.</p>
+        <ol class="steps">
+        <li><p>Write make_rings(n=500) in a new file rings.py, next to a copy of the lab's forward, loss_fn, backward, train and accuracy functions. Label 0 is a blob with radius drawn between 0.0 and 1.0, label 1 is a ring with radius drawn between 2.0 and 2.5, both at a random angle. Return X shaped (N, 2) and y shaped (N, 1) so train() works with no changes.</p></li>
+        <li><p>Shuffle with a seeded generator, then split 80/20 into Xtr, ytr and Xte, yte. The training loop must never see the test points, and the checker looks for leaks.</p></li>
+        <li><p>Train with H=8 and the lab's defaults, then measure accuracy on both splits with the lab's accuracy(). Then train a second network on the same split with H=2 and keep only its test accuracy.</p></li>
+        <li><p>Draw the boundary: np.meshgrid over roughly -3 to 3 in both directions, run forward() on every grid point, colour the plane with plt.contourf, scatter your held-out points on top. Save it as rings_boundary.png in the same folder.</p></li>
+        <li><p>Write rings_result.json in that folder with exactly these keys: hidden (8), train_X, train_y, test_X, test_y (nested lists, use .tolist()), train_accuracy and test_accuracy (percentages from 0 to 100), weights (an object with W1, b1, W2, b2, each .tolist(), so b1 is [[...]] with 8 numbers and b2 is [[x]]), and small_net ({&quot;hidden&quot;: 2, &quot;test_accuracy&quot;: ...}).</p></li>
+        <li><p>Save check.py in the same folder and run python check.py.</p></li>
+        </ol>
+        <div class="checker"><div class="checker__h">Check it yourself, automatically</div>
+        <p>Save this as <code>check.py</code> next to your work, then run <code>python check.py, run from the folder holding rings_result.json</code>. It reads what you produced, tests it, and prints a line per check.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>check.py</span></div>
+<pre><span class="t-c"># check.py - checks the Module 2 mini-project. Run: python check.py</span>
+<span class="t-c"># Standard library only. No API key, no internet, no model call.</span>
+<span class="t-k">import</span> json, math, os, sys
+
+ART = <span class="t-s">&quot;rings_result.json&quot;</span>
+fails = []
+
+<span class="t-k">def</span> <span class="t-f">report</span>(ok, msg):
+    <span class="t-f">print</span>((<span class="t-s">&quot;PASS &quot;</span> <span class="t-k">if</span> ok <span class="t-k">else</span> <span class="t-s">&quot;FAIL &quot;</span>) + msg)
+    <span class="t-k">if</span> <span class="t-k">not</span> ok:
+        fails.<span class="t-f">append</span>(msg)
+
+<span class="t-k">def</span> <span class="t-f">finish</span>():
+    <span class="t-f">print</span>(<span class="t-s">&quot;Not checked automatically: whether rings_boundary.png shows a closed ring. Open it and look.&quot;</span>)
+    <span class="t-f">print</span>(<span class="t-s">&quot;ALL CHECKS PASSED&quot;</span> <span class="t-k">if</span> <span class="t-k">not</span> fails <span class="t-k">else</span> <span class="t-s">&quot;%d check(s) failed&quot;</span> % <span class="t-f">len</span>(fails))
+    sys.<span class="t-f">exit</span>(<span class="t-s">0</span> <span class="t-k">if</span> <span class="t-k">not</span> fails <span class="t-k">else</span> <span class="t-s">1</span>)
+
+<span class="t-k">if</span> <span class="t-k">not</span> os.path.<span class="t-f">exists</span>(ART):
+    sys.<span class="t-f">exit</span>(<span class="t-s">&quot;FAIL %s not found. Run your mini-project script in this folder first.&quot;</span> % ART)
+<span class="t-k">try</span>:
+    <span class="t-k">with</span> <span class="t-f">open</span>(ART, encoding=<span class="t-s">&quot;utf-8&quot;</span>) <span class="t-k">as</span> f:
+        d = json.<span class="t-f">load</span>(f)
+<span class="t-k">except</span> json.JSONDecodeError <span class="t-k">as</span> e:
+    sys.<span class="t-f">exit</span>(<span class="t-s">&quot;FAIL %s is not valid JSON: %s&quot;</span> % (ART, e))
+
+need = [<span class="t-s">&quot;hidden&quot;</span>, <span class="t-s">&quot;train_X&quot;</span>, <span class="t-s">&quot;train_y&quot;</span>, <span class="t-s">&quot;test_X&quot;</span>, <span class="t-s">&quot;test_y&quot;</span>,
+        <span class="t-s">&quot;train_accuracy&quot;</span>, <span class="t-s">&quot;test_accuracy&quot;</span>, <span class="t-s">&quot;weights&quot;</span>, <span class="t-s">&quot;small_net&quot;</span>]
+missing = [k <span class="t-k">for</span> k <span class="t-k">in</span> need <span class="t-k">if</span> k <span class="t-k">not</span> <span class="t-k">in</span> d]
+<span class="t-f">report</span>(<span class="t-k">not</span> missing, <span class="t-s">&quot;all required keys present&quot;</span> + (<span class="t-s">&quot;; missing &quot;</span> + <span class="t-s">&quot;, &quot;</span>.<span class="t-f">join</span>(missing) <span class="t-k">if</span> missing <span class="t-k">else</span> <span class="t-s">&quot;&quot;</span>))
+<span class="t-k">if</span> missing:
+    <span class="t-f">finish</span>()
+
+wk = d[<span class="t-s">&quot;weights&quot;</span>] <span class="t-k">if</span> <span class="t-f">isinstance</span>(d[<span class="t-s">&quot;weights&quot;</span>], dict) <span class="t-k">else</span> {}
+<span class="t-k">if</span> <span class="t-k">not</span> <span class="t-f">all</span>(k <span class="t-k">in</span> wk <span class="t-k">for</span> k <span class="t-k">in</span> (<span class="t-s">&quot;W1&quot;</span>, <span class="t-s">&quot;b1&quot;</span>, <span class="t-s">&quot;W2&quot;</span>, <span class="t-s">&quot;b2&quot;</span>)):
+    sys.<span class="t-f">exit</span>(<span class="t-s">&quot;FAIL weights must be an object holding W1, b1, W2 and b2 as nested lists&quot;</span>)
+rows = <span class="t-k">lambda</span> m: m <span class="t-k">if</span> m <span class="t-k">and</span> <span class="t-f">isinstance</span>(m[<span class="t-s">0</span>], list) <span class="t-k">else</span> [m]   <span class="t-c"># accept [1,2] or [[1,2]]</span>
+H = <span class="t-f">int</span>(d[<span class="t-s">&quot;hidden&quot;</span>])
+W1, b1, W2, b2 = <span class="t-f">rows</span>(wk[<span class="t-s">&quot;W1&quot;</span>]), <span class="t-f">rows</span>(wk[<span class="t-s">&quot;b1&quot;</span>]), <span class="t-f">rows</span>(wk[<span class="t-s">&quot;W2&quot;</span>]), <span class="t-f">rows</span>(wk[<span class="t-s">&quot;b2&quot;</span>])
+<span class="t-f">report</span>(<span class="t-f">len</span>(W1) == <span class="t-s">2</span> <span class="t-k">and</span> <span class="t-f">all</span>(<span class="t-f">len</span>(r) == H <span class="t-k">for</span> r <span class="t-k">in</span> W1) <span class="t-k">and</span> <span class="t-f">len</span>(b1[<span class="t-s">0</span>]) == H
+       <span class="t-k">and</span> <span class="t-f">len</span>(W2) == H <span class="t-k">and</span> <span class="t-f">len</span>(W2[<span class="t-s">0</span>]) == <span class="t-s">1</span> <span class="t-k">and</span> <span class="t-f">len</span>(b2[<span class="t-s">0</span>]) == <span class="t-s">1</span>,
+       <span class="t-s">&quot;weight shapes match hidden=%d (W1 is 2x%d, W2 is %dx1)&quot;</span> % (H, H, H))
+
+<span class="t-c"># the hold-out set is real and separate</span>
+ntr, nte = <span class="t-f">len</span>(d[<span class="t-s">&quot;train_X&quot;</span>]), <span class="t-f">len</span>(d[<span class="t-s">&quot;test_X&quot;</span>])
+<span class="t-f">report</span>(nte &gt;= <span class="t-s">0.15</span> * (ntr + nte), <span class="t-s">&quot;test set holds %d of %d points (at least 15%%)&quot;</span> % (nte, ntr + nte))
+seen = {(<span class="t-f">round</span>(a, <span class="t-s">6</span>), <span class="t-f">round</span>(b, <span class="t-s">6</span>)) <span class="t-k">for</span> a, b <span class="t-k">in</span> d[<span class="t-s">&quot;train_X&quot;</span>]}
+leak = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> a, b <span class="t-k">in</span> d[<span class="t-s">&quot;test_X&quot;</span>] <span class="t-k">if</span> (<span class="t-f">round</span>(a, <span class="t-s">6</span>), <span class="t-f">round</span>(b, <span class="t-s">6</span>)) <span class="t-k">in</span> seen)
+<span class="t-f">report</span>(leak == <span class="t-s">0</span>, <span class="t-s">&quot;no test point also appears in the training set (found %d)&quot;</span> % leak)
+
+<span class="t-c"># the data really is two rings, not something one straight line could split</span>
+radii = <span class="t-k">lambda</span> lab: <span class="t-f">sorted</span>(math.<span class="t-f">hypot</span>(x, y) <span class="t-k">for</span> (x, y), t <span class="t-k">in</span> <span class="t-f">zip</span>(d[<span class="t-s">&quot;train_X&quot;</span>], d[<span class="t-s">&quot;train_y&quot;</span>]) <span class="t-k">if</span> t[<span class="t-s">0</span>] == lab)
+inner, outer = <span class="t-f">radii</span>(<span class="t-s">0</span>), <span class="t-f">radii</span>(<span class="t-s">1</span>)
+<span class="t-f">report</span>(<span class="t-f">bool</span>(inner) <span class="t-k">and</span> <span class="t-f">bool</span>(outer) <span class="t-k">and</span> inner[<span class="t-f">int</span>(<span class="t-s">0.9</span> * <span class="t-f">len</span>(inner)) - <span class="t-s">1</span>] &lt; outer[<span class="t-f">int</span>(<span class="t-s">0.1</span> * <span class="t-f">len</span>(outer))],
+       <span class="t-s">&quot;label 0 sits inside label 1 (concentric rings, both labels present)&quot;</span>)
+
+<span class="t-c"># recompute the accuracy from the saved weights instead of trusting the reported number</span>
+<span class="t-k">def</span> <span class="t-f">predict</span>(x):
+    h = [math.<span class="t-f">tanh</span>(<span class="t-f">sum</span>(x[i] * W1[i][j] <span class="t-k">for</span> i <span class="t-k">in</span> <span class="t-f">range</span>(<span class="t-s">2</span>)) + b1[<span class="t-s">0</span>][j]) <span class="t-k">for</span> j <span class="t-k">in</span> <span class="t-f">range</span>(H)]
+    z = <span class="t-f">sum</span>(h[j] * W2[j][<span class="t-s">0</span>] <span class="t-k">for</span> j <span class="t-k">in</span> <span class="t-f">range</span>(H)) + b2[<span class="t-s">0</span>][<span class="t-s">0</span>]
+    <span class="t-k">return</span> <span class="t-s">1.0</span> / (<span class="t-s">1.0</span> + math.<span class="t-f">exp</span>(-z)) <span class="t-k">if</span> z &gt; -<span class="t-s">700</span> <span class="t-k">else</span> <span class="t-s">0.0</span>
+
+hits = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> x, t <span class="t-k">in</span> <span class="t-f">zip</span>(d[<span class="t-s">&quot;test_X&quot;</span>], d[<span class="t-s">&quot;test_y&quot;</span>]) <span class="t-k">if</span> (<span class="t-f">predict</span>(x) &gt; <span class="t-s">0.5</span>) == (t[<span class="t-s">0</span>] &gt; <span class="t-s">0.5</span>))
+recomputed = <span class="t-s">100.0</span> * hits / nte
+<span class="t-f">report</span>(<span class="t-f">abs</span>(recomputed - <span class="t-f">float</span>(d[<span class="t-s">&quot;test_accuracy&quot;</span>])) &lt;= <span class="t-s">0.5</span>,
+       <span class="t-s">&quot;reported test accuracy %.1f%% matches the %.1f%% these weights actually score&quot;</span>
+       % (<span class="t-f">float</span>(d[<span class="t-s">&quot;test_accuracy&quot;</span>]), recomputed))
+<span class="t-f">report</span>(recomputed &gt;= <span class="t-s">95.0</span>, <span class="t-s">&quot;held-out accuracy is %.1f%% (needs 95%% or better)&quot;</span> % recomputed)
+gap = <span class="t-f">float</span>(d[<span class="t-s">&quot;train_accuracy&quot;</span>]) - recomputed
+<span class="t-f">report</span>(gap &lt;= <span class="t-s">5.0</span>, <span class="t-s">&quot;train minus test gap is %.1f points (needs 5 or less, or it memorised)&quot;</span> % gap)
+
+<span class="t-c"># the 2-neuron comparison</span>
+sn = d[<span class="t-s">&quot;small_net&quot;</span>] <span class="t-k">if</span> <span class="t-f">isinstance</span>(d[<span class="t-s">&quot;small_net&quot;</span>], dict) <span class="t-k">else</span> {}
+<span class="t-f">report</span>(<span class="t-f">int</span>(sn.<span class="t-f">get</span>(<span class="t-s">&quot;hidden&quot;</span>, <span class="t-s">0</span>)) == <span class="t-s">2</span> <span class="t-k">and</span> <span class="t-s">&quot;test_accuracy&quot;</span> <span class="t-k">in</span> sn, <span class="t-s">&quot;small_net records a run with hidden=2&quot;</span>)
+<span class="t-f">report</span>(<span class="t-f">float</span>(sn.<span class="t-f">get</span>(<span class="t-s">&quot;test_accuracy&quot;</span>, <span class="t-s">100.0</span>)) &lt; recomputed,
+       <span class="t-s">&quot;2 neurons scored %.1f%%, below the %d-neuron run&quot;</span> % (<span class="t-f">float</span>(sn.<span class="t-f">get</span>(<span class="t-s">&quot;test_accuracy&quot;</span>, -<span class="t-s">1</span>)), H))
+
+<span class="t-f">report</span>(os.path.<span class="t-f">exists</span>(<span class="t-s">&quot;rings_boundary.png&quot;</span>) <span class="t-k">and</span> os.path.<span class="t-f">getsize</span>(<span class="t-s">&quot;rings_boundary.png&quot;</span>) &gt; <span class="t-s">0</span>,
+       <span class="t-s">&quot;rings_boundary.png exists and is not empty&quot;</span>)
+<span class="t-f">finish</span>()
+</pre></div>
+        </div>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> check.py prints eleven PASS lines and ends with ALL CHECKS PASSED, and exits with code 0. It rebuilds the forward pass from your saved weights and scores your test points itself, so a hand-typed accuracy fails the match check, and a test point that also sits in the training set fails the leak check. It also prints one line saying the picture is not checked automatically: open rings_boundary.png and confirm the coloured region closes into a ring around the inner blob.</div></div>
+        <div class="note" style="margin-top:12px"><div class="note__t">If you want more</div><p>Delete one whole corner of the XOR data, train on the remaining three corners, then test only on the corner you removed. Expect close to 0% correct on it. Work out why before you look anything up, and note what it says about trusting a model on inputs unlike its training data.</p></div>
+        </section>
+        <section class="section section--quiz"><h2 class="section__h" data-stamp="on record"><span>Check yourself</span></h2>
+        <p class="small muted">Explained either way.</p>
+        <div class="quiz" data-quiz>
+        <div class="q" data-answer="1"><p class="q__q">You remove the tanh from the hidden layer and train the identical network again. Accuracy falls to about 50%. Why?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>The network no longer has enough weights to fit the data</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Without a bend, a stack of weighted sums is still just one weighted sum, so it can only split the data with a single straight line</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>The loss function stops working when there is no activation</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Removing the activation automatically makes the learning rate too large</span></button>
+        </div><div class="q__why" hidden>Two straight-line steps back to back are just one straight-line step, and XOR cannot be split by one straight line. The weight count is unchanged, so the first option is wrong. The loss function and the learning rate are untouched by the flag, so the last two are wrong as well.</div></div>
+        <div class="q" data-answer="2"><p class="q__q">Your loss curve jumps up and down and finishes higher than where it started. What do you change first?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Add more layers</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Train for many more epochs</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Lower the learning rate</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Collect more training data</span></button>
+        </div><div class="q__why" hidden>That bouncing pattern is the signature of steps that are too big: each update flies past the bottom and lands further up the other side. More epochs only gives it more chances to overshoot. Extra layers or extra data cost you time and can hide the real problem, which is step size.</div></div>
+        <div class="q" data-answer="0"><p class="q__q">What does backpropagation actually give you?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>One number per weight, saying how the loss would change if that weight changed slightly</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>The network's prediction for each input</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>The best possible values for the weights</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>A measure of how accurate the network is</span></button>
+        </div><div class="q__why" hidden>Backpropagation computes the gradient, which is a direction and a steepness, not a destination. It never tells you the best weights, only which way to nudge each one from where you are standing now. Predictions come from the forward pass, and accuracy is a separate check you run afterwards.</div></div>
+        </div></section>
+        <section class="section section--notes notes" data-notes><h2 class="section__h" data-stamp="on record"><span>Your notes</span></h2>
+        <p class="small muted">Saves as you type, in this browser.</p>
+        <label class="sr" for="n2">Notes for this module</label>
+        <textarea id="n2" placeholder="What clicked? What is still fuzzy? What do you want to come back to?"></textarea><div class="notes__status"></div></section>
+        <section class="section section--done"><h2 class="section__h" data-stamp="on record"><span>Mark it done</span></h2>
+        <div class="marks"><button class="mark" data-mark="read" aria-pressed="false"><span>Read the notes</span></button><button class="mark" data-mark="lab" aria-pressed="false"><span>Finished the lab</span></button><button class="mark" data-mark="mini" aria-pressed="false"><span>Finished the mini-project</span></button></div></section>
+        <section class="section section--docs"><h2 class="section__h" data-stamp="reference"><span>Go to the source</span></h2>
+        <p class="small muted">If this course and the docs disagree, the docs are newer.</p><ul class="prose">
+        <li><a href="https://numpy.org/doc/stable/user/absolute_beginners.html" target="_blank" rel="noopener">NumPy: the absolute basics for beginners</a></li>
+        <li><a href="https://matplotlib.org/stable/tutorials/pyplot.html" target="_blank" rel="noopener">Matplotlib pyplot tutorial</a></li>
+        <li><a href="https://www.3blue1brown.com/topics/neural-networks" target="_blank" rel="noopener">3Blue1Brown: Neural networks (video series)</a></li>
+        <li><a href="https://cs231n.github.io/optimization-2/" target="_blank" rel="noopener">Stanford CS231n notes on backpropagation</a></li>
+        <li><a href="https://github.com/karpathy/micrograd" target="_blank" rel="noopener">micrograd: a tiny autograd engine by Andrej Karpathy</a></li>
+        <li><a href="https://www.deeplearningbook.org/" target="_blank" rel="noopener">Deep Learning (Goodfellow, Bengio, Courville), free online</a></li>
+        </ul></section>
+    </div>
+    <nav data-chrome="pager"></nav>
+  </main>
+</div>
+
+<script src="../assets/data.js"></script>
+<script src="../assets/widgets.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

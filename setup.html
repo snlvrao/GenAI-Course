@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setup · pick your path</title>
+<meta name="description" content="Choose fully offline, a free hosted key, or your own key. The page then shows only the steps for that path.">
+<link rel="stylesheet" href="assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+<noscript><style>
+  /* Without JavaScript nothing can be filtered, so show every path at once
+     rather than an empty page. Each block is labelled by its heading. */
+  [data-havepath][hidden] { display: block !important; }
+  [data-needpath] { display: none !important; }
+  [data-step]::before { content: "Step: "; }
+</style></noscript>
+</head>
+<body data-root="">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="1">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+
+      <div class="eyebrow">Before Module 1</div>
+      <h1>Setup</h1>
+      <p class="promise">Pick how you want to get a model. The rest of this page then shows only
+        the steps for that choice, and every package is explained.</p>
+
+      <!-- ============================================================ -->
+      <section class="section">
+        <h2>Pick your path</h2>
+        <p class="prose">All three complete the whole course. Nothing later is locked to one of
+          them, and you can switch by editing one line.</p>
+        <div class="paths" data-pathpicker></div>
+        <div data-pathsummary></div>
+
+        <div class="note note--warn" data-needpath style="margin-top:18px">
+          <div class="note__t">Choose one to continue</div>
+          <p style="margin-bottom:0">The steps below are hidden until you pick. If you are unsure,
+            take <b>Free hosted</b>: it is the quickest to get working, and switching to offline
+            later is a one-line change.</p>
+        </div>
+      </section>
+
+      <div data-havepath hidden>
+
+      <!-- ============================================================ -->
+      <section class="section">
+        <h2>Three things that trip everyone up</h2>
+
+        <div class="concepts">
+          <div class="concept">
+            <div class="concept__n" aria-hidden="true">1</div>
+            <h3 class="concept__t">What a virtual environment is</h3>
+            <p class="concept__b">Python installs libraries into one shared pile. Two projects
+              needing different versions of the same library then fight, and one breaks. A
+              <strong>virtual environment</strong> is a folder holding a private copy of Python and
+              its own libraries, so this course cannot break anything else and nothing else can
+              break it. It is called <code>.venv</code>. If things get tangled, delete that folder
+              and redo one step. That is the whole recovery plan.</p>
+          </div>
+
+          <div class="concept">
+            <div class="concept__n" aria-hidden="true">2</div>
+            <h3 class="concept__t">What activating means</h3>
+            <p class="concept__b">Activating tells your terminal that <code>python</code> means the
+              one in this folder. You will see <code>(.venv)</code> at the start of your prompt.
+              <strong>If you do not see it, you are using the wrong Python</strong>, which causes
+              most "but I installed it" errors. It lasts until you close the window, so you do it
+              each time you sit down.</p>
+          </div>
+
+          <div class="concept" data-path="free key">
+            <div class="concept__n" aria-hidden="true">3</div>
+            <h3 class="concept__t">Why keys never go in code</h3>
+            <p class="concept__b">An API key is a password that can spend money. Typed into a Python
+              file it ends up in backups, screenshots, and public repositories where bots find it
+              within minutes. Instead it goes in a plain text file named <code>.env</code> that your
+              code reads at startup and you never share. It is just lines like
+              <code>GROQ_API_KEY=abc123</code>.</p>
+          </div>
+
+          <div class="concept" data-path="offline">
+            <div class="concept__n" aria-hidden="true">3</div>
+            <h3 class="concept__t">What you are giving up, and what you gain</h3>
+            <p class="concept__b">A model on your laptop is slower than a hosted one and noticeably
+              weaker, and below about 3 billion parameters it becomes unreliable at choosing tools,
+              which matters from Module 9 onward. In exchange you get no account, no key, no bill,
+              no rate limit, and it keeps working with the network off. Every lab is built to run
+              this way.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section class="section">
+        <h3 data-step="check you have Python">Check you have Python</h3>
+        <p class="prose">Open a terminal. On Windows press Start, type <em>PowerShell</em>, press
+          Enter.</p>
+        <div class="codeblock">
+          <div class="codeblock__bar"><span>terminal</span></div>
+<pre>python --version</pre>
+        </div>
+        <p class="prose">You want <strong>3.10 or newer</strong>. Anything up to 3.14 works. If that
+          errors, install Python from <a href="https://www.python.org/downloads/">python.org</a> and
+          <strong>tick "Add Python to PATH"</strong> on the first installer screen.</p>
+        <div class="note">
+          <div class="note__t">About versions</div>
+          <p>Every package in this course installs as a ready-made file on Windows, macOS and Linux
+            for Python 3.10 through 3.14, with no compiler and no build tools. That includes
+            PyTorch, which used to be the painful one. The one exception is noted where it appears.</p>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section class="section">
+        <h3 data-step="make the environment">Make the environment</h3>
+        <p class="prose">Everything you make in this course lives in one folder,
+          <code>my-work</code>, and that includes the environment. Nothing outside it is yours to
+          edit, so you can back up or delete your work without touching the course.</p>
+        <div class="codeblock">
+          <div class="codeblock__bar"><span>Windows PowerShell</span></div>
+<pre>cd path\to\GenAI-Course
+python -m venv my-work\.venv
+.\my-work\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip</pre>
+        </div>
+        <div class="codeblock">
+          <div class="codeblock__bar"><span>Mac or Linux</span></div>
+<pre>cd path/to/GenAI-Course
+python3 -m venv my-work/.venv
+source my-work/.venv/bin/activate
+python -m pip install --upgrade pip</pre>
+        </div>
+        <p class="prose">Your prompt should now start with <code>(.venv)</code>. Activation lasts
+          only for the window you ran it in, so you run that second line again at the start of every
+          session.</p>
+        <div class="note note--warn">
+          <div class="note__t">If PowerShell refuses to run the activate script</div>
+          <p>You will see "running scripts is disabled on this system". This allows them for your
+            own user only. No administrator rights needed:</p>
+          <div class="codeblock" style="margin:10px 0 0">
+            <div class="codeblock__bar"><span>one-time fix</span></div>
+<pre>Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section class="section">
+        <h3 data-step="install the Python packages">Install the Python packages</h3>
+        <p class="prose">You do not need all of this on day one. Install each group when you reach
+          the module that uses it, so a failure is traceable to one thing.</p>
+
+        <h4 style="margin-top:24px">Phase 1: Modules 1 to 3</h4>
+        <div class="codeblock">
+          <div class="codeblock__bar"><span>the starting four</span></div>
+<pre>pip install openai python-dotenv sentence-transformers matplotlib</pre>
+        </div>
+        <div class="scroll-x">
+        <table class="data">
+          <thead><tr><th>package</th><th>what it is</th><th>why the course needs it</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><b>openai</b><br><span class="muted small">2.53.0</span></td>
+              <td>A library for talking to a language model over HTTP.</td>
+              <td data-path="offline"><b>Do not be misled by the name.</b> It speaks the message
+                format that nearly everyone now accepts, including the local server you will run in
+                a moment. Your offline model is called through this exact library.</td>
+              <td data-path="free"><b>Do not be misled by the name.</b> It speaks a message format
+                that Groq, Google, DeepSeek, Together and OpenRouter all accept, so one library
+                covers whichever free provider you pick, and a local model later.</td>
+              <td data-path="key"><b>Do not be misled by the name.</b> It speaks a format that
+                OpenAI, Google, DeepSeek, Together and OpenRouter all accept, so the same code works
+                if you ever change provider.</td>
+            </tr>
+            <tr>
+              <td><b>python-dotenv</b></td>
+              <td>Reads your <code>.env</code> file at startup.</td>
+              <td data-path="offline">Holds the one line that says which provider to use.</td>
+              <td data-path="free key">Keeps your API key in a file you never share, out of your code.</td>
+            </tr>
+            <tr>
+              <td><b>sentence-transformers</b><br><span class="muted small">5.6.1</span></td>
+              <td>Turns sentences into numbers that capture meaning, on your own machine.</td>
+              <td>Modules 3 and 10. Runs locally with no key and no quota on every path. It pulls in
+                PyTorch, so this one is a few hundred megabytes.</td>
+            </tr>
+            <tr>
+              <td><b>matplotlib</b><br><span class="muted small">3.11.1</span></td>
+              <td>Draws graphs.</td>
+              <td>Module 2, to watch a network's error fall as it learns.</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+
+        <div class="codeblock" style="margin-top:14px">
+          <div class="codeblock__bar"><span>check it worked</span></div>
+<pre>python -c "import openai, dotenv, sentence_transformers, matplotlib; print('all four OK')"</pre>
+        </div>
+
+        <h4 style="margin-top:30px">Phase 3: Modules 9 to 11</h4>
+        <div class="codeblock">
+          <div class="codeblock__bar"><span>retrieval</span></div>
+<pre>pip install sqlite-vec rank-bm25 pypdf</pre>
+        </div>
+        <p class="prose small"><b>sqlite-vec</b> adds meaning-based search to the database already
+          built into Python: no server, no account, and your index is one <code>.db</code> file.
+          <b>rank-bm25</b> is keyword search, the other half of hybrid retrieval. <b>pypdf</b> reads
+          your own PDFs.</p>
+
+        <h4 style="margin-top:30px">Phase 4: Modules 12 to 15</h4>
+        <div class="codeblock">
+          <div class="codeblock__bar"><span>agents and MCP</span></div>
+<pre>pip install "mcp[cli]" langgraph langchain</pre>
+        </div>
+        <p class="prose small"><b>mcp</b> 2.0.0 is the official toolkit for building Model Context
+          Protocol servers, the heart of Module 13. The quotes around <code>"mcp[cli]"</code> matter
+          on Windows. <b>langgraph</b> 1.2.10 is used in Module 14 only, after you have written an
+          agent by hand in Module 12.</p>
+
+        <div class="note note--warn">
+          <div class="note__t">One package will not install on Python 3.14</div>
+          <p><b>CrewAI</b> requires Python older than 3.14, so it refuses outright. Module 14 runs
+            that one comparison in Google Colab, which is free and needs nothing installed.
+            Everything else runs locally.</p>
+        </div>
+      </section>
+
+      <!-- ===================== PATH: OFFLINE ========================= -->
+      <section class="section" data-path="offline">
+        <h3 data-step="install Ollama and pull a model">Install Ollama and pull a model</h3>
+        <p class="prose">Ollama downloads a model file to your disk and serves it from your own
+          machine. No account, no key, no bill. Install it from
+          <a href="https://ollama.com">ollama.com</a>, then:</p>
+        <div class="codeblock">
+          <div class="codeblock__bar"><span>terminal</span></div>
+<pre>ollama pull llama3.2:3b
+
+# check it answers before you write any Python
+ollama run llama3.2:3b "say hello in five words"</pre>
+        </div>
+        <p class="prose">The download is a few gigabytes and happens once. After that it works with
+          your network off. The <code>3b</code> is the size tag: 3 billion parameters.</p>
+
+        <div class="note">
+          <div class="note__t">Which model to pull</div>
+          <div class="scroll-x">
+          <table class="data">
+            <thead><tr><th>model</th><th>disk</th><th>good for</th></tr></thead>
+            <tbody>
+              <tr><td><code>llama3.2:3b</code></td><td>~2 GB</td><td>The default here. Handles tool calling well enough for Modules 9 to 15.</td></tr>
+              <tr><td><code>qwen3:4b</code></td><td>~2.5 GB</td><td>A step up if you have the disk and patience.</td></tr>
+              <tr><td><code>llama3.2:1b</code></td><td>~1.3 GB</td><td>Only if disk is tight. Tool calling is a coin flip, so Modules 9 to 15 will frustrate you.</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+
+        <div class="note note--warn">
+          <div class="note__t">Ollama must be running</div>
+          <p>The Windows and Mac installers usually start it for you and keep it running in the
+            background. If a lab reports that it cannot connect, run <code>ollama serve</code> in a
+            separate terminal and leave it open. It listens on port 11434, which is where the course
+            helper already points.</p>
+        </div>
+      </section>
+
+      <section class="section" data-path="offline">
+        <h3 data-step="write your .env">Write your .env</h3>
+        <p class="prose">One line. There is no key, because there is no account. Save it as
+          <code>my-work/.env</code>, beside the environment you just made. The labs find it by
+          looking in the folder you are standing in and then working upwards, so anywhere inside
+          <code>my-work</code> can see it.</p>
+        <div class="codeblock">
+          <div class="codeblock__bar"><span>my-work/.env</span></div>
+<pre># Everything runs on your machine. No key, no internet, no limits.
+LLM_PROVIDER=ollama
+
+# Optional: only if you pulled something other than the default.
+# LLM_MODEL=qwen3:4b</pre>
+        </div>
+      </section>
+
+      <!-- ===================== PATH: FREE HOSTED ===================== -->
+      <section class="section" data-path="free">
+        <h3 data-step="get a free API key">Get a free API key</h3>
+        <p class="prose">Two good options, both free and neither needs a card. Pick one.</p>
+        <div class="scroll-x">
+        <table class="data">
+          <thead><tr><th>provider</th><th>what you get</th><th>sign up</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><b>Groq</b><br><span class="muted small">the default here</span></td>
+              <td>Very fast, and a daily allowance large enough that these labs are unlikely to hit
+                it. Runs open models such as Llama.</td>
+              <td><a href="https://console.groq.com">console.groq.com</a>. Sign in, then
+                <b>API Keys</b>, then <b>Create API Key</b>.</td>
+            </tr>
+            <tr>
+              <td><b>Google AI Studio</b></td>
+              <td>Free in every region it serves, and it does embeddings as well as chat. Stronger
+                models than Groq's free tier.</td>
+              <td><a href="https://aistudio.google.com/apikey">aistudio.google.com/apikey</a>.
+                <b>Create API key</b>.</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+        <div class="note">
+          <div class="note__t">On rate limits</div>
+          <p>Free tiers cap how much you can use per day. If a lab suddenly starts refusing, that is
+            usually the cap, not your code. Wait, or switch <code>LLM_PROVIDER</code> to the other
+            provider, or drop to <code>ollama</code>. That is exactly why the course reads the
+            provider from a file.</p>
+        </div>
+      </section>
+
+      <section class="section" data-path="free">
+        <h3 data-step="write your .env">Write your .env</h3>
+        <p class="prose">Create a file called exactly <code>.env</code> inside <code>my-work</code>, beside the
+          environment you made. The name is a dot followed by "env", nothing before the dot.</p>
+        <div class="codeblock">
+          <div class="codeblock__bar"><span>my-work/.env</span></div>
+<pre># Which provider every lab uses. Change this one line to switch.
+LLM_PROVIDER=groq
+
+# Paste the key you just created. Keep only the line you need.
+GROQ_API_KEY=paste_your_key_here
+# GEMINI_API_KEY=
+
+# Optional: force a model. Leave out unless a default has been retired.
+# LLM_MODEL=llama-3.1-8b-instant</pre>
+        </div>
+        <div class="note note--warn">
+          <div class="note__t">Never commit this file</div>
+          <p>If you put this folder under version control, add a <code>.gitignore</code> containing
+            the single line <code>.env</code>. One is already in the course folder. Leaked keys are
+            the most common expensive mistake in this field, and they leak from repositories more
+            than anywhere else.</p>
+        </div>
+      </section>
+
+      <!-- ===================== PATH: OWN KEY ========================= -->
+      <section class="section" data-path="key">
+        <h3 data-step="write your .env">Write your .env</h3>
+        <p class="prose">Create a file called exactly <code>.env</code> inside <code>my-work</code>, and
+          set the provider you already pay for.</p>
+        <div class="codeblock">
+          <div class="codeblock__bar"><span>my-work/.env</span></div>
+<pre># Pick one: openai  anthropic  gemini  deepseek  together  openrouter
+LLM_PROVIDER=openai
+
+OPENAI_API_KEY=paste_your_key_here
+# ANTHROPIC_API_KEY=
+# GEMINI_API_KEY=
+# DEEPSEEK_API_KEY=
+
+# Optional: name a specific model instead of the default.
+# LLM_MODEL=gpt-5.6-luna</pre>
+        </div>
+
+        <div class="note note--warn">
+          <div class="note__t">If you chose Anthropic, read this</div>
+          <p>Anthropic's OpenAI-compatible endpoint works, but their own documentation says it is
+            for testing rather than production. It silently ignores <code>response_format</code>,
+            <code>seed</code>, <code>logprobs</code> and prompt caching. Module 9 uses this as a
+            worked lesson: <b>OpenAI-compatible is a wire format, not a promise about features</b>.
+            For Modules 6 and 9 specifically, use a different provider or expect those parts to
+            behave oddly.</p>
+        </div>
+
+        <div class="note">
+          <div class="note__t">What this will cost</div>
+          <p>Small. The labs send short prompts, and Module 6 has you measure it exactly. As a
+            rough guide, the whole course on a cheap tier such as GPT-5.6 Luna or Gemini Flash costs
+            well under a dollar. Module 17 adds a hard ceiling that stops a runaway agent.</p>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section class="section">
+        <h3 data-step="prove it works">Prove it works</h3>
+        <p class="prose">Run the health check before any lab. It prints which provider and model it
+          is about to use and whether it can find what it needs.</p>
+        <div class="codeblock">
+          <div class="codeblock__bar"><span>from the course folder</span></div>
+<pre>cd my-work/labs/_shared
+python llm.py</pre>
+        </div>
+
+        <p class="prose">A good result on your path looks like this:</p>
+        <div class="codeblock codeblock--bare" data-path="offline">
+<pre>provider=ollama  model=llama3.2:3b  endpoint=your own machine  key=none needed
+reply: OK
+
+Working. You are ready to start.</pre>
+        </div>
+        <div class="codeblock codeblock--bare" data-path="free">
+<pre>provider=groq  model=llama-3.1-8b-instant  endpoint=https://api.groq.com/openai/v1  key=set
+reply: OK
+
+Working. You are ready to start.</pre>
+        </div>
+        <div class="codeblock codeblock--bare" data-path="key">
+<pre>provider=openai  model=gpt-5.6-luna  endpoint=https://api.openai.com/v1  key=set
+reply: OK
+
+Working. You are ready to start.</pre>
+        </div>
+
+        <p class="prose" data-path="free key">If the key is missing it says so plainly and names the
+          line to add to <code>.env</code>. It will not throw a stack trace at you.</p>
+        <p class="prose" data-path="offline">If it cannot connect, Ollama is not running. Open a
+          second terminal and run <code>ollama serve</code>.</p>
+
+        <div class="done">
+          <span>&#10003;</span>
+          <div><b>You are done when</b> <code>python llm.py</code> prints "Working." Then open
+            <a href="modules/m01-ml-refresher.html">Module 1</a>.</div>
+        </div>
+
+        <div class="marks" style="margin-top:16px">
+          <button class="mark" data-setupmark aria-pressed="false">
+            <span data-setuplabel>I have finished the setup</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section class="section">
+        <h2>When something goes wrong</h2>
+        <div class="concepts">
+          <div class="concept">
+            <div class="concept__n" aria-hidden="true">?</div>
+            <h3 class="concept__t">"No module named …" for something you installed</h3>
+            <p class="concept__b">You are in the wrong Python. Does your prompt start with
+              <code>(.venv)</code>? If not, activate and try again. This is the most common problem
+              and it is never actually about the package.</p>
+          </div>
+          <div class="concept">
+            <div class="concept__n" aria-hidden="true">?</div>
+            <h3 class="concept__t">It works when you run it, fails when something else starts it</h3>
+            <p class="concept__b">Same cause in disguise. When one program launches another, the
+              word <code>python</code> resolves against your system settings, not your environment,
+              so the child process starts without your packages. Inside Python use
+              <code>sys.executable</code>, which always means the interpreter you are running in.
+              Module 13 hits this for real.</p>
+          </div>
+          <div class="concept">
+            <div class="concept__n" aria-hidden="true">?</div>
+            <h3 class="concept__t">The install is huge and slow</h3>
+            <p class="concept__b">That is <code>sentence-transformers</code> pulling in PyTorch, a
+              few hundred megabytes. One-time cost, and it buys you free offline embeddings for the
+              rest of the course. Let it finish.</p>
+          </div>
+          <div class="concept" data-path="free key">
+            <div class="concept__n" aria-hidden="true">?</div>
+            <h3 class="concept__t">"Model not found"</h3>
+            <p class="concept__b">Model names are retired and renamed faster than anything else
+              here. Nothing is broken. Open your provider's model list, pick a current one, and set
+              <code>LLM_MODEL=</code> in <code>.env</code>. No code changes.</p>
+          </div>
+          <div class="concept" data-path="free">
+            <div class="concept__n" aria-hidden="true">?</div>
+            <h3 class="concept__t">Suddenly rate limited</h3>
+            <p class="concept__b">You hit the daily cap. Wait, switch <code>LLM_PROVIDER</code> to
+              your other free provider, or install Ollama and set it to <code>ollama</code> to
+              remove limits entirely.</p>
+          </div>
+          <div class="concept" data-path="offline">
+            <div class="concept__n" aria-hidden="true">?</div>
+            <h3 class="concept__t">Connection refused on port 11434</h3>
+            <p class="concept__b">Ollama is not running. Run <code>ollama serve</code> in a separate
+              terminal and leave it open. On Windows it also appears in the system tray.</p>
+          </div>
+          <div class="concept" data-path="offline">
+            <div class="concept__n" aria-hidden="true">?</div>
+            <h3 class="concept__t">The agent labs behave badly</h3>
+            <p class="concept__b">Small local models are genuinely weaker at choosing tools. Before
+              assuming your code is wrong, try the same lab once on a free hosted key. If it works
+              there, your code is fine and you have learned something real about model size. Then
+              switch back.</p>
+          </div>
+          <div class="concept">
+            <div class="concept__n" aria-hidden="true">?</div>
+            <h3 class="concept__t">You want to start over</h3>
+            <p class="concept__b">Delete the <code>.venv</code> folder and redo the environment
+              step. Nothing else on your computer is affected and your own work is untouched,
+              because it lives outside that folder.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section class="section">
+        <h2>How to remove all of it</h2>
+        <p class="prose">No uninstaller, no registry entries, no background services.</p>
+        <ul class="prose">
+          <li>Delete the <code>.venv</code> folder. Every Python package above is gone.</li>
+          <li data-path="offline">Remove Ollama like any other application, and delete its
+            downloaded models (on Windows they sit in <code>%USERPROFILE%\.ollama</code>).</li>
+          <li data-path="free key">Delete <code>.env</code>, and revoke the key in your provider's
+            console so it cannot be used again.</li>
+          <li>Notes and progress live in your browser. The <b>Reset everything</b> button on the
+            <a href="index.html">home page</a> clears them.</li>
+        </ul>
+      </section>
+
+      <p class="small muted">Versions and free-tier details checked August 2026. Package versions
+        move quickly; a newer number than shown here is expected and generally fine.</p>
+
+      </div><!-- /data-havepath -->
+
+    </div>
+
+    <nav data-chrome="pager"></nav>
+  </main>
+</div>
+
+<script src="assets/data.js"></script>
+<script src="assets/widgets.js"></script>
+<script src="assets/course.js"></script>
+</body>
+</html>

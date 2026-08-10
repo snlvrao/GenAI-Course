@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5. How an LLM is trained</title>
+<meta name="description" content="Follow a model from raw internet text to a polished assistant that can reason, and learn why each training stage has to exist.">
+<link rel="stylesheet" href="../assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+</head>
+<body data-module="m05" data-root="../">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="2">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+        <div data-chrome="modhead"></div>
+        <p class="prose">Four training stages turn raw internet text into an assistant that reasons, and each stage exists to fix what the one before it left broken. Knowing which stage produced which behaviour tells you why a model flatters you, why it is better at arithmetic than at taste, and what you are actually buying when you pay for a reasoning model.</p>
+        <section class="section section--watch"><h2 class="section__h" data-stamp="take in"><span>Watch this first</span></h2>
+        <div data-videos="core"></div></section>
+        <section class="section section--ideas"><h2 class="section__h" data-stamp="take in"><span>The ideas, in plain English</span></h2>
+        <p class="small muted">Each idea, then a worked example of it.</p>
+        <div class="concepts">
+        <div class="concept"><div class="concept__n" aria-hidden="true">1</div><h3 class="concept__t">Pretraining is a guessing game</h3><p class="concept__b">Pretraining is one exercise repeated over trillions of <strong>tokens</strong> (small chunks of text, roughly word fragments): hide the next token, guess it, get nudged toward the right answer when wrong. Grammar, facts, code syntax and the shape of an argument all fall out of getting good at that guess, because all of them help predict what comes next. Nobody labels the text and nobody writes rules.</p>
+        <div class="eg"><div class="eg__h">Example</div><pre>text = <span class="t-s">&quot;The capital of France is Paris&quot;</span></pre><p class="eg__say">training splits that one line into every prefix and its next token:</p><pre class="eg__out"><span class="t-o">&quot;The&quot;                      -&gt; &quot; capital&quot;</span>
+<span class="t-o">&quot;The capital&quot;              -&gt; &quot; of&quot;</span>
+<span class="t-o">&quot;The capital of&quot;           -&gt; &quot; France&quot;</span>
+<span class="t-o">&quot;The capital of France&quot;    -&gt; &quot; is&quot;</span>
+<span class="t-o">&quot;The capital of France is&quot; -&gt; &quot; Paris&quot;</span></pre><p class="eg__say">6 tokens -&gt; 5 training examples, and no human wrote a single label. To get &quot; Paris&quot; right the model has to have absorbed a fact, so the fact is a side effect of the guessing, not the goal.</p><div class="eg__cap">One sentence becomes five training examples, with no labelling.</div></div>
+        </div>
+        <figure class="diagram"><svg viewBox="0 0 660 220" role="img" aria-label="The four training stages from raw text to a model that reasons" xmlns="http://www.w3.org/2000/svg"><title>The four training stages from raw text to a model that reasons</title><defs><marker id="ah-train" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="d-head"/></marker></defs><rect x="10" y="60" width="140" height="60" rx="6" class="d-fill"/><text x="80.0" y="86.0" text-anchor="middle" class="d-t">1. pretraining</text><text x="80.0" y="103.0" text-anchor="middle" class="d-s">guess the next word</text><path d="M150 90 L178 90" class="d-arrow" marker-end="url(#ah-train)"/><rect x="178" y="60" width="140" height="60" rx="6" class="d-fill"/><text x="248.0" y="86.0" text-anchor="middle" class="d-t">2. fine-tuning</text><text x="248.0" y="103.0" text-anchor="middle" class="d-s">copy good answers</text><path d="M318 90 L346 90" class="d-arrow" marker-end="url(#ah-train)"/><rect x="346" y="60" width="140" height="60" rx="6" class="d-fill"/><text x="416.0" y="86.0" text-anchor="middle" class="d-t">3. RLHF</text><text x="416.0" y="103.0" text-anchor="middle" class="d-s">people rank pairs</text><path d="M486 90 L514 90" class="d-arrow" marker-end="url(#ah-train)"/><rect x="514" y="60" width="136" height="60" rx="6" class="d-fill"/><text x="582.0" y="86.0" text-anchor="middle" class="d-t">4. RLVR</text><text x="582.0" y="103.0" text-anchor="middle" class="d-s">a program marks it</text><text x="80" y="145" text-anchor="middle" class="d-s">reads the internet</text><text x="80" y="162" text-anchor="middle" class="d-s">knows a lot,</text><text x="80" y="179" text-anchor="middle" class="d-s">obeys nothing</text><text x="248" y="145" text-anchor="middle" class="d-s">learns the shape</text><text x="248" y="162" text-anchor="middle" class="d-s">of an answer</text><text x="416" y="145" text-anchor="middle" class="d-s">learns what people</text><text x="416" y="162" text-anchor="middle" class="d-s">prefer to read</text><text x="582" y="145" text-anchor="middle" class="d-s">learns what is</text><text x="582" y="162" text-anchor="middle" class="d-s">actually correct</text><text x="330" y="205" text-anchor="middle" class="d-s">each stage fixes a different problem, and none of them replaces the one before</text><text x="330" y="36" text-anchor="middle" class="d-hi">raw text in, assistant out</text></svg><figcaption><b>How a model gets made.</b> Pretraining gives it knowledge but no manners. Fine-tuning teaches it what an answer looks like. RLHF tunes it toward what people prefer. RLVR, the newest stage, grades it on tasks where a program can check the answer, like maths and code, which is where reasoning models come from.</figcaption></figure>
+        <div class="concept"><div class="concept__n" aria-hidden="true">2</div><h3 class="concept__t">A base model only continues text</h3><p class="concept__b">Straight out of pretraining you have a <strong>base model</strong>, which continues text rather than answering it. Ask it &quot;What is the capital of France?&quot; and a likely continuation is two more quiz questions, because that is what a page of questions looks like. Everything done after pretraining is called <strong>post-training</strong>, and its job is to turn a continuer into something that responds to your request. Nearly all the compute goes into pretraining, but post-training is the part you talk to.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>What you send</th><th>Base model continues with</th><th>Instruct model replies with</th></tr></thead><tbody><tr><td>What is the capital of France?</td><td>2. What is the capital of Spain? 3. What is the capital of Italy?</td><td>Paris.</td></tr><tr><td>Translate to French: hello</td><td>Translate to German: hello. Translate to Spanish: hello.</td><td>Bonjour.</td></tr><tr><td># returns the nth Fibonacci number</td><td>the function, then three more unrelated functions</td><td>the function, then it stops</td></tr></tbody></table><div class="eg__cap">Same input, two models: the base one keeps the pattern going.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">3</div><h3 class="concept__t">Fine-tuning shows it worked examples</h3><p class="concept__b"><strong>Supervised fine-tuning</strong> (SFT) trains on hand-written example conversations: a request, and a good reply to it. The method has not changed, it is still next-token prediction, but the text being imitated is now an assistant answering properly. This is where the answer-first shape, sensible length, and obedience to &quot;reply as JSON&quot; or &quot;three bullets&quot; come from. The limit is that the model can only imitate examples somebody bothered to write, and writing them is slow and expensive.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">One record of an SFT dataset. JSONL means one JSON object per line, and this record is wrapped over several lines here only so it is readable.</p><pre>{<span class="t-f">&quot;messages&quot;</span>: [
+  {<span class="t-f">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>,
+   <span class="t-f">&quot;content&quot;</span>: <span class="t-s">&quot;Summarise this outage in 3 bullets: db-02 disk hit 100% at 04:02, failover retried 3 times, pages went to an empty rota.&quot;</span>},
+  {<span class="t-f">&quot;role&quot;</span>: <span class="t-s">&quot;assistant&quot;</span>,
+   <span class="t-f">&quot;content&quot;</span>: <span class="t-s">&quot;- db-02 filled its disk at 04:02 UTC\n- Failover retried three times before succeeding\n- Alerts routed to an on-call rota with nobody in it&quot;</span>}
+]}</pre><p class="eg__say">roughly 10,000 lines like this, written by people. Still next-token prediction. What changed is the text being copied.</p><div class="eg__cap">One SFT record: the request, and the reply you want imitated.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">4</div><h3 class="concept__t">RLHF: people rank two answers</h3><p class="concept__b">Writing a perfect answer is slow, but picking the better of two is fast, so that is what gets collected instead. <strong>RLHF</strong> (reinforcement learning from human feedback) turns piles of those comparisons into a separate scoring model, then tunes the main model to score higher against it. This is what fixes tone, hedging, refusals, and answering the question you actually asked. The side effect is that you optimise for what pleases a rater on first read, which pushes toward confident, agreeable, slightly too long answers.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">one RLHF comparison. The rater writes nothing, only picks.</p><pre>{
+  <span class="t-f">&quot;prompt&quot;</span>: <span class="t-s">&quot;My nightly deploy failed. What do I check first?&quot;</span>,
+  <span class="t-f">&quot;a&quot;</span>: <span class="t-s">&quot;Deployments can fail for many reasons. It is important to...&quot;</span>,
+  <span class="t-f">&quot;b&quot;</span>: <span class="t-s">&quot;Run: kubectl rollout status deploy/api --timeout=30s&quot;</span>,
+  <span class="t-f">&quot;chosen&quot;</span>: <span class="t-s">&quot;b&quot;</span>,
+  <span class="t-f">&quot;rater&quot;</span>: <span class="t-s">&quot;r_017&quot;</span>
+}</pre><p class="eg__say">A reward model is trained to predict &quot;chosen&quot; from the two answers, then the main model is tuned to score high against that reward model. Note the pull toward whichever answer reads better in ten seconds.</p><div class="eg__cap">The shape of one preference pair. Current lab recipes are not published.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">5</div><h3 class="concept__t">RLVR: a program grades it</h3><p class="concept__b">For maths, code and anything with a checkable answer you can drop the human rater and let a program mark the work: run the tests, compare against the known result. <strong>RLVR</strong> (reinforcement learning from verifiable rewards) samples many attempts at a problem, keeps the ones the checker marks correct, and trains on those. With nobody in the loop it runs at a scale human feedback never could, and models trained this way tend to find longer, more careful working on their own. It only applies where correctness can be decided mechanically, which is why the gains land in maths, code and puzzles and barely touch taste or style.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">RLVR in outline, not runnable code. run_unit_tests, model.sample and problem stand in for whichever training harness you use. The reward is a program, so no rater is involved.</p><pre><span class="t-k">def</span> <span class="t-f">reward</span>(answer, problem):
+    <span class="t-k">return</span> <span class="t-s">1.0</span> <span class="t-k">if</span> <span class="t-f">run_unit_tests</span>(answer, problem.tests) <span class="t-k">else</span> <span class="t-s">0.0</span></pre><pre>attempts = [model.<span class="t-f">sample</span>(problem, temperature=<span class="t-s">1.0</span>) <span class="t-k">for</span> _ <span class="t-k">in</span> <span class="t-f">range</span>(<span class="t-s">64</span>)]
+kept = [a <span class="t-k">for</span> a <span class="t-k">in</span> attempts <span class="t-k">if</span> <span class="t-f">reward</span>(a, problem) == <span class="t-s">1.0</span>]</pre><pre><span class="t-f">print</span>(<span class="t-f">len</span>(attempts), <span class="t-f">len</span>(kept))   <span class="t-c"># 64 9</span></pre><p class="eg__say">Train on those 9, move to the next problem, repeat unattended. Swap run_unit_tests for a human and this loop stops at maybe 50 judgements an hour instead of tens of thousands.</p><div class="eg__cap">Sample 64, keep the 9 that pass the tests, train on those.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">6</div><h3 class="concept__t">Thinking out loud actually helps</h3><p class="concept__b"><strong>Chain of thought</strong> means the model writes its intermediate steps before the final answer, and it raises accuracy on multi-step problems. The model does a fixed amount of work per token it produces, so an answer crammed into one token has nowhere to compute, while written steps give it more slots and each step becomes context for the next. The caveat is real: the printed steps are not a reliable readout of what happened inside, and models have been caught using a hint in the prompt then writing a tidy chain that never mentions it. Read visible reasoning as a scratchpad, not a confession.</p>
+        <div class="eg"><div class="eg__h">Example</div><p>Prompt: &quot;3 pallets, 24 boxes per pallet, 18 units per box, 7 units damaged. How many good units?&quot; Answering straight away, the model must emit the first digit of the result before any arithmetic exists in its context, and typical wrong answers are 1296 (the damage dropped) and 1290. Written out: 3 x 24 = 72 boxes, then 72 x 18 = 1296 units, then 1296 - 7 = 1289. Each line is input to the next, so the final token only has to copy 1289 off the page. Try both versions on the cheap model in your lab script and count how often each one lands on 1289.</p><div class="eg__cap">The working is where the arithmetic happens, one step per line.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">7</div><h3 class="concept__t">Paying for thinking at answer time</h3><p class="concept__b">A <strong>reasoning model</strong> is trained (usually with RLVR) to do a lot of that step-writing before it answers, with the steps normally hidden from you. That is <strong>test-time compute</strong>: instead of a bigger model, you spend more work at the moment of answering. Most providers give you a knob for it, called effort or a thinking budget. Two things catch people out: the hidden thinking is billed as output tokens even though you never see the text, and the answer takes noticeably longer to arrive.</p>
+        <div class="eg"><div class="eg__h">Example</div><p class="eg__say">usage from one reasoning call on the lab's puzzle</p><pre>{<span class="t-f">&quot;prompt_tokens&quot;</span>: <span class="t-s">180</span>,
+ <span class="t-f">&quot;completion_tokens&quot;</span>: <span class="t-s">1400</span>,
+ <span class="t-f">&quot;completion_tokens_details&quot;</span>: {<span class="t-f">&quot;reasoning_tokens&quot;</span>: <span class="t-s">1100</span>}}</pre><p class="eg__say">The visible answer was about 300 tokens long, but you are billed for all 1400.</p><pre class="eg__out"><span class="t-o">1400 x $30 / 1,000,000 = $0.042 for that single answer</span>
+<span class="t-o">1100 / 1400 = 79% of the output bill was text you never saw</span></pre><p class="eg__say">reasoning_tokens are INSIDE completion_tokens. Add them on top and you double count your own bill.</p><div class="eg__cap">Hidden thinking is billed at the output rate and never shown to you.</div></div>
+        </div>
+        <div class="concept"><div class="concept__n" aria-hidden="true">8</div><h3 class="concept__t">When thinking earns its money</h3><p class="concept__b">Extra thinking pays when the task has one right answer that short replies keep getting wrong: multi-step arithmetic, constraint problems, debugging, planning around several conditions at once. It wastes money on shaped text, which is most real work: rewriting, summarising, extraction, classification and tone changes. Do not settle this from benchmark scores, because GPQA Diamond is saturated (the good models all sit near the ceiling, so it no longer separates them). Measure it on your own tasks, which is what the lab does.</p>
+        <div class="eg"><div class="eg__h">Example</div><table><thead><tr><th>Task</th><th>Fast model</th><th>Reasoning model</th><th>Multiple</th><th>Did the money buy anything</th></tr></thead><tbody><tr><td>Constraint puzzle, one call</td><td>$0.00030</td><td>$0.04290</td><td>143x</td><td>Yes, the fast model got it wrong</td></tr><tr><td>Status-page rewrite, one call</td><td>$0.000062</td><td>$0.01160</td><td>187x</td><td>No, both answers were usable</td></tr><tr><td>Same rewrite, 10,000 per month</td><td>$0.62</td><td>$116.00</td><td>187x</td><td>No, and now it is a line item</td></tr></tbody></table><div class="eg__cap">Prices from the lab table; only one of these tasks buys accuracy.</div></div>
+        </div>
+        </div></section>
+        <div class="note note--gap"><div class="note__t">Worth knowing</div><p>Video coverage is good for pretraining and RLHF and thin for RLVR, where most of what exists is people reading the DeepSeek-R1 paper out loud. Anything filmed before 2025 presents RLHF as the final training stage, which is no longer true for reasoning models, so check the upload date before trusting a walkthrough. One point here is genuinely contested rather than settled: whether the reasoning text a model prints reflects what it actually did internally, and the current evidence says not reliably.</p></div>
+        <section class="section section--more"><h2 class="section__h" data-stamp="optional"><span>If you want to go deeper</span></h2>
+        <p class="small muted">Optional.</p>
+        <div data-videos="more"></div></section>
+        <section class="section section--lab"><h2 class="section__h" data-stamp="hands on"><span>Lab: follow along</span></h2>
+        <div data-setupbanner></div>
+        <div class="note note--gap" data-path="offline" hidden><div class="note__t">This lab changes on the offline path</div><p>No small local model has a separate reasoning mode, so you cannot compare a fast model against a reasoning model. You do the same experiment a different way: run <b>one local model twice</b>, once answering directly and once told to work through its reasoning before answering. That is the same effect (more compute at answer time) produced by prompting instead of by training. Cost becomes <b>tokens</b> rather than dollars, because your model is free. Name the two runs <code>llama3.2:3b (direct)</code> and <code>llama3.2:3b (think first)</code>, set <code>"path": "offline"</code> and <code>"cost_unit": "tokens"</code> in <code>verdict.json</code>, and the checker will grade it on token counts.</p></div><div class="note" data-path="free" hidden><div class="note__t">Which free models have a reasoning mode</div><p>On Groq, look for a model whose name contains <code>reasoning</code> or a <code>deepseek-r1</code> variant. On Google AI Studio, the Gemini Flash models expose a thinking budget. If neither is available on your key today, use the offline method described for the offline path instead. It teaches the same thing.</p></div>
+        <p class="prose">You are going to send the same two questions to two different models, a cheap fast one and a slower reasoning one, and measure exactly what happens. For every call you will record the answer, the input tokens, the output tokens, the hidden thinking tokens, the wall clock seconds and the cost in dollars. A reasoning model is one trained to write a long private working-out before it answers, and you are billed for that working even though the provider usually hides the text from you. By the end you will have four rows of real numbers that tell you when the expensive model earns its price on your own work, instead of a benchmark score that somebody else ran on somebody else's tasks.</p>
+        <p class="small muted">Code given, every line explained.</p>
+        <ol class="steps">
+        <li><h3>Point your .env at two models</h3><p>The course helper <code>llm.py</code> decides which company to call by reading <code>LLM_PROVIDER</code> out of your <code>.env</code> file, so you switch providers by editing text and never by editing Python. A <code>.env</code> file is a plain text file of NAME=value lines that gets loaded into your environment variables when the program starts, which keeps model choices and API keys out of your source code. Here you add two more lines naming the cheap fast model and the reasoning model, because this lab has to call both of them in the same run. Use the exact model ids listed on your provider's own model page, since providers rename and retire models often and the ids below are only what the tiers happened to be called in August 2026. Check the helper is alive by running <code>python -c &quot;import sys; sys.path.append('my-work/labs/_shared'); from llm import whoami; print(whoami())&quot;</code>, and you should get one line back like <code>provider=openai  model=gpt-5.6-luna  endpoint=https://api.openai.com/v1  key=set</code>. If that line says <code>key=MISSING</code>, either the <code>.env</code> was not found or the key line is not in it, and every call later in this lab will fail with an authentication error.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/.env</span>
+LLM_PROVIDER=openai
+MODEL_FAST=gpt-<span class="t-s">5.6</span>-luna
+MODEL_REASONING=gpt-<span class="t-s">5.6</span>-sol</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt># my-work/labs/.env</dt><dd>The leading # makes this a comment, and it is there to tell you where to save the file. The file must sit inside the labs folder and its name is literally .env, starting with a dot and with nothing after the word env.</dd>
+        <dt>LLM_PROVIDER=openai</dt><dd>This one word picks which company's endpoint llm.py talks to, because the helper keeps a registry of providers and looks yours up by this name. Change this single line and every lab in the course points somewhere else, including a model running on your own laptop.</dd>
+        <dt>MODEL_FAST=gpt-5.6-luna</dt><dd>The cheap, quick model you want as your baseline. Your lab script reads this name itself, so llm.py never sees it and the value can be any model id your chosen provider accepts.</dd>
+        <dt>MODEL_REASONING=gpt-5.6-sol</dt><dd>The model trained to write out its working before answering. Both models have to belong to the same provider you named on the first line, because there is only one endpoint and one API key in play for the whole run.</dd>
+        </dl></div>
+        <div class="gotcha"><b>Watch out:</b><span>On Windows, Notepad and File Explorer quietly save the file as .env.txt, and a file called .env.txt is never loaded, so check the real name with `dir /a` inside the labs folder.</span></div>
+        </li>
+        <li><h3>Create the file and the two questions</h3><p>Create <code>my-work/labs/lab05/compare_reasoning.py</code> and put this block at the top of it. It does four separate jobs: it teaches Python where to find the shared helper, it reads your two model names out of the environment, it writes down what each model costs, and it holds the two questions you are about to compare. The hard question is a small constraint puzzle with a costing sum bolted on, so it needs several dependent steps and it has exactly one right answer that you can check by hand. The easy question is ordinary rewriting work, which is what most real production traffic actually is, and it is here as the control case. The price table is list price in dollars per million tokens, checked on 5 August 2026, so replace the numbers with today's if you are reading this later. Running the file at this point prints nothing at all, because there is no <code>main()</code> yet, and that silence is the expected result rather than a failure.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-c"># my-work/labs/lab05/compare_reasoning.py</span>
+<span class="t-k">import</span> os, sys, time, json
+<span class="t-k">from</span> pathlib <span class="t-k">import</span> Path
+
+sys.path.<span class="t-f">append</span>(<span class="t-f">str</span>(<span class="t-f">Path</span>(__file__).<span class="t-f">resolve</span>().parents[<span class="t-s">1</span>] / <span class="t-s">&quot;_shared&quot;</span>))
+<span class="t-k">from</span> llm <span class="t-k">import</span> chat_raw, whoami
+
+FAST = os.<span class="t-f">getenv</span>(<span class="t-s">&quot;MODEL_FAST&quot;</span>, <span class="t-s">&quot;&quot;</span>)
+REASONING = os.<span class="t-f">getenv</span>(<span class="t-s">&quot;MODEL_REASONING&quot;</span>, <span class="t-s">&quot;&quot;</span>)
+
+<span class="t-c"># Dollars per million tokens: (input, output). Checked 5 Aug 2026.</span>
+PRICES = {
+    <span class="t-s">&quot;gpt-5.6-sol&quot;</span>:      (<span class="t-s">5.00</span>, <span class="t-s">30.00</span>),
+    <span class="t-s">&quot;gpt-5.6-terra&quot;</span>:    (<span class="t-s">2.00</span>, <span class="t-s">12.00</span>),
+    <span class="t-s">&quot;gpt-5.6-luna&quot;</span>:     (<span class="t-s">0.20</span>,  <span class="t-s">1.20</span>),
+    <span class="t-s">&quot;gemini-3.1-pro&quot;</span>:   (<span class="t-s">2.00</span>, <span class="t-s">12.00</span>),
+    <span class="t-s">&quot;gemini-3.6-flash&quot;</span>: (<span class="t-s">1.50</span>,  <span class="t-s">7.50</span>),
+}
+
+HARD = <span class="t-s">&quot;&quot;&quot;Four servers (A, B, C, D) each run exactly one nightly job: backup, index, report, sync.
+- A runs neither backup nor sync.
+- The server running index comes immediately before the server running report in alphabetical order.
+- D runs either backup or index.
+- C does not run report.
+Job costs per night: backup $12, index $7, report $3, sync $9.
+Servers A and C are billed at double rate.
+Give each server's job and the total nightly cost.&quot;&quot;&quot;</span>
+
+EASY = <span class="t-s">&quot;&quot;&quot;Rewrite this as one calm sentence for a public status page:
+'db failover done 04:12 UTC, 6 min read-only, no data loss'.&quot;&quot;&quot;</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>sys.path.append(str(Path(__file__).resolve().parents[1] / &quot;_shared&quot;))</dt><dd>Path(__file__).resolve() is the full path of this script, and parents[1] steps up two folders to reach labs. Adding that folder plus _shared to sys.path is how `import llm` finds a file that lives in a sibling directory, with no pip install and no package setup.</dd>
+        <dt>from llm import chat_raw, whoami</dt><dd>This import also loads your .env, because llm.py calls load_dotenv the first time it is imported. That is why this line has to sit above the os.getenv lines below it, otherwise your two model names would still be unset when you read them.</dd>
+        <dt>FAST = os.getenv(&quot;MODEL_FAST&quot;, &quot;&quot;)</dt><dd>os.getenv reads an environment variable, and the second argument is the fallback value used when the variable is missing. Defaulting to an empty string lets main() print a clear instruction later instead of sending an empty model name to the provider and getting a confusing 400 error.</dd>
+        <dt>PRICES = { &quot;gpt-5.6-sol&quot;: (5.00, 30.00), ... }</dt><dd>A plain dictionary mapping a model id to a two item tuple of (input price, output price) in dollars per million tokens. Output is always the dearer of the two, because generating each new token costs the provider a full pass through the model while reading your input can be done in bulk.</dd>
+        <dt>HARD = &quot;&quot;&quot;Four servers (A, B, C, D) ...&quot;&quot;&quot;</dt><dd>Triple quotes let a string run over several lines without escaping anything. The four bullet constraints narrow to exactly one arrangement, which is the point: you can grade the answer as right or wrong rather than judging whether it feels good.</dd>
+        <dt>EASY = &quot;&quot;&quot;Rewrite this as one calm sentence ...&quot;&quot;&quot;</dt><dd>A rewrite with no hidden steps and no single correct answer. It is the control case, and its job is to show you what you are paying for when everyday shaping work gets sent to an expensive model.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Converting a price list into the cost of one call.
+
+formula: price per token = price per million tokens / 1,000,000
+
+what the symbols mean:
+  price per million tokens = the number in the PRICES table, in US dollars
+  1,000,000 = the block size providers quote against, chosen so the numbers are readable
+
+worked example, using gpt-5.6-luna whose output price is 1.20 dollars per million:
+  price per token = 1.20 / 1,000,000 = 0.0000012 dollars
+  500 output tokens = 500 x 0.0000012 = 0.0006 dollars, which is 0.06 of a cent
+
+now the gap between the two tiers in this table:
+  output: 30.00 / 1.20 = 25, so each output token from gpt-5.6-sol costs 25 times as much
+  input:  5.00 / 0.20  = 25, the same multiple on the input side
+
+what it means: the price list alone is a 25 times gap before the reasoning model has written a single extra token. The difference in how many tokens it writes then multiplies on top of that 25, which is why a final bill can end up more than a hundred times larger for one answer.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If your LLM_PROVIDER is not openai, the ids in PRICES will not match the models you actually call, PRICES.get falls back to (0.0, 0.0) and every cost prints as 0.00000, so add your own model ids and their real prices to the table.</span></div>
+        </li>
+        <li><h3>Read the token counts off the response</h3><p>These three small helpers pull the token counts off the provider's reply and turn them into a dollar figure. A token is a small chunk of text, roughly three to four characters of English, and every provider bills you by counting them. You get four counts that matter here: <code>input</code> is what you sent, <code>output</code> is everything the model wrote, <code>reasoning</code> is the hidden working it did before answering, and <code>cached</code> is the part of your input the provider had already stored from an earlier call and charges less for. Providers agree on what these four numbers mean but not on what to call them, so <code>read_usage</code> tries both common spellings and returns 0 rather than crashing when a field is simply absent. The one thing to hold on to is that reasoning tokens are counted <strong>inside</strong> output tokens and not added on top, so if you add them again you will double count your own bill. Without these helpers your script would raise <code>AttributeError</code> the moment you switched provider, because the response objects genuinely do use different attribute names. Nothing prints yet at this stage.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-k">def</span> <span class="t-f">_int</span>(obj, *names):
+    <span class="t-k">for</span> n <span class="t-k">in</span> names:
+        v = <span class="t-f">getattr</span>(obj, n, <span class="t-k">None</span>)
+        <span class="t-k">if</span> <span class="t-f">isinstance</span>(v, int):
+            <span class="t-k">return</span> v
+    <span class="t-k">return</span> <span class="t-s">0</span>
+
+<span class="t-k">def</span> <span class="t-f">read_usage</span>(resp):
+    u = <span class="t-f">getattr</span>(resp, <span class="t-s">&quot;usage&quot;</span>, <span class="t-k">None</span>)
+    <span class="t-k">if</span> u <span class="t-k">is</span> <span class="t-k">None</span>:
+        <span class="t-k">return</span> {<span class="t-s">&quot;input&quot;</span>: <span class="t-s">0</span>, <span class="t-s">&quot;output&quot;</span>: <span class="t-s">0</span>, <span class="t-s">&quot;reasoning&quot;</span>: <span class="t-s">0</span>, <span class="t-s">&quot;cached&quot;</span>: <span class="t-s">0</span>}
+    out_d = <span class="t-f">getattr</span>(u, <span class="t-s">&quot;completion_tokens_details&quot;</span>, <span class="t-k">None</span>) <span class="t-k">or</span> <span class="t-f">getattr</span>(u, <span class="t-s">&quot;output_tokens_details&quot;</span>, <span class="t-k">None</span>)
+    in_d  = <span class="t-f">getattr</span>(u, <span class="t-s">&quot;prompt_tokens_details&quot;</span>, <span class="t-k">None</span>) <span class="t-k">or</span> <span class="t-f">getattr</span>(u, <span class="t-s">&quot;input_tokens_details&quot;</span>, <span class="t-k">None</span>)
+    <span class="t-k">return</span> {
+        <span class="t-s">&quot;input&quot;</span>:     <span class="t-f">_int</span>(u, <span class="t-s">&quot;prompt_tokens&quot;</span>, <span class="t-s">&quot;input_tokens&quot;</span>),
+        <span class="t-s">&quot;output&quot;</span>:    <span class="t-f">_int</span>(u, <span class="t-s">&quot;completion_tokens&quot;</span>, <span class="t-s">&quot;output_tokens&quot;</span>),
+        <span class="t-s">&quot;reasoning&quot;</span>: <span class="t-f">_int</span>(out_d, <span class="t-s">&quot;reasoning_tokens&quot;</span>),
+        <span class="t-s">&quot;cached&quot;</span>:    <span class="t-f">_int</span>(in_d, <span class="t-s">&quot;cached_tokens&quot;</span>),
+    }
+
+<span class="t-k">def</span> <span class="t-f">cost_usd</span>(model, use):
+    price_in, price_out = PRICES.<span class="t-f">get</span>(model, (<span class="t-s">0.0</span>, <span class="t-s">0.0</span>))
+    fresh_in = <span class="t-f">max</span>(use[<span class="t-s">&quot;input&quot;</span>] - use[<span class="t-s">&quot;cached&quot;</span>], <span class="t-s">0</span>)
+    dollars = fresh_in * price_in + use[<span class="t-s">&quot;cached&quot;</span>] * price_in * <span class="t-s">0.10</span> + use[<span class="t-s">&quot;output&quot;</span>] * price_out
+    <span class="t-k">return</span> dollars / <span class="t-s">1_000_000</span></pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>def _int(obj, *names):</dt><dd>Takes any object plus however many possible attribute names you care to pass, and returns the first one that holds a whole number, otherwise 0. The star in *names collects the extra arguments into a tuple, which is what lets you write _int(u, &quot;prompt_tokens&quot;, &quot;input_tokens&quot;) and cover two providers with one call.</dd>
+        <dt>v = getattr(obj, n, None)</dt><dd>getattr reads an attribute whose name you only have as a string, and the third argument is what to hand back when that attribute does not exist. That third argument is the whole reason this never raises AttributeError on a provider that does not report the field.</dd>
+        <dt>out_d = getattr(u, &quot;completion_tokens_details&quot;, None) or getattr(u, &quot;output_tokens_details&quot;, None)</dt><dd>The reasoning and cached counts are not on the usage object directly, they sit one level down inside a details object. The `or` picks whichever of the two spellings your provider used, because a missing attribute comes back as None and None is falsy in Python.</dd>
+        <dt>&quot;reasoning&quot;: _int(out_d, &quot;reasoning_tokens&quot;),</dt><dd>This is the number the whole lab exists to show you, the hidden thinking you paid for and never read. If your provider does not expose it you will see 0, which is not proof that no thinking happened, only proof that you were not told about it.</dd>
+        <dt>fresh_in = max(use[&quot;input&quot;] - use[&quot;cached&quot;], 0)</dt><dd>Cached tokens are already counted inside the input total, so you subtract them out before charging full price or you would be billing the same tokens twice. The max(..., 0) guards against a provider reporting a cached count larger than input, which would otherwise produce a negative bill.</dd>
+        <dt>return dollars / 1_000_000</dt><dd>The prices are quoted per million tokens, so everything above this line is measured in millionths of a dollar and this single division brings it back to real money. The underscores in 1_000_000 are ignored by Python and exist only so your eye can see it is a million and not ten million.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>The full cost formula, which is the only equation in this lab.
+
+formula:
+  fresh_in = max(input - cached, 0)
+  dollars  = (fresh_in x price_in + cached x price_in x 0.10 + output x price_out) / 1,000,000
+
+what every symbol means:
+  input    = total input tokens, everything you sent including the system text
+  cached   = the part of input the provider had already seen and stored
+  fresh_in = the part of input it had to read for the first time, so full price
+  output   = every token the model produced, and this already includes the hidden thinking
+  price_in = dollars per million input tokens, from the PRICES table
+  price_out= dollars per million output tokens, from the PRICES table
+  0.10     = the cache discount, cached input costs roughly one tenth of fresh input
+
+worked example, the hard question on gpt-5.6-sol at 5.00 in and 30.00 out:
+  input = 180, cached = 0, output = 1400, of which reasoning = 1100
+  fresh_in    = 180 - 0 = 180
+  input part  = 180 x 5.00  = 900
+  cached part = 0 x 5.00 x 0.10 = 0
+  output part = 1400 x 30.00 = 42000
+  total       = 900 + 0 + 42000 = 42900
+  dollars     = 42900 / 1,000,000 = 0.0429, about 4.3 cents
+
+the same question on gpt-5.6-luna at 0.20 in and 1.20 out:
+  input = 180, cached = 0, output = 220, reasoning = 0
+  180 x 0.20 = 36, and 220 x 1.20 = 264, so 36 + 264 = 300
+  dollars = 300 / 1,000,000 = 0.0003, about 0.03 of a cent
+
+and what the cache is worth, if 128 of those 180 input tokens had been cached:
+  fresh_in = 180 - 128 = 52
+  52 x 5.00 = 260, plus 128 x 5.00 x 0.10 = 64, so the input part is 324 instead of 900
+
+what it means: on a reasoning model almost your entire bill is the output line, and almost all of that output is text the provider never showed you. Note carefully that the 1400 output tokens already contain the 1100 thinking tokens, so you must not add them again.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If every reasoning number prints as 0, the likely cause is that your provider does not report the field rather than that the model did no thinking, so sanity check it by comparing the output token count against how long the visible answer actually is.</span></div>
+        </li>
+        <li><h3>Ask one model and time it</h3><p>This is the one function in the file that actually talks to a model. It starts a stopwatch, sends the question to one named model, stops the stopwatch, pulls out the answer text and the four token counts, then hands it all back as a single flat dictionary. It uses <code>chat_raw()</code> rather than <code>chat()</code> because <code>chat_raw</code> returns the whole response object from the provider while <code>chat</code> returns only a string, and the usage numbers live on the object. Chat APIs take their input as a message list, which is a list of dictionaries each holding a role (&quot;user&quot;, &quot;assistant&quot; or &quot;system&quot;) and the content, which is why the question is wrapped rather than passed as a bare string. The module page shows this call as <code>chat_raw(question, model=model)</code>, but the shared <code>my-work/labs/_shared/llm.py</code> expects a message list as its first argument, so the wrapping is corrected here; if your copy of <code>llm.py</code> differs again, this is the only line in the whole file you need to change. Keeping the wall clock timing is worth the two extra lines, because slowness is often what kills a reasoning model inside a real product even when the price is perfectly acceptable. Still nothing on screen, since nothing calls <code>ask()</code> yet.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-k">def</span> <span class="t-f">ask</span>(model, question):
+    started = time.<span class="t-f">perf_counter</span>()
+    resp = <span class="t-f">chat_raw</span>([{<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;user&quot;</span>, <span class="t-s">&quot;content&quot;</span>: question}], model=model)
+    seconds = time.<span class="t-f">perf_counter</span>() - started
+    answer = (resp.choices[<span class="t-s">0</span>].message.content <span class="t-k">or</span> <span class="t-s">&quot;&quot;</span>).<span class="t-f">strip</span>()
+    use = <span class="t-f">read_usage</span>(resp)
+    <span class="t-k">return</span> {<span class="t-s">&quot;model&quot;</span>: model, <span class="t-s">&quot;seconds&quot;</span>: <span class="t-f">round</span>(seconds, <span class="t-s">1</span>),
+            <span class="t-s">&quot;answer&quot;</span>: answer, <span class="t-s">&quot;cost&quot;</span>: <span class="t-f">cost_usd</span>(model, use), **use}</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>started = time.perf_counter()</dt><dd>perf_counter is a high resolution stopwatch rather than a clock. Its raw value has no meaning as a date, only the difference between two readings does, which is exactly what you want when measuring how long a user waited.</dd>
+        <dt>resp = chat_raw([{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: question}], model=model)</dt><dd>The shared helper expects a list of message dictionaries, so the question is wrapped in a single user message. The model=model keyword is forwarded straight into the provider call and overrides the default model from your .env, and that override is the mechanism that lets one script hit two different models in one run.</dd>
+        <dt>answer = (resp.choices[0].message.content or &quot;&quot;).strip()</dt><dd>Chat APIs can return several candidate answers, so choices[0] takes the first one. The `or &quot;&quot;` is not decoration: a reasoning model that spends its entire output budget on hidden thinking returns content of None, and calling .strip() on None crashes the script.</dd>
+        <dt>use = read_usage(resp)</dt><dd>Pulls the four token counts off the same response object while you still have it. It has to happen here, because the response is thrown away the moment this function returns its dictionary.</dd>
+        <dt>**use</dt><dd>The two stars unpack the four keys of use into the same flat dictionary as model, seconds, answer and cost. Flat is what the printing loop in the next step needs, because it reads r['input'] directly rather than r['use']['input'].</dd>
+        <dt>round(seconds, 1)</dt><dd>One decimal place is the honest amount of precision here. Network jitter between two calls is worth far more than a hundredth of a second, so printing extra digits would imply an accuracy the measurement does not have.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Turning the seconds column into something you can reason about.
+
+formula: tokens per second = output tokens / seconds
+
+what the symbols mean:
+  output tokens = every token the model wrote, hidden thinking included
+  seconds       = wall clock time from just before the call to just after it, so it includes network time
+
+worked example with the same two calls as before:
+  reasoning model: 1400 tokens in 22.0 seconds  = 1400 / 22.0 = 63.6 tokens per second
+  fast model:       220 tokens in  1.8 seconds  =  220 /  1.8 = 122.2 tokens per second
+
+now split the wait into its two causes:
+  total slowdown  = 22.0 / 1.8   = 12.2 times slower end to end
+  per token speed = 122.2 / 63.6 = 1.9 times slower per token
+  quantity        = 1400 / 220   = 6.4 times more tokens written
+  and 1.9 x 6.4 = 12.2, which matches the total
+
+what it means: only about a factor of 2 of the extra wait comes from the reasoning model being a slower machine. The other factor of 6 is simply that it chose to write six times more text, nearly all of it hidden working you never see.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>If you get a TypeError mentioning messages, your copy of llm.py has a different chat_raw signature, so match the wrapping to whatever it expects; this is the only line in the file that touches the provider.</span></div>
+        </li>
+        <li><h3>Run both questions through both models</h3><p><code>main()</code> runs the two questions through the two models, four calls in total, prints each answer, prints one table and saves everything to <code>results.json</code>. The guard at the top stops you with a readable one line message if <code>MODEL_FAST</code> or <code>MODEL_REASONING</code> is missing, instead of making you wait for a confusing error from the provider. <code>whoami()</code> prints the provider, model, endpoint and whether a key was found, which is the fastest way to spot a <code>.env</code> that did not load. The table exists so that all four rows sit in front of you at once, because a comparison you have to scroll between is a comparison you will read wrong. <code>results.json</code> is the file you reuse in the mini-project, so you do not pay for the same four calls twice. Grade the hard answers yourself before you look at the cost column: the one correct solution is A index, B report, C sync, D backup, total $47 per night. Expect roughly 30 to 90 seconds of waiting, nearly all of it on the two reasoning calls, then four answer blocks followed by the table and the line <code>wrote results.json</code>.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
+<pre><span class="t-k">def</span> <span class="t-f">main</span>():
+    <span class="t-k">if</span> <span class="t-k">not</span> FAST <span class="t-k">or</span> <span class="t-k">not</span> REASONING:
+        sys.<span class="t-f">exit</span>(<span class="t-s">&quot;Set MODEL_FAST and MODEL_REASONING in your .env first.&quot;</span>)
+    <span class="t-f">print</span>(<span class="t-f">whoami</span>())
+
+    rows = []
+    <span class="t-k">for</span> label, question <span class="t-k">in</span> ((<span class="t-s">&quot;hard&quot;</span>, HARD), (<span class="t-s">&quot;easy&quot;</span>, EASY)):
+        <span class="t-k">for</span> model <span class="t-k">in</span> (FAST, REASONING):
+            r = <span class="t-f">ask</span>(model, question)
+            r[<span class="t-s">&quot;question&quot;</span>] = label
+            rows.<span class="t-f">append</span>(r)
+            <span class="t-f">print</span>(f<span class="t-s">&quot;\n=== {label} / {model} ===&quot;</span>)
+            <span class="t-f">print</span>(r[<span class="t-s">&quot;answer&quot;</span>][:<span class="t-s">600</span>])
+
+    <span class="t-f">print</span>(f<span class="t-s">&quot;\n{'q':6}{'model':24}{'in':&gt;7}{'out':&gt;7}{'think':&gt;7}{'sec':&gt;7}{'usd':&gt;10}&quot;</span>)
+    <span class="t-k">for</span> r <span class="t-k">in</span> rows:
+        <span class="t-f">print</span>(f<span class="t-s">&quot;{r['question']:6}{r['model']:24}{r['input']:7d}{r['output']:7d}&quot;</span>
+              f<span class="t-s">&quot;{r['reasoning']:7d}{r['seconds']:7.1f}{r['cost']:10.5f}&quot;</span>)
+
+    <span class="t-f">Path</span>(<span class="t-s">&quot;results.json&quot;</span>).<span class="t-f">write_text</span>(json.<span class="t-f">dumps</span>(rows, indent=<span class="t-s">2</span>), encoding=<span class="t-s">&quot;utf-8&quot;</span>)
+    <span class="t-f">print</span>(<span class="t-s">&quot;\nwrote results.json&quot;</span>)
+
+<span class="t-k">if</span> __name__ == <span class="t-s">&quot;__main__&quot;</span>:
+    <span class="t-f">main</span>()</pre></div>
+        <div class="walk"><div class="walk__h">What that code is doing</div><dl>
+        <dt>if not FAST or not REASONING:</dt><dd>An empty string is falsy in Python, so this single condition catches both a variable that was never set and one set to nothing at all. sys.exit with a string prints that string and stops the program with a non zero exit code, which is the polite way to fail.</dd>
+        <dt>for label, question in ((&quot;hard&quot;, HARD), (&quot;easy&quot;, EASY)):</dt><dd>The outer loop walks the two questions and the inner loop walks the two models, which gives you exactly four calls. Writing it as nested loops rather than four separate calls means adding a third model later is a one word change.</dd>
+        <dt>print(r[&quot;answer&quot;][:600])</dt><dd>Slices the answer down to its first 600 characters so a long reasoning reply does not push the table off the top of your terminal. Nothing is lost, because the full text is still saved in results.json.</dd>
+        <dt>{'in':&gt;7}{'out':&gt;7}{'think':&gt;7}</dt><dd>Inside an f-string the number after the colon is the column width and &gt; means right align. Right aligning the numeric columns while leaving the text columns left aligned is what makes the digits line up so you can compare straight down a column.</dd>
+        <dt>{r['cost']:10.5f}</dt><dd>Ten characters wide, five decimal places, fixed point notation. Five decimals is deliberate, because a single cheap call can cost less than a hundredth of a cent and Python's default float printing would show that in scientific notation like 3e-04.</dd>
+        <dt>Path(&quot;results.json&quot;).write_text(json.dumps(rows, indent=2), encoding=&quot;utf-8&quot;)</dt><dd>json.dumps turns the list of dictionaries into text and indent=2 makes that text readable by a human. The encoding=&quot;utf-8&quot; is not optional on Windows, where the default encoding will throw UnicodeEncodeError on any accented letter or curly quote the model happened to write.</dd>
+        </dl></div>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>The cost multiple, which is the single number to carry out of this lab.
+
+formula: cost multiple = cost of the reasoning model / cost of the fast model, on the same question
+
+what the symbols mean:
+  both costs come straight out of cost_usd() for the same question text
+  the multiple is a plain ratio with no units, so 143 means one hundred and forty three times more expensive
+
+worked example, using the two hard question calls from step 3:
+  reasoning model = 0.0429 dollars
+  fast model      = 0.0003 dollars
+  cost multiple   = 0.0429 / 0.0003 = 143
+
+where that 143 comes from, since it is not one effect but two multiplied together:
+  price per output token is 25 times higher: 30.00 / 1.20 = 25
+  it wrote about 6.4 times more output:      1400 / 220   = 6.4
+  25 x 6.4 = 160, and you land near 143 once the much cheaper input tokens are folded back in
+
+what this looks like at real volume, for a task you run 10,000 times a month:
+  fast model:      10,000 x 0.0003 = 3.00 dollars
+  reasoning model: 10,000 x 0.0429 = 429.00 dollars
+
+what it means: the price list gap and the token count gap multiply, they do not add. That is why a tier that is only 25 times dearer on paper can produce a bill that is well over a hundred times larger.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>Run the script from inside my-work/labs/lab05, because both the .env lookup and the results.json write follow the folder you ran the command from and not the folder the script lives in.</span></div>
+        </li>
+        <li><h3>Read what actually happened</h3><p>Look at the <code>think</code> column first. On the hard question the reasoning model probably spent hundreds or thousands of tokens you never saw, and that hidden text is most of what you were charged for. Now check the easy question: if the reasoning model still burned thinking tokens to produce one calm sentence, you paid for deliberation on a task that needed none, and that is the most common way money quietly leaks out of a production system. If the fast model also got the puzzle right, that is a real finding and not a failed lab, because it means this particular question was not hard enough to separate the two models. Finding a question that does separate them is exactly what turns your mini-project into evidence rather than a guess. Be honest with yourself about how much one run proves: four calls is an anecdote, which is why the mini-project makes you repeat the interesting ones three times each. What you should be looking at is the reasoning row on the hard question holding the largest <code>think</code>, <code>sec</code> and <code>usd</code> numbers of all four rows.</p>
+        <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Two numbers worth working out by hand before you decide anything.
+
+FIRST, how much of your output bill was invisible.
+
+formula: thinking share = reasoning tokens / output tokens
+
+what the symbols mean:
+  reasoning tokens = the hidden working, the think column in your table
+  output tokens    = everything the model produced, which already contains the thinking
+
+worked example: 1100 / 1400 = 0.786, which is 78.6 percent
+so roughly four out of every five tokens you paid for on the output side were text you never got to read.
+
+SECOND, the break even error rate, which is the honest way to decide which model to buy.
+
+formula: use the fast model when  cost_fast + (p x W) &lt; cost_reasoning
+         rearranged, break even p = (cost_reasoning - cost_fast) / W
+
+what every symbol means:
+  cost_fast      = dollars for one call to the cheap model
+  cost_reasoning = dollars for one call to the expensive model
+  p              = the fraction of the time the cheap model gets the answer wrong
+  W              = what one wrong answer costs you to catch and put right, in dollars
+
+worked example with the numbers from this lab:
+  cost_reasoning - cost_fast = 0.0429 - 0.0003 = 0.0426 dollars
+  say a wrong answer takes a person 5 minutes to catch and redo, and that person costs 60 dollars an hour
+  W = 60 x (5 / 60) = 5.00 dollars
+  break even p = 0.0426 / 5.00 = 0.0085, which is 0.85 percent, roughly 1 in 120
+
+so if the cheap model gets this kind of question wrong more often than about 1 in 120, the reasoning model is the cheaper choice overall, even though it costs 143 times more per call.
+
+be clear that this is a simplification: it assumes you always notice the error, that the reasoning model is never wrong, and that every wrong answer costs the same to fix. Real systems break all three of those assumptions, so treat the number as a starting point for the argument rather than the end of it.
+
+what it means: the per call price gap looks enormous as a multiple but is tiny in absolute dollars, so what usually decides the answer is the cost of being wrong, not the cost of the call.</pre></div>
+        <div class="gotcha"><b>Watch out:</b><span>The biggest mistake at this step is grading the hard answers after you have seen the cost column, because knowing which call was expensive will quietly make you more forgiving towards it.</span></div>
+        </li>
+        </ol>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> You can print a four row table (two questions by two models) showing input tokens, output tokens, thinking tokens, seconds and dollars; results.json exists on disk with the same four rows in it; you have marked each hard answer right or wrong against the one correct solution (A index, B report, C sync, D backup, $47 total per night); and you can say in one sentence which model you would pay for on each question and why.</div></div>
+        </section>
+        <section class="section section--mini"><h2 class="section__h" data-stamp="hands on"><span>Mini-project: your turn</span></h2>
+        <p class="prose">Find one question where the reasoning model is repeatably better and one where it costs many times more for the same quality. You record every run in my-work/labs/lab05/verdict.json, and check.py verifies the counts, the arithmetic and your pass/fail discipline.</p>
+        <p class="small muted">No code given. Produce the file, then run the checker.</p>
+        <ol class="steps">
+        <li><p>Write five candidate questions before you run anything, and next to each write the expected answer or the property a good answer must have. Deciding what counts as correct after you have seen the output is how people fool themselves.</p></li>
+        <li><p>Run all five through both models with your lab script and grade every answer pass or fail against what you wrote down. Do not score 1 to 5: you will drift and cluster in the middle, and the checker rejects anything that is not true or false.</p></li>
+        <li><p>Pick a winner (reasoning right, fast model wrong) and a waste case (both right, reasoning much dearer), then run those two three times each on each model. That is 12 calls. Keep the token counts from every one of them.</p></li>
+        <li><p>Save the numbers as my-work/labs/lab05/verdict.json. Top-level keys: fast_model and reasoning_model (the two ids), prices (a map from model id to [input_price, output_price] per million tokens), cases (a list of two objects) and rule (a string). Each case has role (&quot;winner&quot; or &quot;waste&quot;), question, expected, cost_multiple (mean reasoning cost divided by mean fast cost) and runs, a list of 6 objects each holding model, pass (true or false), input, output, reasoning, cached, seconds and cost. Copy the token counts straight out of results.json; the checker recomputes every cost from your own price table and rejects mismatches.</p></li>
+        <li><p>Write the rule field: at least 25 words saying when you would spend the money, in terms a teammate could apply to a question you have never seen. Name what the winning question has that the waste case does not, such as several dependent steps, or one wrong step ruining the answer.</p></li>
+        <li><p>Save check.py in my-work/labs/lab05 next to verdict.json and run it. Fix whatever it reports and run it again. It makes no API calls, so rerunning is free.</p></li>
+        </ol>
+        <div class="checker"><div class="checker__h">Check it yourself, automatically</div>
+        <p>Save this as <code>check.py</code> next to your work, then run <code>python my-work/labs/lab05/check.py</code>. It reads what you produced, tests it, and prints a line per check.</p>
+        <div class="codeblock"><div class="codeblock__bar"><span>check.py</span></div>
+<pre><span class="t-c">#!/usr/bin/env python3</span>
+<span class="t-s">&quot;&quot;&quot;Checks verdict.json for the Module 5 mini-project. Run: python check.py
+Reads only your recorded file. No API key, no network, no cost.&quot;&quot;&quot;</span>
+<span class="t-k">import</span> json, sys
+<span class="t-k">from</span> pathlib <span class="t-k">import</span> Path
+
+PATH = <span class="t-f">Path</span>(__file__).<span class="t-f">with_name</span>(<span class="t-s">&quot;verdict.json&quot;</span>)
+fails = []
+
+<span class="t-k">def</span> <span class="t-f">check</span>(ok, msg):
+    <span class="t-f">print</span>((<span class="t-s">&quot;PASS &quot;</span> <span class="t-k">if</span> ok <span class="t-k">else</span> <span class="t-s">&quot;FAIL &quot;</span>) + msg)
+    <span class="t-k">if</span> <span class="t-k">not</span> ok:
+        fails.<span class="t-f">append</span>(msg)
+
+<span class="t-k">def</span> <span class="t-f">lst</span>(x):                         <span class="t-c"># anything that should be a list but is not is empty</span>
+    <span class="t-k">return</span> x <span class="t-k">if</span> <span class="t-f">isinstance</span>(x, list) <span class="t-k">else</span> []
+
+<span class="t-k">def</span> <span class="t-f">num</span>(d, k):                      <span class="t-c"># a missing or non-numeric field counts as 0</span>
+    v = d.<span class="t-f">get</span>(k, <span class="t-s">0</span>)
+    <span class="t-k">return</span> v <span class="t-k">if</span> <span class="t-f">isinstance</span>(v, (int, float)) <span class="t-k">and</span> <span class="t-k">not</span> <span class="t-f">isinstance</span>(v, bool) <span class="t-k">else</span> <span class="t-s">0</span>
+
+<span class="t-k">def</span> <span class="t-f">cost</span>(run, prices):              <span class="t-c"># same formula as the lab, cached input at one tenth</span>
+    p = <span class="t-f">list</span>(prices.<span class="t-f">get</span>(run.<span class="t-f">get</span>(<span class="t-s">&quot;model&quot;</span>)) <span class="t-k">or</span> []) + [<span class="t-s">0</span>, <span class="t-s">0</span>]
+    fresh = <span class="t-f">max</span>(<span class="t-f">num</span>(run, <span class="t-s">&quot;input&quot;</span>) - <span class="t-f">num</span>(run, <span class="t-s">&quot;cached&quot;</span>), <span class="t-s">0</span>)
+    <span class="t-k">return</span> (fresh * p[<span class="t-s">0</span>] + <span class="t-f">num</span>(run, <span class="t-s">&quot;cached&quot;</span>) * p[<span class="t-s">0</span>] * <span class="t-s">0.10</span> + <span class="t-f">num</span>(run, <span class="t-s">&quot;output&quot;</span>) * p[<span class="t-s">1</span>]) / <span class="t-s">1_000_000</span>
+
+<span class="t-k">if</span> <span class="t-k">not</span> PATH.<span class="t-f">exists</span>():
+    sys.<span class="t-f">exit</span>(f<span class="t-s">&quot;FAIL no verdict.json next to check.py (looked in {PATH.parent}). Write it first.&quot;</span>)
+<span class="t-k">try</span>:
+    d = json.<span class="t-f">loads</span>(PATH.<span class="t-f">read_text</span>(encoding=<span class="t-s">&quot;utf-8&quot;</span>))
+<span class="t-k">except</span> json.JSONDecodeError <span class="t-k">as</span> e:
+    sys.<span class="t-f">exit</span>(f<span class="t-s">&quot;FAIL verdict.json is not valid JSON: {e.msg}, line {e.lineno}&quot;</span>)
+
+need = [<span class="t-s">&quot;fast_model&quot;</span>, <span class="t-s">&quot;reasoning_model&quot;</span>, <span class="t-s">&quot;prices&quot;</span>, <span class="t-s">&quot;cases&quot;</span>, <span class="t-s">&quot;rule&quot;</span>]
+gone = [k <span class="t-k">for</span> k <span class="t-k">in</span> need <span class="t-k">if</span> k <span class="t-k">not</span> <span class="t-k">in</span> d]
+<span class="t-k">if</span> gone:
+    sys.<span class="t-f">exit</span>(<span class="t-s">&quot;FAIL verdict.json is missing top-level keys: &quot;</span> + <span class="t-s">&quot;, &quot;</span>.<span class="t-f">join</span>(gone))
+
+fast, slow = d[<span class="t-s">&quot;fast_model&quot;</span>], d[<span class="t-s">&quot;reasoning_model&quot;</span>]
+prices = d[<span class="t-s">&quot;prices&quot;</span>] <span class="t-k">if</span> <span class="t-f">isinstance</span>(d[<span class="t-s">&quot;prices&quot;</span>], dict) <span class="t-k">else</span> {}
+cases = {c.<span class="t-f">get</span>(<span class="t-s">&quot;role&quot;</span>): c <span class="t-k">for</span> c <span class="t-k">in</span> <span class="t-f">lst</span>(d[<span class="t-s">&quot;cases&quot;</span>]) <span class="t-k">if</span> <span class="t-f">isinstance</span>(c, dict)}
+<span class="t-f">check</span>(fast != slow, <span class="t-s">&quot;fast_model and reasoning_model are two different ids&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">all</span>(<span class="t-f">isinstance</span>(prices.<span class="t-f">get</span>(m), list) <span class="t-k">and</span> <span class="t-f">len</span>(prices[m]) == <span class="t-s">2</span> <span class="t-k">for</span> m <span class="t-k">in</span> (fast, slow)),
+      <span class="t-s">&quot;prices has an [input, output] pair for both models&quot;</span>)
+<span class="t-f">check</span>(<span class="t-f">set</span>(cases) == {<span class="t-s">&quot;winner&quot;</span>, <span class="t-s">&quot;waste&quot;</span>},
+      f<span class="t-s">&quot;two cases, roles winner and waste (found {sorted(cases)})&quot;</span>)
+<span class="t-k">if</span> <span class="t-f">set</span>(cases) != {<span class="t-s">&quot;winner&quot;</span>, <span class="t-s">&quot;waste&quot;</span>}:
+    sys.<span class="t-f">exit</span>(<span class="t-s">&quot;1 check failed and the rest need both cases. Stopping.&quot;</span>)
+
+<span class="t-k">for</span> role <span class="t-k">in</span> (<span class="t-s">&quot;winner&quot;</span>, <span class="t-s">&quot;waste&quot;</span>):
+    c = cases[role]
+    runs = [r <span class="t-k">for</span> r <span class="t-k">in</span> <span class="t-f">lst</span>(c.<span class="t-f">get</span>(<span class="t-s">&quot;runs&quot;</span>)) <span class="t-k">if</span> <span class="t-f">isinstance</span>(r, dict)]
+    per = {m: [r <span class="t-k">for</span> r <span class="t-k">in</span> runs <span class="t-k">if</span> r.<span class="t-f">get</span>(<span class="t-s">&quot;model&quot;</span>) == m] <span class="t-k">for</span> m <span class="t-k">in</span> (fast, slow)}
+    q = <span class="t-f">str</span>(c.<span class="t-f">get</span>(<span class="t-s">&quot;question&quot;</span>, <span class="t-s">&quot;&quot;</span>))
+    <span class="t-f">check</span>(<span class="t-f">len</span>(q) &gt;= <span class="t-s">30</span> <span class="t-k">and</span> <span class="t-s">&quot;Four servers (A, B, C, D)&quot;</span> <span class="t-k">not</span> <span class="t-k">in</span> q,
+          f<span class="t-s">&quot;{role}: question is your own and at least 30 characters&quot;</span>)
+    <span class="t-f">check</span>(<span class="t-f">len</span>(<span class="t-f">str</span>(c.<span class="t-f">get</span>(<span class="t-s">&quot;expected&quot;</span>, <span class="t-s">&quot;&quot;</span>)).<span class="t-f">strip</span>()) &gt;= <span class="t-s">2</span>,
+          f<span class="t-s">&quot;{role}: expected answer or pass criterion recorded&quot;</span>)
+    <span class="t-f">check</span>(<span class="t-f">len</span>(per[fast]) == <span class="t-s">3</span> <span class="t-k">and</span> <span class="t-f">len</span>(per[slow]) == <span class="t-s">3</span>,
+          f<span class="t-s">&quot;{role}: 3 runs per model (got {len(per[fast])} fast, {len(per[slow])} reasoning)&quot;</span>)
+    <span class="t-f">check</span>(<span class="t-f">all</span>(<span class="t-f">isinstance</span>(r.<span class="t-f">get</span>(<span class="t-s">&quot;pass&quot;</span>), bool) <span class="t-k">for</span> r <span class="t-k">in</span> runs),
+          f<span class="t-s">&quot;{role}: every run graded true or false, not a 1-5 score&quot;</span>)
+    over = [r <span class="t-k">for</span> r <span class="t-k">in</span> runs <span class="t-k">if</span> <span class="t-f">num</span>(r, <span class="t-s">&quot;reasoning&quot;</span>) &gt; <span class="t-f">num</span>(r, <span class="t-s">&quot;output&quot;</span>)]
+    <span class="t-f">check</span>(<span class="t-k">not</span> over, f<span class="t-s">&quot;{role}: reasoning tokens sit inside output tokens ({len(over)} row(s) above)&quot;</span>)
+    bad = [r <span class="t-k">for</span> r <span class="t-k">in</span> runs <span class="t-k">if</span> <span class="t-f">abs</span>(<span class="t-f">cost</span>(r, prices) - <span class="t-f">num</span>(r, <span class="t-s">&quot;cost&quot;</span>)) &gt; <span class="t-s">1e</span>-<span class="t-s">9</span>]
+    <span class="t-f">check</span>(<span class="t-k">not</span> bad, f<span class="t-s">&quot;{role}: every recorded cost matches your price table ({len(bad)} off)&quot;</span>)
+    fp = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> r <span class="t-k">in</span> per[fast] <span class="t-k">if</span> r.<span class="t-f">get</span>(<span class="t-s">&quot;pass&quot;</span>) <span class="t-k">is</span> <span class="t-k">True</span>)
+    sp = <span class="t-f">sum</span>(<span class="t-s">1</span> <span class="t-k">for</span> r <span class="t-k">in</span> per[slow] <span class="t-k">if</span> r.<span class="t-f">get</span>(<span class="t-s">&quot;pass&quot;</span>) <span class="t-k">is</span> <span class="t-k">True</span>)
+    <span class="t-k">if</span> role == <span class="t-s">&quot;winner&quot;</span>:
+        <span class="t-f">check</span>(sp == <span class="t-s">3</span> <span class="t-k">and</span> fp == <span class="t-s">0</span>, f<span class="t-s">&quot;winner: reasoning 3/3 and fast 0/3 (got {sp}/3 and {fp}/3)&quot;</span>)
+    <span class="t-k">else</span>:
+        <span class="t-f">check</span>(sp == <span class="t-s">3</span> <span class="t-k">and</span> fp == <span class="t-s">3</span>, f<span class="t-s">&quot;waste: both models 3/3 (got {sp}/3 and {fp}/3)&quot;</span>)
+    mean = <span class="t-k">lambda</span> rs: <span class="t-f">sum</span>(<span class="t-f">cost</span>(r, prices) <span class="t-k">for</span> r <span class="t-k">in</span> rs) / <span class="t-f">len</span>(rs) <span class="t-k">if</span> rs <span class="t-k">else</span> <span class="t-s">0.0</span>
+    got = <span class="t-f">mean</span>(per[slow]) / <span class="t-f">mean</span>(per[fast]) <span class="t-k">if</span> <span class="t-f">mean</span>(per[fast]) &gt; <span class="t-s">0</span> <span class="t-k">else</span> <span class="t-s">0.0</span>
+    <span class="t-f">check</span>(<span class="t-f">abs</span>(got - <span class="t-f">num</span>(c, <span class="t-s">&quot;cost_multiple&quot;</span>)) &lt;= <span class="t-s">0.05</span> * <span class="t-f">max</span>(got, <span class="t-s">1e</span>-<span class="t-s">9</span>),
+          f<span class="t-s">&quot;{role}: cost_multiple {c.get('cost_multiple')} agrees with the runs ({got:.1f})&quot;</span>)
+    <span class="t-k">if</span> role == <span class="t-s">&quot;waste&quot;</span>:
+        <span class="t-f">check</span>(got &gt;= <span class="t-s">2.0</span>, f<span class="t-s">&quot;waste: reasoning did cost more ({got:.1f}x the fast model)&quot;</span>)
+
+rule = d[<span class="t-s">&quot;rule&quot;</span>] <span class="t-k">if</span> <span class="t-f">isinstance</span>(d[<span class="t-s">&quot;rule&quot;</span>], str) <span class="t-k">else</span> <span class="t-s">&quot;&quot;</span>
+<span class="t-f">check</span>(<span class="t-f">len</span>(rule.<span class="t-f">split</span>()) &gt;= <span class="t-s">25</span>, f<span class="t-s">&quot;rule is written out ({len(rule.split())} words, 25 minimum)&quot;</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;NOTE  whether the rule is a good rule is not checked automatically. Read it back and&quot;</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;      ask whether a teammate could apply it without rerunning your calls.&quot;</span>)
+<span class="t-f">print</span>()
+<span class="t-k">if</span> fails:
+    <span class="t-f">print</span>(f<span class="t-s">&quot;{len(fails)} check(s) failed&quot;</span>)
+    sys.<span class="t-f">exit</span>(<span class="t-s">1</span>)
+<span class="t-f">print</span>(<span class="t-s">&quot;ALL CHECKS PASSED&quot;</span>)
+sys.<span class="t-f">exit</span>(<span class="t-s">0</span>)
+</pre></div>
+        </div>
+        <div class="done"><span>&#10003;</span><div><b>You are done when</b> python my-work/labs/lab05/check.py prints 21 lines, one per check, and ends with ALL CHECKS PASSED and exit code 0. It fails you if the winner case is not 3/3 reasoning against 0/3 fast, if any recorded cost disagrees with your own price table, if you graded on a scale instead of true/false, if a case has fewer than 3 runs per model, if reasoning tokens exceed output tokens, or if cost_multiple does not match the runs. It also prints one NOTE saying that the quality of your written rule is not checked automatically, because it cannot be.</div></div>
+        <div class="note" style="margin-top:12px"><div class="note__t">If you want more</div><p>Send your winning question to the fast model three more times with &quot;work through this step by step, then give your final answer&quot; appended, and record those runs in a separate my-work/labs/lab05/prompted.json (the checker expects exactly two cases in verdict.json, so keep them out of it). Compare pass rate and cost against both models. Sometimes prompted step-by-step working closes the gap for a fraction of the price, and sometimes it stays worse than a model actually trained to do it.</p></div>
+        </section>
+        <section class="section section--quiz"><h2 class="section__h" data-stamp="on record"><span>Check yourself</span></h2>
+        <p class="small muted">Explained either way.</p>
+        <div class="quiz" data-quiz>
+        <div class="q" data-answer="0"><p class="q__q">What is a model actually trained to do during pretraining?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Predict the next piece of text, over and over, across an enormous pile of writing</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Answer questions helpfully and politely</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Follow a written safety policy</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Decide which tool to call for a task</span></button>
+        </div><div class="q__why" hidden>Pretraining is next-token prediction and nothing else; grammar, facts and reasoning patterns are side effects of getting good at that guess. Helpfulness comes later from supervised fine-tuning, tone and refusals come from RLHF, and tool calling is trained on top of all of it. A model that has only been pretrained will happily continue your question with more questions instead of answering it.</div></div>
+        <div class="q" data-answer="1"><p class="q__q">Your bill for a reasoning model is far higher than the length of the visible answer suggests. What is the most likely reason?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>The cache was hit, so you were charged extra</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>The hidden thinking tokens are billed as output tokens even though you never see them</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Input tokens are billed twice on reasoning models</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Reasoning models bill by the second rather than by tokens</span></button>
+        </div><div class="q__why" hidden>Providers usually hide the step-by-step working but still charge it to you as output, which is the expensive side of the price list. A cache hit does the opposite and makes repeated input roughly ten times cheaper. This is why the lab prints the reasoning token count separately instead of trusting the answer's visible length.</div></div>
+        <div class="q" data-answer="3"><p class="q__q">Which task is RLVR (reinforcement learning from verifiable rewards) most directly suited to?</p><div class="q__opts">
+        <button class="opt" type="button"><span class="opt__k">A</span><span>Making replies sound warmer and more polite</span></button>
+        <button class="opt" type="button"><span class="opt__k">B</span><span>Shrinking a model so it runs on a phone</span></button>
+        <button class="opt" type="button"><span class="opt__k">C</span><span>Removing duplicate documents from the training data</span></button>
+        <button class="opt" type="button"><span class="opt__k">D</span><span>Problems where a program can check the answer, such as code that must pass tests</span></button>
+        </div><div class="q__why" hidden>RLVR replaces the human rater with an automatic checker, so it only applies where correctness can be decided mechanically, mainly maths, code and puzzles. Warmth and politeness have no checker, which is why that side is still handled by human preference feedback (RLHF). This split explains why reasoning models improved sharply on maths and code while gains on style and taste were much smaller.</div></div>
+        </div></section>
+        <section class="section section--notes notes" data-notes><h2 class="section__h" data-stamp="on record"><span>Your notes</span></h2>
+        <p class="small muted">Saves as you type, in this browser.</p>
+        <label class="sr" for="n5">Notes for this module</label>
+        <textarea id="n5" placeholder="What clicked? What is still fuzzy? What do you want to come back to?"></textarea><div class="notes__status"></div></section>
+        <section class="section section--done"><h2 class="section__h" data-stamp="on record"><span>Mark it done</span></h2>
+        <div class="marks"><button class="mark" data-mark="read" aria-pressed="false"><span>Read the notes</span></button><button class="mark" data-mark="lab" aria-pressed="false"><span>Finished the lab</span></button><button class="mark" data-mark="mini" aria-pressed="false"><span>Finished the mini-project</span></button></div></section>
+        <section class="section section--docs"><h2 class="section__h" data-stamp="reference"><span>Go to the source</span></h2>
+        <p class="small muted">If this course and the docs disagree, the docs are newer.</p><ul class="prose">
+        <li><a href="https://platform.openai.com/docs/guides/reasoning" target="_blank" rel="noopener">OpenAI: reasoning models and reasoning tokens</a></li>
+        <li><a href="https://docs.claude.com/en/docs/build-with-claude/extended-thinking" target="_blank" rel="noopener">Anthropic: extended thinking</a></li>
+        <li><a href="https://ai.google.dev/gemini-api/docs/thinking" target="_blank" rel="noopener">Google: Gemini API thinking guide</a></li>
+        <li><a href="https://arxiv.org/abs/2201.11903" target="_blank" rel="noopener">Chain-of-thought prompting (Wei et al., 2022)</a></li>
+        <li><a href="https://arxiv.org/abs/2203.02155" target="_blank" rel="noopener">InstructGPT: training with human feedback (Ouyang et al., 2022)</a></li>
+        <li><a href="https://arxiv.org/abs/2501.12948" target="_blank" rel="noopener">DeepSeek-R1: reasoning trained by reinforcement learning (2025)</a></li>
+        </ul></section>
+    </div>
+    <nav data-chrome="pager"></nav>
+  </main>
+</div>
+
+<script src="../assets/data.js"></script>
+<script src="../assets/widgets.js"></script>
+<script src="../assets/course.js"></script>
+</body>
+</html>

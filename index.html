@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gen AI &amp; Agentic AI · a self-study course</title>
+<meta name="description" content="Eighteen modules from machine-learning basics to building and shipping your own AI agents and MCP servers, plus a five-module build track where you train your own language model from scratch.">
+<link rel="stylesheet" href="assets/course.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232f6fd0'/><path d='M8 21V11h3l3 6 3-6h3v10h-2.6v-6.2L15 20h-2l-2.4-5.2V21z' fill='white'/></svg>">
+</head>
+<body data-root="">
+<a class="skip" href="#main">Skip to content</a>
+<header data-chrome="masthead"></header>
+
+<div class="shell" data-phase="1">
+  <nav data-chrome="sidebar" aria-label="Modules"></nav>
+
+  <main class="main" id="main">
+    <div class="wrap">
+
+      <section class="hero">
+        <h1>Gen AI &amp; Agentic AI</h1>
+        <p>Eighteen modules from machine-learning basics to building and shipping your own AI agents
+           and MCP servers, plus a five-module build track where you train your own language model
+           from scratch. Plain English, worked examples, and something you build at the end of
+           every module that a checker script verifies.</p>
+        <div class="ramp" aria-hidden="true">
+          <i style="background:hsl(var(--p1))"></i><i style="background:hsl(var(--p2))"></i>
+          <i style="background:hsl(var(--p3))"></i><i style="background:hsl(var(--p4))"></i>
+          <i style="background:hsl(var(--p5))"></i><i style="background:hsl(var(--p6))"></i>
+          <i style="background:hsl(var(--p7))"></i>
+        </div>
+      </section>
+
+      <div class="stats">
+        <div class="stat"><b data-stat="modules">·</b><span>modules</span></div>
+        <div class="stat"><b data-stat="videos">·</b><span>videos, all checked</span></div>
+        <div class="stat"><b data-stat="hours">·</b><span>hours of study</span></div>
+        <div class="stat"><b data-stat="builds">·</b><span>things you build</span></div>
+        <div class="stat"><b data-stat="done">0</b><span>modules finished</span></div>
+      </div>
+
+      <section class="card">
+        <h2 style="margin-bottom:.6em">Start here</h2>
+        <div data-setupcard></div>
+        <p class="prose" style="margin:16px 0 0">
+          Setup asks which of three paths you want first: <b>fully offline</b> (a model on your own
+          machine, no account), <b>free hosted</b> (a free key, no card), or <b>your own key</b>.
+          It then shows only the steps for that path.
+        </p>
+        <p class="prose" style="margin:12px 0 0">
+          After that, go to <a href="modules/m01-ml-refresher.html">Module 1</a> and work through in
+          order. Each module’s build reuses the one before it, so by Module 18 you are assembling
+          parts you already wrote rather than starting from an empty file.
+        </p>
+        <p class="prose" style="margin:12px 0 0">
+          <b>Open the course with <code>Start course.cmd</code></b> (or <code>python start.py</code>).
+          The pages work if you double-click them, but the videos do not: YouTube will not run its
+          player in a page opened as a file. The launcher serves the course on your own machine and
+          opens it, which is all the videos need. Nothing is uploaded and nothing is installed.
+        </p>
+      </section>
+
+      <section class="section">
+        <label class="sr" for="sitesearch">Search modules</label>
+        <input class="navsearch" id="sitesearch" type="search" data-sitesearch
+               placeholder="Search everything, try “MCP”, “embeddings”, “cost”, “injection”…"
+               style="max-width:520px;font-size:.95rem;padding:11px 13px">
+        <p class="small muted" data-noresults hidden style="margin-top:8px">
+          Nothing matched. Try a broader word. The search looks at module titles, concepts, labs and mini-projects.
+        </p>
+      </section>
+
+      <section data-chrome="phasegrid"></section>
+
+      <hr class="hr">
+
+      <section class="section">
+        <h2>How each module works</h2>
+        <div class="concepts">
+          <div class="concept" data-phase="3">
+            <div class="concept__n" aria-hidden="true">1</div>
+            <h3 class="concept__t">Watch</h3>
+            <p class="concept__b">Usually four or five videos per module, playing inline. Most are on
+              channels with hundreds of thousands of views.</p>
+          </div>
+          <div class="concept" data-phase="3">
+            <div class="concept__n" aria-hidden="true">2</div>
+            <h3 class="concept__t">Read the notes</h3>
+            <p class="concept__b">Five to eight short notes, each with a worked example and often a
+              diagram. They print cleanly.</p>
+          </div>
+          <div class="concept" data-phase="3">
+            <div class="concept__n" aria-hidden="true">3</div>
+            <h3 class="concept__t">Play with it</h3>
+            <p class="concept__b">Fifteen interactive tools: a tokenizer, a cost calculator, an
+              attack sandbox, an MCP message inspector.</p>
+          </div>
+          <div class="concept" data-phase="3">
+            <div class="concept__n" aria-hidden="true">4</div>
+            <h3 class="concept__t">Do the lab</h3>
+            <p class="concept__b">Guided. Code given, every line explained, with the maths written
+              out where there is any.</p>
+          </div>
+          <div class="concept" data-phase="3">
+            <div class="concept__n" aria-hidden="true">5</div>
+            <h3 class="concept__t">Build the mini-project</h3>
+            <p class="concept__b">No code given. You produce a named file, then run
+              <code>python check.py</code>, which tests it and prints pass or fail per check.</p>
+          </div>
+          <div class="concept" data-phase="3">
+            <div class="concept__n" aria-hidden="true">6</div>
+            <h3 class="concept__t">Check yourself</h3>
+            <p class="concept__b">Three questions, explained either way. Notes box saves as you type.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Two rules this course follows</h2>
+
+        <div class="note note--ok">
+          <div class="note__t">No vendor lock-in</div>
+          <p>Labs run against a free hosted model, a paid one, or a model on your own laptop with no
+             account and no internet. You switch by editing one line in <code>.env</code>, never the
+             code. The MCP servers you build are proved with a Python client you write yourself, so
+             Claude Desktop, Cursor and VS Code are optional extras.</p>
+        </div>
+
+        <div class="note">
+          <div class="note__t">Uncertainty is stated</div>
+          <p>Where a claim is contested, or a number comes from a company with an interest in it,
+             the notes say so. Where no good video exists, the module says so instead of padding.
+             Prices and versions carry the date they were checked.</p>
+        </div>
+      </section>
+
+      <hr class="hr">
+
+      <section class="card" data-tools>
+        <h2 style="margin-bottom:.3em">Your progress</h2>
+        <p class="small muted" style="margin-bottom:14px">
+          Everything is stored in this browser on this computer. Nothing is uploaded anywhere and
+          there is no account. That also means clearing your browser data will clear it, so export a
+          copy if you care about it.
+        </p>
+        <div class="marks">
+          <button class="btn" data-act="export" style="padding:9px 14px;font-size:.9rem">Download my progress</button>
+          <button class="btn" data-act="import" style="padding:9px 14px;font-size:.9rem">Restore from a file</button>
+          <button class="btn" data-act="reset" style="padding:9px 14px;font-size:.9rem;color:var(--bad);border-color:var(--bad)">Reset everything</button>
+          <input type="file" accept="application/json,.json" data-import hidden>
+        </div>
+      </section>
+
+      <p class="small muted" style="margin-top:30px">
+        Course content checked against sources in August 2026. Video view counts were read from
+        YouTube at that time and will have grown since.
+      </p>
+
+    </div>
+  </main>
+</div>
+
+<script src="assets/data.js"></script>
+<script src="assets/widgets.js"></script>
+<script src="assets/course.js"></script>
+</body>
+</html>
