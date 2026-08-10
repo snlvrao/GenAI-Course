@@ -43,7 +43,7 @@ What it means:
 The download is not code, it is the numbers the model learned during training, one number per parameter and four bytes for each. That is also why a bigger model is a bigger download in a fairly straight line.
 ```
 
-> **Watch out:** If your prompt does not show (.venv) after the activate line, activation did not happen and pip will install into your system Python instead, and on Windows PowerShell the give-away is an error mentioning execution policy.
+> **Watch out:** If your prompt does not show (.venv) after the activate line, activation did not happen and pip will install into your system Python instead, and on Windows PowerShell the give-away is an error mentioning execution policy. On Windows the activate line is refused the first time, with "running scripts is disabled on this system". That is the default on a fresh install, not something you broke. Run Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned once, which needs no administrator rights, then run the activate line again. If you would rather not change that setting, skip activation entirely and call the environment by its path instead: .\my-work\.venv\Scripts\python.exe rank.py.
 
 ### 2. See your own text as tokens
 

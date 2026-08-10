@@ -136,18 +136,28 @@ python3 -m venv my-work/.venv
 source my-work/.venv/bin/activate
 python -m pip install --upgrade pip</pre>
         </div>
-        <p class="prose">Your prompt should now start with <code>(.venv)</code>. Activation lasts
-          only for the window you ran it in, so you run that second line again at the start of every
-          session.</p>
         <div class="note note--warn">
-          <div class="note__t">If PowerShell refuses to run the activate script</div>
-          <p>You will see "running scripts is disabled on this system". This allows them for your
-            own user only. No administrator rights needed:</p>
+          <div class="note__t">Windows: expect the third line to be refused the first time</div>
+          <p>Fresh Windows installs block local scripts, so
+            <code>Activate.ps1</code> fails with "running scripts is disabled on this system". That
+            is the default, not something you broke. Allow scripts for your own user, which needs no
+            administrator rights, then run the activate line again:</p>
           <div class="codeblock" style="margin:10px 0 0">
-            <div class="codeblock__bar"><span>one-time fix</span></div>
+            <div class="codeblock__bar"><span>one-time fix, then retry the activate line</span></div>
 <pre>Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned</pre>
           </div>
+          <p style="margin:10px 0 0">If you would rather not change that setting at all, you never
+            have to activate. Call the environment's own Python by its path instead, which works
+            with no policy change:</p>
+          <div class="codeblock" style="margin:10px 0 0">
+            <div class="codeblock__bar"><span>the alternative</span></div>
+<pre>.\my-work\.venv\Scripts\python.exe -m pip install openai
+.\my-work\.venv\Scripts\python.exe hello_llm.py</pre>
+          </div>
         </div>
+        <p class="prose">Your prompt should now start with <code>(.venv)</code>. Activation lasts
+          only for the window you ran it in, so you run that activate line again at the start of
+          every session.</p>
       </section>
 
       <!-- ============================================================ -->

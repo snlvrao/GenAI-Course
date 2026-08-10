@@ -26,7 +26,7 @@ cd my-work\labs\lab01
 - `cd my-work\labs\lab01`: This folder already exists and already holds hello_llm.py, so you are moving into it rather than creating it. Everything you write in this course lives under my-work, which is the only folder you ever need to edit. Every command in this lab assumes you are standing here, because the script reaches the shared helper by going one folder up to _shared.
 - `source my-work/.venv/bin/activate`: The macOS and Linux equivalent. You need the word source rather than just the path, because the script changes variables in your current shell, and running it the normal way would change them in a child shell that exits immediately.
 
-> **Watch out:** The usual trap is opening a fresh terminal a day later and forgetting the activate line, which shows up as a missing package error for something you know you installed.
+> **Watch out:** The usual trap is opening a fresh terminal a day later and forgetting the activate line, which shows up as a missing package error for something you know you installed. On Windows the activate line is refused the first time, with "running scripts is disabled on this system". That is the default on a fresh install, not something you broke. Run Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned once, which needs no administrator rights, then run the activate line again. If you would rather not change that setting, skip activation entirely and call the environment by its path instead: .\my-work\.venv\Scripts\python.exe hello_llm.py.
 
 ### 2. Install the two packages you need
 
