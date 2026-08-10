@@ -129,11 +129,11 @@ ollama pull llama3.<span class="t-s">2</span>:<span class="t-s">3b</span>
 ollama serve
 
 <span class="t-c"># quick sanity check, in another terminal</span>
-ollama run llama3.<span class="t-s">2</span>:<span class="t-s">3b</span> <span class="t-s">&quot;say hello in five words&quot;</span></pre></div>
+ollama run llama3.<span class="t-s">2</span>:<span class="t-s">3b</span> <span class="t-s">&quot;say hello&quot;</span></pre></div>
         <div class="walk"><div class="walk__h">What that code is doing</div><dl>
         <dt>ollama pull llama3.2:3b</dt><dd>pull downloads the model file once and stores it on your disk. The part after the colon is the size tag, so 3b means the 3 billion parameter build, and a different tag downloads a completely different file.</dd>
         <dt>ollama serve</dt><dd>Starts a small web server listening on port 11434. Nothing can call the model until this is running, and llm.py already points the ollama provider at http://localhost:11434/v1/, so you never type that address yourself.</dd>
-        <dt>ollama run llama3.2:3b &quot;say hello in five words&quot;</dt><dd>A one-off check that the download works, done before you write any Python. If this prints words, then any later error is in your code or your .env, which cuts your debugging in half.</dd>
+        <dt>ollama run llama3.2:3b &quot;say hello&quot;</dt><dd>A one-off check that the download works, done before you write any Python. If this prints words, then any later error is in your code or your .env, which cuts your debugging in half. It deliberately asks for nothing precise: a model writes one token at a time with no running count, so &quot;in five words&quot; is the kind of instruction even good models miss, and a miscount here would tell you nothing about whether the install worked.</dd>
         </dl></div>
         <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Formula: file size in bytes = number of parameters x bytes used per parameter
 

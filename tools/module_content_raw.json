@@ -128,7 +128,7 @@
     {
      "title": "Get a model you can actually call",
      "body": "A script that cannot reach a model does nothing, so you need at least one model to talk to. The free path is <strong>Ollama</strong>, a small program that downloads a model file onto your disk and then serves it from your own machine, with no account and no bill. Pick a model with about 3 billion <strong>parameters</strong> or more, where parameters are the numbers inside the model that were set during training. Below roughly 2 billion, the tool calling you need in later modules starts failing in ways that look like your code is broken when it is not. The pull command downloads a few gigabytes once, and after that the model answers with your internet switched off. <code>ollama serve</code> starts a small web server on your machine at port 11434, which is exactly the address the course helper already points at. If you already own a paid API key you can set that up as a second option, but do not buy one just for this course.",
-     "code": "# install Ollama from https://ollama.com, then:\nollama pull llama3.2:3b\n\n# start the server if it is not already running\n# (the Windows installer usually starts it for you)\nollama serve\n\n# quick sanity check, in another terminal\nollama run llama3.2:3b \"say hello in five words\"",
+     "code": "# install Ollama from https://ollama.com, then:\nollama pull llama3.2:3b\n\n# start the server if it is not already running\n# (the Windows installer usually starts it for you)\nollama serve\n\n# quick sanity check, in another terminal\nollama run llama3.2:3b \"say hello\"",
      "walkthrough": [
       {
        "part": "ollama pull llama3.2:3b",
@@ -139,8 +139,8 @@
        "why": "Starts a small web server listening on port 11434. Nothing can call the model until this is running, and llm.py already points the ollama provider at http://localhost:11434/v1/, so you never type that address yourself."
       },
       {
-       "part": "ollama run llama3.2:3b \"say hello in five words\"",
-       "why": "A one-off check that the download works, done before you write any Python. If this prints words, then any later error is in your code or your .env, which cuts your debugging in half."
+       "part": "ollama run llama3.2:3b \"say hello\"",
+       "why": "A one-off check that the download works, done before you write any Python. If this prints words, then any later error is in your code or your .env, which cuts your debugging in half. It deliberately asks for nothing precise: a model writes one token at a time with no running count, so \"in five words\" is the kind of instruction even good models miss, and a miscount here would tell you nothing about whether the install worked."
       }
      ],
      "maths": "Formula: file size in bytes = number of parameters x bytes used per parameter\n\nnumber of parameters: how many numbers sit inside the model. llama3.2:3b has about 3 billion, written 3,000,000,000.\nbytes used per parameter: how much space each of those numbers takes. Full precision uses 4 bytes each. Ollama ships models quantised, which means each number is squashed into fewer bits, commonly about 4 bits, which is 0.5 bytes.\n\nWorked example:\nFull precision: 3,000,000,000 x 4 bytes = 12,000,000,000 bytes, so about 12 GB.\nQuantised to 4 bits: 3,000,000,000 x 0.5 bytes = 1,500,000,000 bytes, so about 1.5 GB. Add roughly 0.5 GB of working space and you need about 2 GB of free memory to run it.\n\nWhat it means: the b in 3b is the parameter count, and it tells you both how much disk the download eats and roughly how much memory the model needs while it answers. Quantisation is what makes a 12 GB model fit in 2 GB, and it does cost a little accuracy, which is part of why very small models get tool calling wrong.",

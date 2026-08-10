@@ -62,12 +62,12 @@ ollama pull llama3.2:3b
 ollama serve
 
 # quick sanity check, in another terminal
-ollama run llama3.2:3b "say hello in five words"
+ollama run llama3.2:3b "say hello"
 ```
 
 - `ollama pull llama3.2:3b`: pull downloads the model file once and stores it on your disk. The part after the colon is the size tag, so 3b means the 3 billion parameter build, and a different tag downloads a completely different file.
 - `ollama serve`: Starts a small web server listening on port 11434. Nothing can call the model until this is running, and llm.py already points the ollama provider at http://localhost:11434/v1/, so you never type that address yourself.
-- `ollama run llama3.2:3b "say hello in five words"`: A one-off check that the download works, done before you write any Python. If this prints words, then any later error is in your code or your .env, which cuts your debugging in half.
+- `ollama run llama3.2:3b "say hello"`: A one-off check that the download works, done before you write any Python. If this prints words, then any later error is in your code or your .env, which cuts your debugging in half. It deliberately asks for nothing precise: a model writes one token at a time with no running count, so "in five words" is the kind of instruction even good models miss, and a miscount here would tell you nothing about whether the install worked.
 
 **The maths, spelled out**
 
