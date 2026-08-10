@@ -265,30 +265,18 @@ ollama run llama3.2:3b "say hello in five words"</pre>
             <thead><tr><th>model</th><th>disk</th><th>good for</th></tr></thead>
             <tbody>
               <tr><td><code>llama3.2:3b</code></td><td>~2 GB</td><td>The default here. Handles tool calling well enough for Modules 9 to 15.</td></tr>
-              <tr><td><code>qwen2.5:3b-instruct</code></td><td>~2 GB</td><td>A good second model, and the one to pull for the Module 1 mini-project, which compares two.</td></tr>
-              <tr><td><code>llama3.2:1b</code></td><td>~1.3 GB</td><td>Only if disk is tight. Tool calling is a coin flip, so Modules 9 to 15 will frustrate you.</td></tr>
-              <tr><td><code>qwen3:4b</code></td><td>~2.5 GB</td><td><b>Thinking model, see the warning below.</b> Capable, but it does not behave like the others out of the box.</td></tr>
+              <tr><td><code>llama3.2:1b</code></td><td>~1.3 GB</td><td>A cheap second model, which is all the Module 1 mini-project needs. Tool calling is a coin flip, so do not make it your main one for Modules 9 to 15.</td></tr>
             </tbody>
           </table>
           </div>
         </div>
 
-        <div class="note note--warn">
-          <div class="note__t">Thinking models need more room, and qwen3 is one</div>
-          <p>Some models write out their reasoning before they answer. Run
-            <code>ollama run qwen3:4b "say hello in five words"</code> and you get a wall of
-            "Thinking..." before the five words arrive. That is the model working normally, not a
-            fault.</p>
-          <p>It matters for the labs because the reasoning is counted and billed as output, and
-            because providers return it in a separate field. If the model uses up its token budget
-            thinking, the answer field comes back <b>empty</b>. Measured here: asked for five words
-            with the course's default budget of 800 tokens, <code>qwen3:4b</code> spent all 800 on
-            reasoning and returned no answer at all. Given 3200 it answered fine.</p>
-          <p>So pick a model that answers directly while you are learning the plumbing, and meet
-            thinking models properly in Module 5, where the course measures what that reasoning
-            costs. If you do want to use one now, ask for more room:
-            <code>chat(prompt, max_tokens=3200)</code>. The course helper detects the empty answer
-            and tells you which of the two fixes you need, rather than handing you a blank string.</p>
+        <div class="note">
+          <div class="note__t">Stick to models that answer directly</div>
+          <p>Some models write out their reasoning before answering. They are worth using, but not
+            while you are learning the plumbing: the reasoning is billed as output, and if it uses
+            up the token budget the answer comes back empty. Both models above answer directly.
+            Module 5 covers reasoning models properly and measures what that thinking costs.</p>
         </div>
 
         <div class="note note--warn">
@@ -312,7 +300,7 @@ ollama run llama3.2:3b "say hello in five words"</pre>
 LLM_PROVIDER=ollama
 
 # Optional: only if you pulled something other than the default.
-# LLM_MODEL=qwen3:4b</pre>
+# LLM_MODEL=llama3.2:1b</pre>
         </div>
       </section>
 
