@@ -118,6 +118,10 @@ class MissingKey(RuntimeError):
     """Raised with an explanation you can actually act on."""
 
 
+class EmptyAnswer(RuntimeError):
+    """Raised when the model replied, but with no answer in it."""
+
+
 def client_for(provider: str | None = None) -> tuple[OpenAI, str]:
     """Return (client, model_name) for a provider. Same shape for all of them."""
     name = (provider or DEFAULT).strip().lower()
@@ -156,7 +160,36 @@ def chat(prompt: str, *, system: str | None = None, provider: str | None = None,
         model=model, messages=messages,
         temperature=temperature, max_tokens=max_tokens,
     )
-    return (resp.choices[0].message.content or "").strip()
+    choice = resp.choices[0]
+    text = (choice.message.content or "").strip()
+    if text:
+        return text
+
+    # An empty answer is nearly always a thinking model. Models like qwen3
+    # write their reasoning first, and providers return that in a separate
+    # field, so "content" stays empty until the reasoning finishes. If the
+    # token budget runs out first, you get a reply with no answer in it.
+    # Returning "" here would look like nothing happened, so say what did.
+    thinking = (getattr(choice.message, "reasoning", None)
+                or getattr(choice.message, "reasoning_content", None) or "")
+    used = getattr(resp.usage, "completion_tokens", 0) or 0
+    if thinking:
+        raise EmptyAnswer(
+            f"{model} thought for {used} tokens and never got to an answer.\n"
+            f"It stopped because: {choice.finish_reason}.\n\n"
+            "This is a thinking model. It writes its reasoning first, and that\n"
+            "reasoning is what filled the budget. Two ways forward:\n"
+            f"  - give it more room: chat(prompt, max_tokens={max(2000, max_tokens * 4)})\n"
+            "  - or use a model that answers directly. For the offline path,\n"
+            "    llama3.2:3b and qwen2.5:3b-instruct both do.\n"
+            "    Change LLM_MODEL in your .env, not this code."
+        )
+    raise EmptyAnswer(
+        f"{model} returned an empty reply, and no reasoning either.\n"
+        f"It stopped because: {choice.finish_reason}.\n"
+        "If that says 'length', raise max_tokens. Otherwise check the model\n"
+        "name in your .env against the list the provider actually serves."
+    )
 
 
 def chat_raw(messages: list[dict], *, tools: list | None = None,

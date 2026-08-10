@@ -279,7 +279,7 @@ You are done when one command runs one file and prints four things: your active 
 
 Prove mechanically that the provider is a setting and not a code change. Your script writes my-work/labs/lab01/runs.json, and check.py verifies that two different models answered while the script's own SHA-256 hash stayed identical.
 
-- Add a second provider you can reach for free to your .env. A second local model is enough (`ollama pull qwen3:4b`), or a hosted key you already own. Buy nothing.
+- Add a second provider you can reach for free to your .env. A second local model is enough (`ollama pull qwen2.5:3b-instruct`), or a hosted key you already own. Buy nothing.
 - Write my-work/labs/lab01/compare.py. It reads the provider from whoami(), sends one fixed question through chat_raw(), times the call with time.perf_counter(), and hashes its own source with hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest().
 - Have it append to my-work/labs/lab01/runs.json, creating the file when missing. Exact shape: {"question": "<the question you asked>", "runs": [ ... ]}, where each run is {"provider": str, "model": str, "seconds": float, "answer": str, "input_tokens": int or null, "output_tokens": int or null, "script_sha256": str}.
 - Run it once. Then edit only the LLM_PROVIDER line in .env, change no code anywhere, and run it again. runs.json now holds two entries.
