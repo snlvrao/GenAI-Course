@@ -259,24 +259,18 @@ ollama run llama3.2:3b "say hello"</pre>
           your network off. The <code>3b</code> is the size tag: 3 billion parameters.</p>
 
         <div class="note">
-          <div class="note__t">Which model to pull</div>
-          <div class="scroll-x">
-          <table class="data">
-            <thead><tr><th>model</th><th>disk</th><th>good for</th></tr></thead>
-            <tbody>
-              <tr><td><code>llama3.2:3b</code></td><td>~2&nbsp;GB</td><td>The default here. Handles tool calling well enough for Modules 9 to 15.</td></tr>
-              <tr><td><code>llama3.2:1b</code></td><td>~1.3&nbsp;GB</td><td>A cheap second model, which is all the Module 1 mini-project needs. Tool calling is a coin flip, so do not make it your main one for Modules 9 to 15.</td></tr>
-            </tbody>
-          </table>
-          </div>
-        </div>
-
-        <div class="note">
-          <div class="note__t">Stick to models that answer directly</div>
-          <p>Some models write out their reasoning before answering. They are worth using, but not
-            while you are learning the plumbing: the reasoning is billed as output, and if it uses
-            up the token budget the answer comes back empty. Both models above answer directly.
-            Module 5 covers reasoning models properly and measures what that thinking costs.</p>
+          <div class="note__t">One model is enough</div>
+          <p><code>llama3.2:3b</code> is the only one you need, and the whole course was checked
+            against it. About 2&nbsp;GB, and it chooses tools reliably enough for Modules 9 to 15,
+            which is the thing small models most often fail at.</p>
+          <p>Smaller models exist and will tempt you if disk is tight. Below roughly 3 billion
+            parameters tool calling becomes a coin flip, so you would save a gigabyte now and fight
+            Modules 9 to 15 later. Two other habits to avoid while you are learning the plumbing:
+            models that write out their reasoning before answering, because that reasoning is billed
+            as output and can use up the whole budget before the answer arrives, and models chosen
+            on how well they follow instructions like "in five words", which is the one thing the
+            architecture is worst at and says nothing about the rest. Module 5 covers reasoning
+            models properly and measures what the thinking costs.</p>
         </div>
 
         <div class="note note--warn">
@@ -299,8 +293,8 @@ ollama run llama3.2:3b "say hello"</pre>
 <pre># Everything runs on your machine. No key, no internet, no limits.
 LLM_PROVIDER=ollama
 
-# Optional: only if you pulled something other than the default.
-# LLM_MODEL=llama3.2:1b</pre>
+# Optional. Leave this out and you get llama3.2:3b, which is what you want.
+# LLM_MODEL=</pre>
         </div>
       </section>
 
