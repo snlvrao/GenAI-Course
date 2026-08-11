@@ -122,6 +122,20 @@ class EmptyAnswer(RuntimeError):
     """Raised when the model replied, but with no answer in it."""
 
 
+# The example text in setup.html and .env.example. Leaving one of these in
+# place is the commonest setup mistake, and it is worth catching by name: the
+# provider answers a placeholder with the same 401 it uses for a revoked key,
+# which sends you looking at your account instead of at your .env.
+PLACEHOLDERS = {
+    "paste_your_key_here", "your_key_here", "your-key-here", "sk-...",
+    "abc123", "xxx", "changeme", "<your key>", "<your_key>",
+}
+
+
+def is_placeholder(key: str) -> bool:
+    return key.strip().strip("\"'").lower() in PLACEHOLDERS
+
+
 def client_for(provider: str | None = None) -> tuple[OpenAI, str]:
     """Return (client, model_name) for a provider. Same shape for all of them."""
     name = (provider or DEFAULT).strip().lower()
@@ -142,6 +156,14 @@ def client_for(provider: str | None = None) -> tuple[OpenAI, str]:
                 f"  1. Get a free key, then\n"
                 f"  2. put this line in your .env file:  {p.key_env}=your_key_here\n"
                 f"Or use a local model instead with:      set LLM_PROVIDER=ollama"
+            )
+        if is_placeholder(key):
+            raise MissingKey(
+                f"{p.key_env} still holds the example text, not a key.\n"
+                f"  It reads: {key}\n"
+                "Replace that whole value with the key from your provider.\n"
+                "The provider would reject this with a 401, which reads like a\n"
+                "broken key rather than an unedited line."
             )
 
     model = os.environ.get("LLM_MODEL", "").strip() or p.default_model
@@ -212,9 +234,15 @@ def whoami(provider: str | None = None) -> str:
         return f"Unknown provider: {name}"
     model = os.environ.get("LLM_MODEL", "").strip() or p.default_model
     where = "your own machine" if p.local else p.base_url
-    key = "none needed" if p.local else (
-        "set" if os.environ.get(p.key_env) else f"MISSING ({p.key_env})"
-    )
+    raw = os.environ.get(p.key_env, "")
+    if p.local:
+        key = "none needed"
+    elif not raw.strip():
+        key = f"MISSING ({p.key_env})"
+    elif is_placeholder(raw):
+        key = f"STILL THE EXAMPLE TEXT ({p.key_env})"
+    else:
+        key = "set"
     return f"provider={p.name}  model={model}  endpoint={where}  key={key}"
 
 

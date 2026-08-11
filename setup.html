@@ -152,7 +152,8 @@ python -m pip install --upgrade pip</pre>
           <div class="codeblock" style="margin:10px 0 0">
             <div class="codeblock__bar"><span>the alternative</span></div>
 <pre>.\my-work\.venv\Scripts\python.exe -m pip install openai
-.\my-work\.venv\Scripts\python.exe hello_llm.py</pre>
+cd my-work\labs\lab01
+..\..\.venv\Scripts\python.exe hello_llm.py</pre>
           </div>
         </div>
         <p class="prose">Your prompt should now start with <code>(.venv)</code>. Activation lasts
@@ -169,7 +170,7 @@ python -m pip install --upgrade pip</pre>
         <h4 style="margin-top:24px">Phase 1: Modules 1 to 3</h4>
         <div class="codeblock">
           <div class="codeblock__bar"><span>the starting four</span></div>
-<pre>pip install openai python-dotenv sentence-transformers matplotlib</pre>
+<pre>pip install openai python-dotenv "sentence-transformers==5.6.1" matplotlib</pre>
         </div>
         <div class="scroll-x">
         <table class="data">
