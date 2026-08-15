@@ -40,7 +40,7 @@ NOTES = {
          "token counts had gone to hosted models at the published prices. The published prices are "
          "public, so this arithmetic is honest as long as you label it. Set "
          "<code>\"path\": \"offline\"</code> in <code>router_report.json</code> and the checker will "
-         "accept zero real spend and require the seconds instead."),
+         "accept zero real spend and require the seconds instead. The same arithmetic explains why model size matters so much here: one token means reading every weight once, so tokens per second is roughly memory bandwidth divided by model size. A model that fits in your graphics card runs at card speed, and a model that does not is split, with the overflow running at system memory speed, which is over ten times slower and sets the pace. Setup covers the numbers. Pick your two models on either side of what your card holds and the seconds you measure will be dramatic rather than marginal."),
     ],
     11: [
         (["free", "key"], "", "The lab below uses a free Colab GPU",

@@ -288,6 +288,54 @@ ollama run qwen2.5:3b-instruct "say hello"</pre>
         </div>
 
         <div class="note note--warn">
+          <div class="note__t">A bigger model is not a bit slower, it falls off a cliff</div>
+          <p>You will be tempted by a large model. Before you spend an afternoon downloading one,
+            here is the arithmetic, because the slowdown is not gentle.</p>
+          <p><b>Tokens per second</b> is how fast the reply appears. A token is roughly
+            three quarters of a word, so 150 tokens per second is about 110 words a second, faster
+            than you can read. At 2 per second you watch it trickle.</p>
+          <p>Writing one token means reading <b>every weight in the model, once</b>. Nothing clever
+            avoids that. So the speed limit is how fast memory can be read:</p>
+          <div class="codeblock" style="margin:10px 0">
+            <div class="codeblock__bar"><span>the whole formula</span></div>
+<pre>tokens per second  =  memory bandwidth  /  model size</pre>
+          </div>
+          <p>Now the part that bites. A graphics card has its own memory, and it is roughly
+            <b>thirteen times faster</b> than ordinary system memory. Measured on a desktop card
+            with 8&nbsp;GB: about 360&nbsp;GB per second on the card, about 27 in system memory.
+            A model that fits on the card runs at card speed. A model that does not fit is split,
+            and the part left in system memory sets the pace for everything.</p>
+          <p>Take a 27 billion parameter model, 18&nbsp;GB on disk, on that same 8&nbsp;GB card.
+            About 1.2&nbsp;GB of the card is already spoken for by the context, leaving 6.8, so
+            6.8&nbsp;GB sits on the card and 11.2&nbsp;GB does not:</p>
+          <div class="codeblock" style="margin:10px 0">
+            <div class="codeblock__bar"><span>time for one token</span></div>
+<pre>6.8 / 360  +  11.2 / 27   =   0.019 + 0.415   =   0.43 seconds
+1 / 0.43  =  about 2 tokens per second</pre>
+          </div>
+          <p>The 6.8&nbsp;GB on the fast card contributes 4 percent of the wait. Everything else is
+            the overflow. What that costs you in practice:</p>
+          <div class="scroll-x">
+          <table class="data">
+            <thead><tr><th>model size</th><th>fits on an 8 GB card?</th><th>tokens per second</th><th>a 300 token answer</th></tr></thead>
+            <tbody>
+              <tr><td>1.9&nbsp;GB, a 3B</td><td>yes</td><td>190</td><td>under 2 seconds</td></tr>
+              <tr><td>4.7&nbsp;GB, an 8B</td><td>yes</td><td>77</td><td>4 seconds</td></tr>
+              <tr><td>6.8&nbsp;GB, the largest that fits</td><td>yes, just</td><td>53</td><td>6 seconds</td></tr>
+              <tr><td>9&nbsp;GB, a 14B</td><td><b>no</b></td><td>10</td><td>30 seconds</td></tr>
+              <tr><td>18&nbsp;GB, a 27B</td><td><b>no</b></td><td>2</td><td><b>over 2 minutes</b></td></tr>
+            </tbody>
+          </table>
+          </div>
+          <p>Going from 6.8&nbsp;GB to 18&nbsp;GB is 2.6 times the model and <b>23 times</b> the
+            wait. That is the cliff. It matters most from Module 9 on, where an agent takes six
+            turns to finish one task, so you pay that wait six times over: seconds becomes minutes.
+            Check your own card with <code>nvidia-smi</code>, or in Task Manager under Performance,
+            and keep the model under that number. With no graphics card at all, every model runs at
+            the system memory figure, which is why this course is built around small ones.</p>
+        </div>
+
+        <div class="note note--warn">
           <div class="note__t">Ollama must be running</div>
           <p>The Windows and Mac installers usually start it for you and keep it running in the
             background. If a lab reports that it cannot connect, run <code>ollama serve</code> in a

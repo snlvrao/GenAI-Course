@@ -187,6 +187,9 @@ the sections holding the learner's own words.
 **Two AA traps already hit and fixed. Do not reintroduce:**
 - A `.6rem` stamp in `hsl(var(--ph))` fails AA on six of seven phases (gold 2.38:1). Stamp text is
   always `--ink-2`; the phase hue appears only as border and tint.
+- A table inside a tinted note fails AA in dark mode. `table.data th` uses `--ink-3`, which
+  measures 4.42:1 on the warn tint and 4.14:1 on the ok tint against 4.5 required. Headings in
+  a table inside a note use `--ink-2` instead, which clears all three tints in both themes.
 - In dark mode `--paper` is *lighter* than `--surface`, so cards inside paper sections invert. Use
   `--paper-card` for anything sitting on `--paper`.
 

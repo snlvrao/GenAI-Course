@@ -1161,6 +1161,11 @@ table.data { width: 100%; border-collapse: collapse; font-size: .87rem; }
 table.data th, table.data td { text-align: left; padding: 7px 9px; border-bottom: 1px solid var(--line); vertical-align: top; }
 table.data th { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); }
 table.data td.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+/* A tinted note raises the background enough that --ink-3 stops clearing AA in
+   dark mode: 4.42:1 on the warn tint and 4.14:1 on the ok tint, against 4.5
+   required. Headings in a table inside a note step up to --ink-2, which clears
+   on all three tints in both themes with 6.4:1 at worst. */
+.note table.data th { color: var(--ink-2); }
 .scroll-x { overflow-x: auto; }
 
 /* --- Index page --------------------------------------------------------- */
