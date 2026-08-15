@@ -241,6 +241,7 @@ each. Accuracy is ten tasks with a checkable right answer, three runs each.
 | model | disk | tool when needed | tool restraint | JSON | accuracy | verdict |
 |---|---|---|---|---|---|---|
 | `qwen2.5:3b-instruct` | 1.9 GB | 6/6 | 12/12 | 3/3 | 27/30 | **the default** |
+| `qwen3.8:27b` | 17 GB | 2/2 | 3/3 | 2/2 | 6/7 | strong, and 55x slower here |
 | `granite4.1:3b` | 2.1 GB | 6/6 | 12/12 | 3/3 | 24/30 | fine |
 | `phi4-mini:3.8b` | 2.5 GB | 6/6 | 12/12 | 3/3 | 24/30 | fine, but wrong on plain addition |
 | `llama3.2:3b` | 2.0 GB | 6/6 | **0/12** | 3/3 | 24/30 | calls tools it was not asked for |
@@ -254,6 +255,25 @@ than models a third its size. Model cards cannot be trusted either, because mini
 "best-in-class agentic capabilities with native function calling" and never called the tool once.
 And arithmetic is where these models are quietly weakest: asked for 17 percent of 4830, seven of
 the eight answered 819.9, 809.1, 825.10, 3911 or 289.1, with no hedging.
+
+**The large model, measured (August 2026).** `qwen3.8:27b` is 17 GB against 8 GB of card, and
+Ollama reported the split as 74% CPU and 26% GPU, so most of it runs at system memory speed. It
+managed 3.3 tokens a second against 183 for the 1.9 GB default: fifty-five times slower for nine
+times the download. One six step agent loop took two and a half minutes.
+
+It passed everything the labs need: tools 2/2 when the tool was right, restraint 3/3 when it was
+not, JSON 2/2, and six of seven checkable answers. The one it missed was the five-word count. The
+1.9 GB default scored six of the same seven. The 27B is the better model and would pull ahead on
+harder work, but on what these labs check, nine times the size bought nothing.
+
+Two things it settled. `reasoning_effort="none"` genuinely works: with thinking on the reply
+carried 82 characters of reasoning, with it off, zero. And unlike `qwen3:4b`, this model returns
+reasoning in a separate field, so its JSON parses either way. Thinking costs time, not correctness,
+here.
+
+The bandwidth formula in setup.html predicted 2 tokens a second and the real figure was 3.3, so it
+is pessimistic by about half. It is worth keeping because it predicts the cliff correctly, but the
+page now says plainly that it gives the shape rather than the number.
 
 Counting words is a weaker signal than it looks, but not a useless one, which corrects an earlier
 claim made here and on the setup page. Of six models, two hit "in five words" on every attempt and

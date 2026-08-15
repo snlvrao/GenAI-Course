@@ -305,31 +305,42 @@ ollama run qwen2.5:3b-instruct "say hello"</pre>
             with 8&nbsp;GB: about 360&nbsp;GB per second on the card, about 27 in system memory.
             A model that fits on the card runs at card speed. A model that does not fit is split,
             and the part left in system memory sets the pace for everything.</p>
-          <p>Take a 27 billion parameter model, 18&nbsp;GB on disk, on that same 8&nbsp;GB card.
-            About 1.2&nbsp;GB of the card is already spoken for by the context, leaving 6.8, so
-            6.8&nbsp;GB sits on the card and 11.2&nbsp;GB does not:</p>
+          <p>Take a 27 billion parameter model, 17&nbsp;GB on disk, on that same 8&nbsp;GB card.
+            The card reported holding about a quarter of it, so roughly 4.5&nbsp;GB sat on the card
+            and 12.5&nbsp;GB did not:</p>
           <div class="codeblock" style="margin:10px 0">
             <div class="codeblock__bar"><span>time for one token</span></div>
-<pre>6.8 / 360  +  11.2 / 27   =   0.019 + 0.415   =   0.43 seconds
-1 / 0.43  =  about 2 tokens per second</pre>
+<pre>4.5 / 360  +  12.5 / 27   =   0.013 + 0.463   =   0.48 seconds
+1 / 0.48  =  about 2 tokens per second</pre>
           </div>
-          <p>The 6.8&nbsp;GB on the fast card contributes 4 percent of the wait. Everything else is
-            the overflow. What that costs you in practice:</p>
+          <p>The part on the fast card contributes under 3 percent of the wait. Everything else is
+            the overflow. <b>Measured, that model ran at 3.3 tokens a second</b>, so the formula was
+            pessimistic by about half. Treat it as telling you the shape rather than the exact
+            figure: it predicts a cliff, and there is one, but a real run may land somewhat either
+            side. What it cost in practice:</p>
           <div class="scroll-x">
           <table class="data">
             <thead><tr><th>model size</th><th>fits on an 8 GB card?</th><th>tokens per second</th><th>a 300 token answer</th></tr></thead>
             <tbody>
-              <tr><td>1.9&nbsp;GB, a 3B</td><td>yes</td><td>190</td><td>under 2 seconds</td></tr>
-              <tr><td>4.7&nbsp;GB, an 8B</td><td>yes</td><td>77</td><td>4 seconds</td></tr>
-              <tr><td>6.8&nbsp;GB, the largest that fits</td><td>yes, just</td><td>53</td><td>6 seconds</td></tr>
-              <tr><td>9&nbsp;GB, a 14B</td><td><b>no</b></td><td>10</td><td>30 seconds</td></tr>
-              <tr><td>18&nbsp;GB, a 27B</td><td><b>no</b></td><td>2</td><td><b>over 2 minutes</b></td></tr>
+              <tr><td>1.9&nbsp;GB, a 3B</td><td>yes</td><td>183, measured</td><td>under 2 seconds</td></tr>
+              <tr><td>2.5&nbsp;GB, a 4B</td><td>yes</td><td>159, measured</td><td>2 seconds</td></tr>
+              <tr><td>4.7&nbsp;GB, an 8B</td><td>yes</td><td>about 77</td><td>4 seconds</td></tr>
+              <tr><td>6.8&nbsp;GB, the largest that fits</td><td>yes, just</td><td>about 53</td><td>6 seconds</td></tr>
+              <tr><td>9&nbsp;GB, a 14B</td><td><b>no</b></td><td>about 10</td><td>30 seconds</td></tr>
+              <tr><td>17&nbsp;GB, a 27B</td><td><b>no</b></td><td><b>3.3, measured</b></td><td><b>1.5 minutes</b></td></tr>
             </tbody>
           </table>
           </div>
-          <p>Going from 6.8&nbsp;GB to 18&nbsp;GB is 2.6 times the model and <b>23 times</b> the
-            wait. That is the cliff. It matters most from Module 9 on, where an agent takes six
-            turns to finish one task, so you pay that wait six times over: seconds becomes minutes.
+          <p>The 3B and the 27B are the two ends measured on the same machine: <b>55 times the
+            speed for a ninth of the download</b>. That is the cliff. It matters most from Module 9
+            on, where an agent takes six turns to finish one task, so you pay that wait six times
+            over: the 27B took two and a half minutes for a single loop.</p>
+          <p>The part that should surprise you is what the big model bought. On seven questions
+            with a right answer it scored six, and the 1.9&nbsp;GB default also scored six. The
+            27B is genuinely the better model and would pull ahead on harder work, but for the
+            things these labs check, nine times the size bought nothing and cost 55 times the wait.
+            Measure before you assume bigger is better.</p>
+          <p>
             Check your own card with <code>nvidia-smi</code>, or in Task Manager under Performance,
             and keep the model under that number. With no graphics card at all, every model runs at
             the system memory figure, which is why this course is built around small ones.</p>
