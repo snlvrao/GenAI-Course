@@ -176,15 +176,44 @@ def client_for(provider: str | None = None) -> tuple[OpenAI, str]:
     return OpenAI(base_url=p.base_url, api_key=key), model
 
 
+def _create(client, *, think: bool, **kw):
+    """One model call, asking for a direct answer unless thinking was wanted.
+
+    Thinking models write their reasoning before the answer. Ollama switches
+    that on by itself for any model that can do it, which is how you end up
+    with an empty answer and a full token budget spent on reasoning nobody
+    read. reasoning_effort="none" turns it off. It is the OpenAI spelling, so
+    hosted providers understand it too, and the native think=false does not
+    work on this endpoint.
+
+    Providers that have never heard of the parameter reject the whole request,
+    so a rejection is retried once without it rather than failing the lab.
+    """
+    if think:
+        return client.chat.completions.create(**kw)
+    try:
+        return client.chat.completions.create(reasoning_effort="none", **kw)
+    except Exception as err:
+        if "reasoning_effort" not in str(err):
+            raise
+        return client.chat.completions.create(**kw)
+
+
 def chat(prompt: str, *, system: str | None = None, provider: str | None = None,
-         temperature: float = 0.2, max_tokens: int = 800) -> str:
-    """Ask a question, get a string back. The simplest possible call."""
+         temperature: float = 0.2, max_tokens: int = 800,
+         think: bool = False) -> str:
+    """Ask a question, get a string back. The simplest possible call.
+
+    think=False asks for the answer without the reasoning. Pass think=True
+    when the reasoning is the point, which is Module 5.
+    """
     client, model = client_for(provider)
     messages: list[dict] = []
     if system:
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
-    resp = client.chat.completions.create(
+    resp = _create(
+        client, think=think,
         model=model, messages=messages,
         temperature=temperature, max_tokens=max_tokens,
     )
@@ -221,15 +250,19 @@ def chat(prompt: str, *, system: str | None = None, provider: str | None = None,
 
 
 def chat_raw(messages: list[dict], *, tools: list | None = None,
-             provider: str | None = None, **kw):
-    """Full access, for the labs that need tool calling or the raw response."""
+             provider: str | None = None, think: bool = False, **kw):
+    """Full access, for the labs that need tool calling or the raw response.
+
+    Same thinking rule as chat(): off unless you ask for it, so the JSON the
+    tool-calling labs parse is not wrapped in reasoning.
+    """
     client, model = client_for(provider)
     args: dict = {"model": model, "messages": messages}
     if tools:
         args["tools"] = tools
         args["tool_choice"] = "auto"
     args.update(kw)
-    return client.chat.completions.create(**args)
+    return _create(client, think=think, **args)
 
 
 def whoami(provider: str | None = None) -> str:
