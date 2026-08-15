@@ -55,33 +55,33 @@ A script that cannot reach a model does nothing, so you need at least one model 
 
 ```python
 # install Ollama from https://ollama.com, then:
-ollama pull granite4.1:3b
+ollama pull qwen2.5:3b-instruct
 
 # start the server if it is not already running
 # (the Windows installer usually starts it for you)
 ollama serve
 
 # quick sanity check, in another terminal
-ollama run granite4.1:3b "say hello"
+ollama run qwen2.5:3b-instruct "say hello"
 ```
 
-- `ollama pull granite4.1:3b`: pull downloads the model file once and stores it on your disk. The part after the colon is the size tag, so 3b means the 3 billion parameter build, and a different tag downloads a completely different file.
+- `ollama pull qwen2.5:3b-instruct`: pull downloads the model file once and stores it on your disk. The part after the colon is the size tag, so 3b means the 3 billion parameter build, and a different tag downloads a completely different file.
 - `ollama serve`: Starts a small web server listening on port 11434. Nothing can call the model until this is running, and llm.py already points the ollama provider at http://localhost:11434/v1/, so you never type that address yourself.
-- `ollama run granite4.1:3b "say hello"`: A one-off check that the download works, done before you write any Python. If this prints words, then any later error is in your code or your .env, which cuts your debugging in half. It deliberately asks for nothing precise: a model writes one token at a time with no running count, so "in five words" is the kind of instruction even good models miss, and a miscount here would tell you nothing about whether the install worked.
+- `ollama run qwen2.5:3b-instruct "say hello"`: A one-off check that the download works, done before you write any Python. If this prints words, then any later error is in your code or your .env, which cuts your debugging in half. It deliberately asks for nothing precise: a model writes one token at a time with no running count, so "in five words" is the kind of instruction even good models miss, and a miscount here would tell you nothing about whether the install worked.
 
 **The maths, spelled out**
 
 ```
 Formula: file size in bytes = number of parameters x bytes used per parameter
 
-number of parameters: how many numbers sit inside the model. granite4.1:3b has about 3.4 billion, written 3,400,000,000.
+number of parameters: how many numbers sit inside the model. qwen2.5:3b-instruct has about 3.1 billion, written 3,100,000,000.
 bytes used per parameter: how much space each of those numbers takes. Full precision uses 4 bytes each. Ollama ships models quantised, which means each number is squashed into fewer bits, commonly about 4 bits, which is 0.5 bytes.
 
 Worked example:
-Full precision: 3,400,000,000 x 4 bytes = 13,600,000,000 bytes, so about 13.6 GB.
-Quantised to 4 bits: 3,400,000,000 x 0.5 bytes = 1,700,000,000 bytes, so about 1.7 GB. The download is 2.1 GB, because the quantisation is not a flat 4 bits across every layer. Add roughly 0.5 GB of working space and you need about 2.6 GB of free memory to run it.
+Full precision: 3,100,000,000 x 4 bytes = 12,400,000,000 bytes, so about 12.4 GB.
+Quantised to 4 bits: 3,100,000,000 x 0.5 bytes = 1,550,000,000 bytes, so about 1.55 GB. The download is 1.9 GB, because the quantisation is not a flat 4 bits across every layer. Add roughly 0.5 GB of working space and you need about 2.4 GB of free memory to run it.
 
-What it means: the b in 3b is the parameter count, and it tells you both how much disk the download eats and roughly how much memory the model needs while it answers. Quantisation is what makes a 13.6 GB model fit in about 2 GB, and it does cost a little accuracy, which is part of why very small models get tool calling wrong.
+What it means: the b in 3b is the parameter count, and it tells you both how much disk the download eats and roughly how much memory the model needs while it answers. Quantisation is what makes a 12.4 GB model fit in about 2 GB, and it does cost a little accuracy, which is part of why very small models get tool calling wrong.
 ```
 
 > **Watch out:** If ollama serve says the address is already in use, the installer already started it for you, so leave it alone and move on rather than trying to kill it.
@@ -186,7 +186,7 @@ What it means: dividing by a small temperature stretches the gaps between scores
 
 ### 7. Call it the honest way
 
-chat_raw() hands you the provider's full reply object instead of only the words, so you can see what chat() was quietly throwing away. You want it whenever you need the model id that actually answered, the reason the model stopped, or the token counts, and token counts are how you estimate cost in a later module. It also shows you the real shape of a chat request, which is not a string but an ordered list of messages, each one a small dictionary with a role and some content. The attribute names below (choices, usage) are the OpenAI-compatible shape, which is also what Ollama serves, and that is exactly why one script can work against both. Some providers send no usage block at all, so you check for it rather than assuming it is there. Expect the printed model name to be the full id, something like granite4.1:3b, which is often not the short name you had in your head.
+chat_raw() hands you the provider's full reply object instead of only the words, so you can see what chat() was quietly throwing away. You want it whenever you need the model id that actually answered, the reason the model stopped, or the token counts, and token counts are how you estimate cost in a later module. It also shows you the real shape of a chat request, which is not a string but an ordered list of messages, each one a small dictionary with a role and some content. The attribute names below (choices, usage) are the OpenAI-compatible shape, which is also what Ollama serves, and that is exactly why one script can work against both. Some providers send no usage block at all, so you check for it rather than assuming it is there. Expect the printed model name to be the full id, something like qwen2.5:3b-instruct, which is often not the short name you had in your head.
 
 ```python
 messages = [
@@ -260,9 +260,9 @@ Formula 1, first-call delay: seconds = model file size divided by disk read spee
 Formula 2, answer time: seconds = tokens generated divided by tokens per second
 
 Worked example.
-The quantised granite4.1:3b file is about 2.1 GB. A normal SSD reads at roughly 0.5 GB per second, so 2.1 / 0.5 = about 4.2 seconds before the first word appears. After that the file is already sitting in memory, so the same delay on the next call drops to well under a second.
+The quantised qwen2.5:3b-instruct file is about 1.9 GB. A normal SSD reads at roughly 0.5 GB per second, so 1.9 / 0.5 = about 3.8 seconds before the first word appears. After that the file is already sitting in memory, so the same delay on the next call drops to well under a second.
 If your machine generates about 25 tokens per second on CPU and the answer is 30 tokens long, then 30 / 25 = 1.2 seconds of writing.
-First call total: about 4.2 + 1.2 = 5.4 seconds. Second call: about 1.2 seconds.
+First call total: about 3.8 + 1.2 = 5.0 seconds. Second call: about 1.2 seconds.
 
 What it means: that long first pause is disk work, not the model thinking, so never judge a model's speed from your first run. These numbers are rough and your own disk and processor will shift them, but the shape (one slow call, then fast ones) is what you should expect to see.
 ```

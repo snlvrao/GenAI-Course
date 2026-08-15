@@ -231,6 +231,35 @@ Everything below was actually run on this machine. Do not silently contradict it
 | YouTube embeds FAIL on `file://`, work on `http://` | same page, same code: Error 153 from disk, plays inline from localhost |
 | Thumbnails load on `file://` | plain images have no origin check, so the page looks fine until a click |
 
+**Local models, measured on this machine (August 2026).** Ollama, CPU only, eight models.
+Tool restraint means being handed a tool the prompt did not need, over six prompts and four runs
+each. Accuracy is ten tasks with a checkable right answer, three runs each.
+
+| model | disk | tool when needed | tool restraint | JSON | accuracy | verdict |
+|---|---|---|---|---|---|---|
+| `qwen2.5:3b-instruct` | 1.9 GB | 6/6 | 12/12 | 3/3 | 27/30 | **the default** |
+| `granite4.1:3b` | 2.1 GB | 6/6 | 12/12 | 3/3 | 24/30 | fine |
+| `phi4-mini:3.8b` | 2.5 GB | 6/6 | 12/12 | 3/3 | 24/30 | fine, but wrong on plain addition |
+| `llama3.2:3b` | 2.0 GB | 6/6 | **0/12** | 3/3 | 24/30 | calls tools it was not asked for |
+| `mistral:7b` | 4.4 GB | 6/6 | **3/12** | 3/3 | 24/30 | same fault, largest download |
+| `ministral-3:3b` | 3.0 GB | **0/6** | 12/12 | 3/3 | 18/30 | never calls the tool |
+| `falcon3:3b` | 2.0 GB | **refused** | n/a | 3/3 | n/a | HTTP 400, does not support tools |
+| `qwen3:4b` | 2.5 GB | 3/6 | 12/12 | **0/3** | n/a | reasons out loud, JSON never parses |
+
+Three things to carry forward. Size predicts none of it: the 4.4 GB model fails restraint worse
+than models a third its size. Model cards cannot be trusted either, because ministral-3 advertises
+"best-in-class agentic capabilities with native function calling" and never called the tool once.
+And arithmetic is where these models are quietly weakest: asked for 17 percent of 4830, seven of
+the eight answered 819.9, 809.1, 825.10, 3911 or 289.1, with no hedging.
+
+Counting words is a weaker signal than it looks, but not a useless one, which corrects an earlier
+claim made here and on the setup page. Of six models, two hit "in five words" on every attempt and
+four never did, and the two that passed were not the two that scored best overall. Test the thing
+you depend on, which is why every lab is graded by a checker script.
+
+The scripts that produced this are not in the repo; they are three short files that talk to
+127.0.0.1:11434 and mark their own answers. Re-run them by hand if a model is added.
+
 **2026 facts that correct common stale material** (all checked against primary sources, Aug 2026):
 context rot is Chroma's finding with no 32K threshold, not Databricks'; the four context failure
 modes are Drew Breunig's; A2A support is now broad not narrow; Llama is no longer an open-weight

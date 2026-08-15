@@ -21,8 +21,8 @@ NOTES = {
          "model twice</b>, once answering directly and once told to work through its reasoning "
          "before answering. That is the same effect (more compute at answer time) produced by "
          "prompting instead of by training. Cost becomes <b>tokens</b> rather than dollars, because "
-         "your model is free. Name the two runs <code>llama3.2:3b (direct)</code> and "
-         "<code>llama3.2:3b (think first)</code>, set <code>\"path\": \"offline\"</code> and "
+         "your model is free. Name the two runs <code>qwen2.5:3b-instruct (direct)</code> and "
+         "<code>qwen2.5:3b-instruct (think first)</code>, set <code>\"path\": \"offline\"</code> and "
          "<code>\"cost_unit\": \"tokens\"</code> in <code>verdict.json</code>, and the checker will "
          "grade it on token counts."),
         (["free"], "", "Which free models have a reasoning mode",
@@ -35,7 +35,7 @@ NOTES = {
         (["offline"], "warn", "This lab changes on the offline path",
          "Your model costs nothing per token, so there is no bill to reduce. Route between "
          "<b>two local models of different sizes</b> instead (for example "
-         "<code>llama3.2:1b</code> as cheap and <code>llama3.2:3b</code> as strong), and measure "
+         "<code>qwen2.5:3b-instruct</code> as cheap and <code>phi4-mini:3.8b</code> as strong), and measure "
          "two things: the real saving in <b>seconds</b>, and the <b>would-have-cost</b> if the same "
          "token counts had gone to hosted models at the published prices. The published prices are "
          "public, so this arithmetic is honest as long as you label it. Set "

@@ -98,8 +98,8 @@ REGISTRY: dict[str, Provider] = {
 
     # --- fully local: no key, no account, no internet ---------------------
     "ollama": Provider(
-        "ollama", "http://localhost:11434/v1/", "", "granite4.1:3b", local=True,
-        note="Easiest local option. Install Ollama, run: ollama pull granite4.1:3b",
+        "ollama", "http://localhost:11434/v1/", "", "qwen2.5:3b-instruct", local=True,
+        note="Easiest local option. Install Ollama, run: ollama pull qwen2.5:3b-instruct",
     ),
     "llamacpp": Provider(
         "llamacpp", "http://127.0.0.1:8080/v1", "", "local-model", local=True,
@@ -209,7 +209,7 @@ def chat(prompt: str, *, system: str | None = None, provider: str | None = None,
             "reasoning is what filled the budget. Two ways forward:\n"
             f"  - give it more room: chat(prompt, max_tokens={max(2000, max_tokens * 4)})\n"
             "  - or use a model that answers directly. For the offline path,\n"
-            "    granite4.1:3b and llama3.2:3b both do.\n"
+            "    qwen2.5:3b-instruct and granite4.1:3b both do.\n"
             "    Change LLM_MODEL in your .env, not this code."
         )
     raise EmptyAnswer(

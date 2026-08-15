@@ -251,23 +251,28 @@ cd my-work\labs\lab01
           <a href="https://ollama.com">ollama.com</a>, then:</p>
         <div class="codeblock">
           <div class="codeblock__bar"><span>terminal</span></div>
-<pre>ollama pull granite4.1:3b
+<pre>ollama pull qwen2.5:3b-instruct
 
 # check it answers before you write any Python
-ollama run granite4.1:3b "say hello"</pre>
+ollama run qwen2.5:3b-instruct "say hello"</pre>
         </div>
         <p class="prose">The download is a few gigabytes and happens once. After that it works with
           your network off. The <code>3b</code> is the size tag: 3 billion parameters.</p>
 
         <div class="note">
           <div class="note__t">One model is enough</div>
-          <p><code>granite4.1:3b</code> is the only one you need. About 2&nbsp;GB, 3.4 billion
-            parameters, and it handles the thing small models most often get wrong: knowing when
-            <em>not</em> to call a tool. Given a tool it did not need, across six prompts and four
-            runs each, it left it alone every time and still called it correctly on every prompt
-            that did need it. The model this course used to recommend reached for the same
-            irrelevant tool on 20 of those 24 tries, which is the failure Module 8 calls confusion,
-            and in the agent loops of Modules 9 to 15 it burns a step every time.</p>
+          <p><code>qwen2.5:3b-instruct</code> is the only one you need. About 1.9&nbsp;GB and
+            3.1 billion parameters, and it came first when eight local models were measured here on
+            what these labs actually need.</p>
+          <p>It handles the thing small models most often get wrong: knowing when <em>not</em> to
+            call a tool. Given a tool it did not need, over six prompts and four runs each, it left
+            it alone every time, and still called it correctly on every prompt that did need it.
+            Two others managed that. One popular model reached for the irrelevant tool on 20 of
+            those 24 tries, which is the failure Module 8 calls confusion, and inside the agent
+            loops of Modules 9 to 15 it burns a step every turn. On ten tasks with a checkable
+            right answer it scored 27 of 30, the best of the eight, and it was the only one that
+            got 17 percent of 4830 right. The others answered 819.9, 809.1, 825.10, 3911 and
+            289.1, confidently and with no warning.</p>
           <p>Smaller models exist and will tempt you if disk is tight. Below roughly 3 billion
             parameters tool calling becomes a coin flip, so you would save a gigabyte now and fight
             Modules 9 to 15 later. Also avoid, while you are learning the plumbing, models that
@@ -302,7 +307,7 @@ ollama run granite4.1:3b "say hello"</pre>
 <pre># Everything runs on your machine. No key, no internet, no limits.
 LLM_PROVIDER=ollama
 
-# Optional. Leave this out and you get granite4.1:3b, which is what you want.
+# Optional. Leave this out and you get qwen2.5:3b-instruct, which is what you want.
 # LLM_MODEL=</pre>
         </div>
       </section>
@@ -416,7 +421,7 @@ python llm.py</pre>
 
         <p class="prose">A good result on your path looks like this:</p>
         <div class="codeblock codeblock--bare" data-path="offline">
-<pre>provider=ollama  model=granite4.1:3b  endpoint=your own machine  key=none needed
+<pre>provider=ollama  model=qwen2.5:3b-instruct  endpoint=your own machine  key=none needed
 reply: OK
 
 Working. You are ready to start.</pre>
