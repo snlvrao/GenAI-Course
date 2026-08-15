@@ -270,12 +270,16 @@ ollama run granite4.1:3b "say hello"</pre>
             and in the agent loops of Modules 9 to 15 it burns a step every time.</p>
           <p>Smaller models exist and will tempt you if disk is tight. Below roughly 3 billion
             parameters tool calling becomes a coin flip, so you would save a gigabyte now and fight
-            Modules 9 to 15 later. Two other habits to avoid while you are learning the plumbing:
-            models that write out their reasoning before answering, because that reasoning is billed
-            as output and can use up the whole budget before the answer arrives, and models chosen
-            on how well they follow instructions like "in five words", which is the one thing the
-            architecture is worst at and says nothing about the rest. Module 5 covers reasoning
-            models properly and measures what the thinking costs.</p>
+            Modules 9 to 15 later. Also avoid, while you are learning the plumbing, models that
+            write out their reasoning before answering: that reasoning is billed as output and can
+            use up the whole budget before the answer arrives. Module 5 covers those properly and
+            measures what the thinking costs.</p>
+          <p>One test worth being careful with. Ask for an answer "in five words" and most of these
+            models miss, but not all: of six measured here, two hit it every time and four never
+            did, and the two that passed were not the two that scored best on everything else. So
+            it does tell you something, it just does not rank models the way it looks like it does.
+            Test the thing you actually depend on. Every lab in this course is graded by a checker
+            script for that reason, rather than by reading the reply and judging it.</p>
         </div>
 
         <div class="note note--warn">

@@ -113,7 +113,7 @@ __pycache__/
 - `.env  (the line inside .gitignore)`: This is the line that stops your keys reaching a public repository. Add it before your first commit, because git keeps history, and deleting a key later does not remove it from the commits that already contain it.
 - `*.db`: Later modules create SQLite database files for the vector store, and the star matches any filename ending in .db. Those files are rebuildable data rather than source code, so they should never be committed.
 
-> **Watch out:** On Windows, Notepad silently saves the file as .env.txt, and a file with that name is never read, so nothing you put in it takes effect.
+> **Watch out:** On Windows, Notepad silently saves the file as .env.txt, and a file with that name is never read, so nothing you put in it takes effect. Comments in a .env file start with #. A line starting with // is not a comment here, it is a parse error, and python-dotenv prints "could not parse statement starting at line N" and carries on, so the file half works. Set LLM_MODEL only to a model you have actually pulled: naming one you have not gives a 404 saying the model was not found, which reads like a broken install rather than a typo. Run ollama list to see what you have.
 
 ### 5. Point Python at the shared helper
 

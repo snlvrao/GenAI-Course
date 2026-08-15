@@ -109,6 +109,12 @@ REGISTRY: dict[str, Provider] = {
         "lmstudio", "http://localhost:1234/v1", "", "local-model", local=True,
         note="LM Studio's built-in server. Turn it on in the Developer tab.",
     ),
+    "gpt4all": Provider(
+        "gpt4all", "http://localhost:4891/v1", "", "local-model", local=True,
+        note="GPT4All is an application, not a model, in the same family as Ollama "
+             "and LM Studio. Enable its API server in Settings, then set LLM_MODEL "
+             "to whichever model you loaded.",
+    ),
 }
 
 DEFAULT = os.environ.get("LLM_PROVIDER", "groq")
