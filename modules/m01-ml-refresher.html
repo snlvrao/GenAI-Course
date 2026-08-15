@@ -122,29 +122,29 @@ pip install -r requirements.txt</pre></div>
         <li><h3>Get a model you can actually call</h3><p>A script that cannot reach a model does nothing, so you need at least one model to talk to. The free path is <strong>Ollama</strong>, a small program that downloads a model file onto your disk and then serves it from your own machine, with no account and no bill. Pick a model with about 3 billion <strong>parameters</strong> or more, where parameters are the numbers inside the model that were set during training. Below roughly 2 billion, the tool calling you need in later modules starts failing in ways that look like your code is broken when it is not. The pull command downloads a few gigabytes once, and after that the model answers with your internet switched off. <code>ollama serve</code> starts a small web server on your machine at port 11434, which is exactly the address the course helper already points at. If you already own a paid API key you can set that up as a second option, but do not buy one just for this course.</p>
         <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
 <pre><span class="t-c"># install Ollama from https://ollama.com, then:</span>
-ollama pull llama3.<span class="t-s">2</span>:<span class="t-s">3b</span>
+ollama pull granite4.<span class="t-s">1</span>:<span class="t-s">3b</span>
 
 <span class="t-c"># start the server if it is not already running</span>
 <span class="t-c"># (the Windows installer usually starts it for you)</span>
 ollama serve
 
 <span class="t-c"># quick sanity check, in another terminal</span>
-ollama run llama3.<span class="t-s">2</span>:<span class="t-s">3b</span> <span class="t-s">&quot;say hello&quot;</span></pre></div>
+ollama run granite4.<span class="t-s">1</span>:<span class="t-s">3b</span> <span class="t-s">&quot;say hello&quot;</span></pre></div>
         <div class="walk"><div class="walk__h">What that code is doing</div><dl>
-        <dt>ollama pull llama3.2:3b</dt><dd>pull downloads the model file once and stores it on your disk. The part after the colon is the size tag, so 3b means the 3 billion parameter build, and a different tag downloads a completely different file.</dd>
+        <dt>ollama pull granite4.1:3b</dt><dd>pull downloads the model file once and stores it on your disk. The part after the colon is the size tag, so 3b means the 3 billion parameter build, and a different tag downloads a completely different file.</dd>
         <dt>ollama serve</dt><dd>Starts a small web server listening on port 11434. Nothing can call the model until this is running, and llm.py already points the ollama provider at http://localhost:11434/v1/, so you never type that address yourself.</dd>
-        <dt>ollama run llama3.2:3b &quot;say hello&quot;</dt><dd>A one-off check that the download works, done before you write any Python. If this prints words, then any later error is in your code or your .env, which cuts your debugging in half. It deliberately asks for nothing precise: a model writes one token at a time with no running count, so &quot;in five words&quot; is the kind of instruction even good models miss, and a miscount here would tell you nothing about whether the install worked.</dd>
+        <dt>ollama run granite4.1:3b &quot;say hello&quot;</dt><dd>A one-off check that the download works, done before you write any Python. If this prints words, then any later error is in your code or your .env, which cuts your debugging in half. It deliberately asks for nothing precise: a model writes one token at a time with no running count, so &quot;in five words&quot; is the kind of instruction even good models miss, and a miscount here would tell you nothing about whether the install worked.</dd>
         </dl></div>
         <div class="maths"><div class="maths__h">The maths, spelled out</div><pre>Formula: file size in bytes = number of parameters x bytes used per parameter
 
-number of parameters: how many numbers sit inside the model. llama3.2:3b has about 3 billion, written 3,000,000,000.
+number of parameters: how many numbers sit inside the model. granite4.1:3b has about 3.4 billion, written 3,400,000,000.
 bytes used per parameter: how much space each of those numbers takes. Full precision uses 4 bytes each. Ollama ships models quantised, which means each number is squashed into fewer bits, commonly about 4 bits, which is 0.5 bytes.
 
 Worked example:
-Full precision: 3,000,000,000 x 4 bytes = 12,000,000,000 bytes, so about 12 GB.
-Quantised to 4 bits: 3,000,000,000 x 0.5 bytes = 1,500,000,000 bytes, so about 1.5 GB. Add roughly 0.5 GB of working space and you need about 2 GB of free memory to run it.
+Full precision: 3,400,000,000 x 4 bytes = 13,600,000,000 bytes, so about 13.6 GB.
+Quantised to 4 bits: 3,400,000,000 x 0.5 bytes = 1,700,000,000 bytes, so about 1.7 GB. The download is 2.1 GB, because the quantisation is not a flat 4 bits across every layer. Add roughly 0.5 GB of working space and you need about 2.6 GB of free memory to run it.
 
-What it means: the b in 3b is the parameter count, and it tells you both how much disk the download eats and roughly how much memory the model needs while it answers. Quantisation is what makes a 12 GB model fit in 2 GB, and it does cost a little accuracy, which is part of why very small models get tool calling wrong.</pre></div>
+What it means: the b in 3b is the parameter count, and it tells you both how much disk the download eats and roughly how much memory the model needs while it answers. Quantisation is what makes a 13.6 GB model fit in about 2 GB, and it does cost a little accuracy, which is part of why very small models get tool calling wrong.</pre></div>
         <div class="gotcha"><b>Watch out:</b><span>If ollama serve says the address is already in use, the installer already started it for you, so leave it alone and move on rather than trying to kill it.</span></div>
         </li>
         <li><h3>Write your .env and your .gitignore</h3><p>The .env file is a plain text file of name=value lines holding everything that differs between machines, including secrets. The line that matters most is <code>LLM_PROVIDER</code>, because that single word is the switch you flip for the rest of the course, and it must match one of the names the shared helper knows (ollama, groq, gemini, openai and a few more). The .gitignore file is a list of things git must never upload, and .env belongs on it. Leaked API keys get scraped off public repositories within minutes by automated bots, and the bill lands on you, so write this file now rather than later. Both files go in <code>my-work</code>, beside the environment you made. The helper finds your <code>.env</code> by looking in the folder you are standing in and then working upwards, so anywhere inside <code>my-work</code> can see it. Both names start with a dot, which means Windows Explorer and macOS Finder may hide them from you until you turn on the setting that shows hidden files.</p>
@@ -228,7 +228,7 @@ probabilities = 22026/22186 = 0.993, 148/22186 = 0.0067, 12/22186 = 0.0005
 What it means: dividing by a small temperature stretches the gaps between scores before they are compared, so the model's favourite word jumps from a 63 percent chance to a 99 percent chance. Low temperature therefore gives you answers that repeat well, which is what you want while learning. This is simplified: a real model scores tens of thousands of candidate tokens at each step rather than three, and it redoes the whole calculation for every single word it writes, which is why the wording still wobbles a little between runs.</pre></div>
         <div class="gotcha"><b>Watch out:</b><span>An empty line of output does not mean the call failed, because chat() returns an empty string when the model produced only whitespace or ran straight into the max_tokens cap.</span></div>
         </li>
-        <li><h3>Call it the honest way</h3><p><code>chat_raw()</code> hands you the provider's full reply object instead of only the words, so you can see what chat() was quietly throwing away. You want it whenever you need the model id that actually answered, the reason the model stopped, or the token counts, and token counts are how you estimate cost in a later module. It also shows you the real shape of a chat request, which is not a string but an ordered list of <strong>messages</strong>, each one a small dictionary with a role and some content. The attribute names below (choices, usage) are the OpenAI-compatible shape, which is also what Ollama serves, and that is exactly why one script can work against both. Some providers send no usage block at all, so you check for it rather than assuming it is there. Expect the printed model name to be the full id, something like llama3.2:3b, which is often not the short name you had in your head.</p>
+        <li><h3>Call it the honest way</h3><p><code>chat_raw()</code> hands you the provider's full reply object instead of only the words, so you can see what chat() was quietly throwing away. You want it whenever you need the model id that actually answered, the reason the model stopped, or the token counts, and token counts are how you estimate cost in a later module. It also shows you the real shape of a chat request, which is not a string but an ordered list of <strong>messages</strong>, each one a small dictionary with a role and some content. The attribute names below (choices, usage) are the OpenAI-compatible shape, which is also what Ollama serves, and that is exactly why one script can work against both. Some providers send no usage block at all, so you check for it rather than assuming it is there. Expect the printed model name to be the full id, something like granite4.1:3b, which is often not the short name you had in your head.</p>
         <div class="codeblock"><div class="codeblock__bar"><span>python</span></div>
 <pre>messages = [
     {<span class="t-s">&quot;role&quot;</span>: <span class="t-s">&quot;system&quot;</span>, <span class="t-s">&quot;content&quot;</span>: <span class="t-s">&quot;Answer in one short sentence.&quot;</span>},
@@ -288,9 +288,9 @@ What it means: a token is roughly three quarters of a word, one call costs a fra
 Formula 2, answer time: seconds = tokens generated divided by tokens per second
 
 Worked example.
-The quantised llama3.2:3b file is about 2 GB. A normal SSD reads at roughly 0.5 GB per second, so 2 / 0.5 = about 4 seconds before the first word appears. After that the file is already sitting in memory, so the same delay on the next call drops to well under a second.
+The quantised granite4.1:3b file is about 2.1 GB. A normal SSD reads at roughly 0.5 GB per second, so 2.1 / 0.5 = about 4.2 seconds before the first word appears. After that the file is already sitting in memory, so the same delay on the next call drops to well under a second.
 If your machine generates about 25 tokens per second on CPU and the answer is 30 tokens long, then 30 / 25 = 1.2 seconds of writing.
-First call total: about 4 + 1.2 = 5.2 seconds. Second call: about 1.2 seconds.
+First call total: about 4.2 + 1.2 = 5.4 seconds. Second call: about 1.2 seconds.
 
 What it means: that long first pause is disk work, not the model thinking, so never judge a model's speed from your first run. These numbers are rough and your own disk and processor will shift them, but the shape (one slow call, then fast ones) is what you should expect to see.</pre></div>
         <div class="gotcha"><b>Watch out:</b><span>The folder name has to match everywhere, so if you created my-work\labs\m01 but run my-work\labs\lab01, Python reports that it cannot open the file, which is a path typo rather than anything wrong with your code.</span></div>
